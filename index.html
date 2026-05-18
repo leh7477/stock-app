@@ -585,7 +585,7 @@ function renderNews(news) {
 async function loadAll() {
 
   const data = await fetchECOSData();
-  const news = await fetchNaverNews();
+  const news = [];
 
   const weather = calcWeather(data.score);
   const briefing = generateBriefing(data);
@@ -594,7 +594,9 @@ async function loadAll() {
   renderMacro(data);
   renderSupply(data);
   renderStocks();
-  renderNews(news);
+  async function fetchNaverNews() {
+  return [];
+}
 
   document.getElementById('briefing-text').textContent = briefing;
 
