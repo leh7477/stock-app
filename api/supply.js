@@ -16,7 +16,9 @@ export default async function handler(req, res) {
     const tokenData = await tokenRes.json();
     const token = tokenData.access_token;
 
-    // 외인/기관 수급 (코스피 전체)
+    if (!token) throw new Error('토큰 발급 실패');
+
+    // 코스피 전체 투자자별 매매동향
     const supplyRes = await fetch(
       'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=0001',
       {
@@ -32,19 +34,13 @@ export default async function handler(req, res) {
     const supplyData = await supplyRes.json();
     const output = supplyData?.output;
 
-    let foreignNet = 0, instNet = 0;
-    if (output) {
-      foreignNet = parseInt(output.frgn_ntby_qty || 0);
-      instNet = parseInt(output.orgn_ntby_qty || 0);
-    }
+    const foreignNet = parseInt(output?.frgn_ntby_qty || 0);
+    const instNet = parseInt(output?.orgn_ntby_qty || 0);
 
-    res.status(200).json({
-      success: true,
-      foreignNet,
-      instNet
-    });
+    res.status(200).json({ success: true, foreignNet, instNet });
+
   } catch (error) {
-    // KIS API 실패시 mock 데이터
+    console.error('수급 오류:', error.message);
     const foreignNet = Math.round((Math.random()*6000-3000)/100)*100;
     const instNet = Math.round((Math.random()*4000-2000)/100)*100;
     res.status(200).json({ success: true, foreignNet, instNet, isMock: true });
