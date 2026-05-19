@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   try {
     const tokenRes = await fetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify({
         grant_type: 'client_credentials',
         appkey: process.env.KIS_APP_KEY,
@@ -17,15 +17,10 @@ export default async function handler(req, res) {
       })
     });
 
-    const tokenText = await tokenRes.text();
-    console.log('토큰 응답:', tokenText);
-    const tokenData = JSON.parse(tokenText);
+    const tokenData = await tokenRes.json();
+    console.log('토큰결과:', JSON.stringify(tokenData));
     const token = tokenData.access_token;
-
-    if (!token) {
-      console.error('토큰 없음:', tokenData);
-      throw new Error('토큰 없음');
-    }
+    if (!token) throw new Error('토큰없음: ' + JSON.stringify(tokenData));
 
     const supplyRes = await fetch(
       'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=0001',
@@ -35,21 +30,19 @@ export default async function handler(req, res) {
           'appkey': process.env.KIS_APP_KEY,
           'appsecret': process.env.KIS_APP_SECRET,
           'tr_id': 'FHKST01010900',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json; charset=utf-8'
         }
       }
     );
 
-    const supplyText = await supplyRes.text();
-    console.log('수급 응답:', supplyText);
-    const supplyData = JSON.parse(supplyText);
+    const supplyData = await supplyRes.json();
+    console.log('수급결과:', JSON.stringify(supplyData));
     const output = supplyData?.output;
-
     foreignNet = parseInt(output?.frgn_ntby_qty || 0);
     instNet = parseInt(output?.orgn_ntby_qty || 0);
 
   } catch(e) {
-    console.error('수급 오류:', e.message);
+    console.error('오류:', e.message);
     foreignNet = Math.round((Math.random()*6000-3000)/100)*100;
     instNet = Math.round((Math.random()*4000-2000)/100)*100;
     isMock = true;
