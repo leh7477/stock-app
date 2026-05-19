@@ -2,8 +2,11 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
+  let foreignNet = 0;
+  let instNet = 0;
+  let isMock = false;
+
   try {
-    // KIS 토큰 발급
     const tokenRes = await fetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -13,12 +16,17 @@ export default async function handler(req, res) {
         appsecret: process.env.KIS_APP_SECRET
       })
     });
-    const tokenData = await tokenRes.json();
+
+    const tokenText = await tokenRes.text();
+    console.log('토큰 응답:', tokenText);
+    const tokenData = JSON.parse(tokenText);
     const token = tokenData.access_token;
 
-    if (!token) throw new Error('토큰 발급 실패');
+    if (!token) {
+      console.error('토큰 없음:', tokenData);
+      throw new Error('토큰 없음');
+    }
 
-    // 코스피 전체 투자자별 매매동향
     const supplyRes = await fetch(
       'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=0001',
       {
@@ -31,18 +39,21 @@ export default async function handler(req, res) {
         }
       }
     );
-    const supplyData = await supplyRes.json();
+
+    const supplyText = await supplyRes.text();
+    console.log('수급 응답:', supplyText);
+    const supplyData = JSON.parse(supplyText);
     const output = supplyData?.output;
 
-    const foreignNet = parseInt(output?.frgn_ntby_qty || 0);
-    const instNet = parseInt(output?.orgn_ntby_qty || 0);
+    foreignNet = parseInt(output?.frgn_ntby_qty || 0);
+    instNet = parseInt(output?.orgn_ntby_qty || 0);
 
-    res.status(200).json({ success: true, foreignNet, instNet });
-
-  } catch (error) {
-    console.error('수급 오류:', error.message);
-    const foreignNet = Math.round((Math.random()*6000-3000)/100)*100;
-    const instNet = Math.round((Math.random()*4000-2000)/100)*100;
-    res.status(200).json({ success: true, foreignNet, instNet, isMock: true });
+  } catch(e) {
+    console.error('수급 오류:', e.message);
+    foreignNet = Math.round((Math.random()*6000-3000)/100)*100;
+    instNet = Math.round((Math.random()*4000-2000)/100)*100;
+    isMock = true;
   }
+
+  res.status(200).json({ success: true, foreignNet, instNet, isMock });
 }
