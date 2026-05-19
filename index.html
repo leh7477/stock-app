@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Today-Stock</title>
+<title>오늘의 장</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -84,6 +84,7 @@
   @keyframes shimmer { to { background-position: -200% 0; } }
   .update-time { font-size: 10px; color: var(--muted); text-align: center; padding: 12px 0 4px; }
   .disclaimer { font-size: 10px; color: var(--muted); text-align: center; padding: 8px 20px 16px; line-height: 1.5; border-top: 1px solid var(--border); margin-top: 12px; }
+  .mock-badge { font-size: 9px; color: var(--amber); background: var(--amber-bg); padding: 1px 6px; border-radius: 99px; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -172,83 +173,38 @@
 </div>
 
 <script>
-const ECOS_KEY = '6RAXDMZ9HHBW5JMZHAKX';
-const PROXY = 'https://api.allorigins.win/get?url=';
-
-function getDateRange(days) {
-  const to = new Date(), from = new Date();
-  from.setDate(from.getDate() - days);
-  const fmt = d => d.toISOString().slice(0,10).replace(/-/g,'');
-  return { from: fmt(from), to: fmt(to) };
+// ── API 호출 (Vercel 서버리스) ─────────────────
+async function fetchMarket() {
+  const res = await fetch('/api/market');
+  return await res.json();
 }
-
-async function fetchBaseRate() {
-  try {
-    const url = `https://ecos.bok.or.kr/api/StatisticSearch/${ECOS_KEY}/json/kr/1/5/722Y001/MM/202301/202512/0101000`;
-    const res = await fetch(PROXY + encodeURIComponent(url));
-    const wrapper = await res.json();
-    const data = JSON.parse(wrapper.contents);
-    const rows = data?.StatisticSearch?.row;
-    if (rows?.length) return parseFloat(rows[rows.length-1].DATA_VALUE).toFixed(2) + '%';
-  } catch(e) { console.warn('기준금리:', e); }
-  return '2.75%';
+async function fetchSupply() {
+  const res = await fetch('/api/supply');
+  return await res.json();
 }
-
-async function fetchExchangeRate() {
-  try {
-    const { from, to } = getDateRange(15);
-    const url = `https://ecos.bok.or.kr/api/StatisticSearch/${ECOS_KEY}/json/kr/1/10/731Y001/DD/${from}/${to}/0000001`;
-    const res = await fetch(PROXY + encodeURIComponent(url));
-    const wrapper = await res.json();
-    const data = JSON.parse(wrapper.contents);
-    const rows = data?.StatisticSearch?.row;
-    if (rows?.length) {
-      const cur = parseFloat(rows[rows.length-1].DATA_VALUE);
-      const prev = parseFloat(rows[rows.length-2]?.DATA_VALUE || cur);
-      return { val: Math.round(cur).toLocaleString(), chg: (cur-prev).toFixed(1) };
-    }
-  } catch(e) { console.warn('환율:', e); }
-  return { val: '1,375', chg: '0' };
+async function fetchStocks() {
+  const res = await fetch('/api/stocks');
+  return await res.json();
 }
-
-async function fetchKospi() {
-  try {
-    const url = 'https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&range=5d';
-    const res = await fetch(PROXY + encodeURIComponent(url));
-    const wrapper = await res.json();
-    const data = JSON.parse(wrapper.contents);
-    const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v);
-    if (closes?.length >= 2) {
-      const cur = closes[closes.length-1], prev = closes[closes.length-2];
-      return { val: cur.toFixed(2), chg: (cur-prev).toFixed(2) };
-    }
-  } catch(e) { console.warn('코스피:', e); }
-  return { val: '2,687.45', chg: '+12.30' };
-}
-
 async function fetchNews() {
-  try {
-    const rss = 'https://www.mk.co.kr/rss/50000001/';
-    const res = await fetch(PROXY + encodeURIComponent(rss));
-    const wrapper = await res.json();
-    const xml = new DOMParser().parseFromString(wrapper.contents, 'text/xml');
-    const items = [...xml.querySelectorAll('item')].slice(0, 6);
-    if (items.length) return items.map(item => ({
-      title: (item.querySelector('title')?.textContent || '').replace(/<!\[CDATA\[|\]\]>/g,'').trim(),
-      source: '매일경제',
-      time: formatTime(item.querySelector('pubDate')?.textContent || ''),
-      sentiment: guessSentiment(item.querySelector('title')?.textContent || ''),
-      url: item.querySelector('link')?.textContent?.trim() || 'https://www.mk.co.kr'
-    }));
-  } catch(e) { console.warn('뉴스:', e); }
-  return [
-    { title:'코스피 외국인 순매수 지속... 반도체 강세', source:'매일경제', time:'1시간 전', sentiment:'pos', url:'https://www.mk.co.kr' },
-    { title:'달러 강세에 환율 1370원대... 수출주 주목', source:'한국경제', time:'2시간 전', sentiment:'neu', url:'https://www.hankyung.com' },
-    { title:'미 연준 금리 동결 가능성... 시장 안도', source:'매일경제', time:'3시간 전', sentiment:'pos', url:'https://www.mk.co.kr' },
-    { title:'공매도 재개 이후 시장 변동성 제한적', source:'한국경제', time:'4시간 전', sentiment:'neu', url:'https://www.hankyung.com' },
-  ];
+  const res = await fetch('/api/news');
+  return await res.json();
 }
 
+// ── 시장 날씨 ─────────────────────────────────
+function calcWeather(kospiChg, usdChg, foreignNet) {
+  let score = 50;
+  score += kospiChg > 0 ? Math.min(kospiChg*4,20) : Math.max(kospiChg*4,-20);
+  score += usdChg < 0 ? 8 : usdChg > 5 ? -8 : 0;
+  score += foreignNet > 2000 ? 10 : foreignNet < -2000 ? -10 : 0;
+  score = Math.max(10, Math.min(90, Math.round(score)));
+  if (score >= 65) return { score, icon:'☀️', title:'대체로 맑음', desc:'시장 에너지 높음. 외인 매수세 우위, 공격적 포지션 고려 가능합니다.', color:'var(--green)', gradient:'linear-gradient(90deg,#15803d,#22c55e)' };
+  if (score >= 50) return { score, icon:'🌤️', title:'맑고 약간 흐림', desc:'긍정적이나 변동성 주의. 분할 매수 전략이 유효합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#d97706,#f59e0b)' };
+  if (score >= 35) return { score, icon:'⛅', title:'흐리고 불안정', desc:'방향성 불명확. 섣부른 진입보다 관망이 유리합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#92400e,#d97706)' };
+  return { score, icon:'🌧️', title:'흐림 — 주의', desc:'하락 압력 우세. 현금 비중을 높이고 방어적 포지션을 권장합니다.', color:'var(--red)', gradient:'linear-gradient(90deg,#991b1b,#ef4444)' };
+}
+
+// ── 감성 분석 ─────────────────────────────────
 function guessSentiment(t) {
   if (['상승','급등','호재','매수','강세','반등','성장','증가','흑자','상향','돌파','회복'].some(k=>t.includes(k))) return 'pos';
   if (['하락','급락','악재','매도','약세','우려','감소','적자','하향','위기','폭락','충격'].some(k=>t.includes(k))) return 'neg';
@@ -264,31 +220,7 @@ function formatTime(pubDate) {
   } catch { return '방금 전'; }
 }
 
-function calcWeather(kospiChg, usdChg) {
-  let score = 50;
-  score += kospiChg > 0 ? Math.min(kospiChg*4,20) : Math.max(kospiChg*4,-20);
-  score += usdChg < 0 ? 8 : usdChg > 5 ? -8 : 0;
-  score = Math.max(10, Math.min(90, Math.round(score)));
-  if (score >= 65) return { score, icon:'☀️', title:'대체로 맑음', desc:'시장 에너지 높음. 외인 매수세 우위, 공격적 포지션 고려 가능합니다.', color:'var(--green)', gradient:'linear-gradient(90deg,#15803d,#22c55e)' };
-  if (score >= 50) return { score, icon:'🌤️', title:'맑고 약간 흐림', desc:'긍정적이나 변동성 주의. 분할 매수 전략이 유효합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#d97706,#f59e0b)' };
-  if (score >= 35) return { score, icon:'⛅', title:'흐리고 불안정', desc:'방향성 불명확. 섣부른 진입보다 관망이 유리합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#92400e,#d97706)' };
-  return { score, icon:'🌧️', title:'흐림 — 주의', desc:'하락 압력 우세. 현금 비중을 높이고 방어적 포지션을 권장합니다.', color:'var(--red)', gradient:'linear-gradient(90deg,#991b1b,#ef4444)' };
-}
-
-function getMockSupply() {
-  return { foreignNet: Math.round((Math.random()*6000-3000)/100)*100, instNet: Math.round((Math.random()*4000-2000)/100)*100 };
-}
-
-function getMockStocks() {
-  return [
-    { rank:1, name:'삼성전자', reason:'외인 평단가 대비 저평가 구간', price:'74,200원', signal:'buy', signalText:'매수 매력' },
-    { rank:2, name:'SK하이닉스', reason:'수급 골든크로스 감지', price:'188,500원', signal:'buy', signalText:'매수 매력' },
-    { rank:3, name:'KB금융', reason:'금리 동결 수혜 + 기관 순매수', price:'92,100원', signal:'watch', signalText:'관심 종목' },
-    { rank:4, name:'LG에너지솔루션', reason:'공매도 잔고 감소 중', price:'312,000원', signal:'watch', signalText:'관심 종목' },
-    { rank:5, name:'POSCO홀딩스', reason:'외인 매도 → 반등 구간 주의', price:'421,500원', signal:'caution', signalText:'주의' },
-  ];
-}
-
+// ── 렌더링 ────────────────────────────────────
 function renderWeather(w) {
   document.getElementById('weather-icon').textContent = w.icon;
   document.getElementById('weather-title').textContent = w.title;
@@ -307,35 +239,42 @@ function renderMacro(rate, usd, kospi) {
     <div class="macro-card"><div class="macro-name">코스피</div><div class="macro-val">${parseFloat(kospi.val).toLocaleString()}</div><div class="macro-chg ${kc>0?'up':'down'}">${kc>0?'▲':'▼'} ${Math.abs(kc)}</div></div>`;
 }
 
-function renderSupply(s) {
+function renderSupply(data) {
+  const f = data.foreignNet, i = data.instNet;
   const pct = v => Math.min(Math.abs(v)/5000*100,100);
   const col = v => v>0?'var(--green)':'var(--red)';
+  const mock = data.isMock ? '<span class="mock-badge">추정</span>' : '';
   document.getElementById('supply-grid').innerHTML = `
-    <div class="supply-card"><div class="supply-label">외국인 순매수</div><div class="supply-val ${s.foreignNet>0?'pos':'up'}">${s.foreignNet>0?'+':''}${s.foreignNet.toLocaleString()}억</div><div class="supply-bar-wrap"><div class="supply-bar" style="width:${pct(s.foreignNet)}%;background:${col(s.foreignNet)}"></div></div></div>
-    <div class="supply-card"><div class="supply-label">기관 순매수</div><div class="supply-val ${s.instNet>0?'pos':'up'}">${s.instNet>0?'+':''}${s.instNet.toLocaleString()}억</div><div class="supply-bar-wrap"><div class="supply-bar" style="width:${pct(s.instNet)}%;background:${col(s.instNet)}"></div></div></div>`;
+    <div class="supply-card"><div class="supply-label">외국인 순매수${mock}</div><div class="supply-val ${f>0?'pos':'up'}">${f>0?'+':''}${f.toLocaleString()}억</div><div class="supply-bar-wrap"><div class="supply-bar" style="width:${pct(f)}%;background:${col(f)}"></div></div></div>
+    <div class="supply-card"><div class="supply-label">기관 순매수${mock}</div><div class="supply-val ${i>0?'pos':'up'}">${i>0?'+':''}${i.toLocaleString()}억</div><div class="supply-bar-wrap"><div class="supply-bar" style="width:${pct(i)}%;background:${col(i)}"></div></div></div>`;
 }
 
-function renderStocks(stocks) {
-  document.getElementById('stock-list').innerHTML = stocks.map(s => `
+function renderStocks(data) {
+  const mock = data.isMock ? '<span class="mock-badge">샘플</span>' : '';
+  document.getElementById('stock-list').innerHTML = data.stocks.map(s => `
     <div class="stock-card">
       <div class="stock-rank">${s.rank}</div>
-      <div class="stock-info"><div class="stock-name">${s.name}</div><div class="stock-reason">${s.reason}</div></div>
+      <div class="stock-info"><div class="stock-name">${s.name}${mock}</div><div class="stock-reason">${s.reason}</div></div>
       <div class="stock-right"><div class="stock-price">${s.price}</div><span class="stock-signal signal-${s.signal}">${s.signalText}</span></div>
     </div>`).join('');
 }
 
-function renderNews(news) {
+function renderNews(data) {
   const dc={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
   const ts={pos:'background:var(--green-bg);color:var(--green)',neg:'background:var(--red-bg);color:var(--red)',neu:'background:var(--bg3);color:var(--muted)'};
   const tt={pos:'호재',neg:'악재',neu:'중립'};
-  document.getElementById('news-list').innerHTML = news.map(n => `
+  const news = data.news || [];
+  document.getElementById('news-list').innerHTML = news.map(n => {
+    const sentiment = guessSentiment(n.title);
+    return `
     <a class="news-card" href="${n.url}" target="_blank" rel="noopener">
-      <div class="news-dot" style="background:${dc[n.sentiment]}"></div>
+      <div class="news-dot" style="background:${dc[sentiment]}"></div>
       <div class="news-body">
         <div class="news-title">${n.title}</div>
-        <div class="news-meta">${n.source} · ${n.time}<span class="news-tag" style="${ts[n.sentiment]}">${tt[n.sentiment]}</span></div>
+        <div class="news-meta">${n.source} · ${formatTime(n.time)}<span class="news-tag" style="${ts[sentiment]}">${tt[sentiment]}</span></div>
       </div>
-    </a>`).join('');
+    </a>`;
+  }).join('');
 }
 
 function generateBriefing(supply, usdChg, kospiChg) {
@@ -350,26 +289,32 @@ function generateBriefing(supply, usdChg, kospiChg) {
   return msg;
 }
 
+// ── 메인 ─────────────────────────────────────
 async function loadAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
   try {
-    const [rate, usd, kospi, news] = await Promise.all([fetchBaseRate(), fetchExchangeRate(), fetchKospi(), fetchNews()]);
-    const supply = getMockSupply();
-    const kospiChg = parseFloat(kospi.chg), usdChg = parseFloat(usd.chg);
-    const weather = calcWeather(kospiChg, usdChg);
+    const [market, supply, stocks, news] = await Promise.all([
+      fetchMarket(), fetchSupply(), fetchStocks(), fetchNews()
+    ]);
+
+    const kospiChg = parseFloat(market.kospi.chg);
+    const usdChg = parseFloat(market.usd.chg);
+    const weather = calcWeather(kospiChg, usdChg, supply.foreignNet);
+
     renderWeather(weather);
-    renderMacro(rate, usd, kospi);
+    renderMacro(market.rate, market.usd, market.kospi);
     renderSupply(supply);
-    renderStocks(getMockStocks());
+    renderStocks(stocks);
     renderNews(news);
     document.getElementById('briefing-text').textContent = generateBriefing(supply, usdChg, kospiChg);
+
     const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
     document.getElementById('last-update').textContent = `${t} 업데이트`;
     document.getElementById('update-time').textContent = `마지막 업데이트: ${t}`;
   } catch(e) {
     console.error(e);
-    document.getElementById('briefing-text').textContent = '일부 데이터를 불러오지 못했습니다. 새로고침을 눌러주세요.';
+    document.getElementById('briefing-text').textContent = '데이터를 불러오지 못했습니다. 새로고침을 눌러주세요.';
   } finally {
     setTimeout(() => btn.classList.remove('spinning'), 500);
   }
