@@ -41,7 +41,6 @@ export default async function handler(req, res) {
         const cur = closes[closes.length-1];
         const prev = closes[closes.length-2];
         // 코스피 포인트 단위
-      if (cur > 500 && cur < 15000) {
           kospi = { val: cur.toFixed(2), chg: (cur-prev).toFixed(2) };
         }
       }
