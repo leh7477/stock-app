@@ -259,7 +259,7 @@ function renderNews(data) {
     const s = guessSentiment(n.title);
     return `<a class="news-card" href="${n.url}" target="_blank" rel="noopener">
       <div class="news-dot" style="background:${dc[s]}"></div>
-      <div class="news-body"><div class="news-title">${n.title}</div><div class="news-meta">${n.source} · ${formatTime(n.time)}</div></div>
+      <div class="news-body"><div class="news-title">${n.title}</div><div class="news-meta">${n.source} · ${n.time}</div></div>
     </a>`;
   }).join('');
 }
