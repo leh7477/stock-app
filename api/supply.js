@@ -1,66 +1,53 @@
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
-
-  let foreignNet = 0;
-  let instNet = 0;
-  let isMock = false;
+  // 캐시 방지
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
   try {
-    // 1. 토큰 발급
-    const tokenRes = await fetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    // 1. KIS 접근 토큰 발급 (수급 데이터를 가져오기 위한 통행증)
+    const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
+      method: "POST",
       body: JSON.stringify({
-        grant_type: 'client_credentials',
+        grant_type: "client_credentials",
         appkey: process.env.KIS_APP_KEY,
-        appsecret: process.env.KIS_APP_SECRET
-      })
+        appsecret: process.env.KIS_APP_SECRET,
+      }),
+    });
+    const authData = await authRes.json();
+    const token = authData.access_token;
+
+    if (!token) throw new Error("KIS 토큰 발급 실패. 앱키와 비밀키를 확인하세요.");
+
+    // 2. 투자자별 매매동향 API 호출 (코스피 기준)
+    // [항목코드] 0001: 코스피, 1001: 코스닥
+    const supplyRes = await fetch("https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor", {
+      headers: {
+        "Content-Type": "application/json",
+        "authorization": `Bearer ${token}`,
+        "appkey": process.env.KIS_APP_KEY,
+        "appsecret": process.env.KIS_APP_SECRET,
+        "tr_id": "FHKST01010900", // 투자자별 매매동향 TR ID
+      }
     });
 
-    const tokenData = await tokenRes.json();
-    const token = tokenData.access_token;
-    if (!token) throw new Error('토큰 발급 실패');
-
-    // 2. 투자자별 매매동향 호출 (코스피 전체 0001)
-    const supplyRes = await fetch(
-      'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=0001',
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'appkey': process.env.KIS_APP_KEY,
-          'appsecret': process.env.KIS_APP_SECRET,
-          'tr_id': 'FHKST01010900',
-          'custtype': 'P',
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
     const supplyData = await supplyRes.json();
-    const output = supplyData?.output;
+    
+    // 3. 데이터 파싱 (단위: 억 원으로 변환)
+    // output[0]은 현재 시점의 데이터를 담고 있습니다.
+    const foreignNet = Math.round(parseInt(supplyData.output[0].fore_ntby_qty) / 100); 
+    const instNet = Math.round(parseInt(supplyData.output[0].orgn_ntby_qty) / 100);
 
-    if (output) {
-      // 주수(qty) 대신 금액(tr_pbmn)을 사용 (단위: 백만원 -> 억으로 변환)
-      // KIS API 명세에 따라 금액 컬럼명이 다를 수 있으니 로그 확인 필수
-      // 보통 ntby_tr_pbmn이 순매수 대금입니다.
-      const f_amt = parseInt(output.frgn_ntby_tr_pbmn || 0); 
-      const i_amt = parseInt(output.orgn_ntby_tr_pbmn || 0);
+    res.status(200).json({
+      success: true,
+      foreignNet: foreignNet, // 외국인 순매수합계
+      instNet: instNet,      // 기관 순매수합계
+      isMock: false          // 이제 진짜 데이터이므로 false
+    });
 
-      // 백만원 단위를 억원 단위로 변환 (소수점 버림)
-      foreignNet = Math.floor(f_amt / 100); 
-      instNet = Math.floor(i_amt / 100);
-    } else {
-      throw new Error('데이터 없음');
-    }
-
-  } catch (e) {
-    console.error('수급 호출 오류:', e.message);
-    // 실패 시 랜덤 데이터 (테스트용)
-    foreignNet = Math.floor(Math.random() * 2000) - 1000;
-    instNet = Math.floor(Math.random() * 1000) - 500;
-    isMock = true;
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: "수급 데이터 호출 실패", 
+      detail: error.message 
+    });
   }
-
-  res.status(200).json({ success: true, foreignNet, instNet, isMock });
 }
