@@ -22,7 +22,6 @@
   .header-left h1 { font-size: 18px; font-weight: 600; }
   .header-left p { font-size: 11px; color: var(--muted); margin-top: 2px; }
   .refresh-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: color 0.2s; }
-  .refresh-btn:hover { color: var(--text); }
   .refresh-btn.spinning { animation: spin 0.8s linear; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .section { padding: 16px 16px 0; }
@@ -50,12 +49,9 @@
   .briefing-text { font-size: 12px; color: rgba(255,255,255,0.8); line-height: 1.6; }
   .stock-list { display: flex; flex-direction: column; gap: 8px; }
   .stock-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s; }
-  .stock-card:hover { border-color: rgba(255,255,255,0.15); background: var(--bg3); }
-  .stock-rank { width: 24px; height: 24px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
   .stock-info { flex: 1; }
   .stock-name { font-size: 14px; font-weight: 600; }
   .stock-reason { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .stock-right { text-align: right; }
   .stock-price { font-size: 14px; font-weight: 600; }
   .stock-signal { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 99px; margin-top: 3px; }
   .signal-buy { background: var(--green-bg); color: var(--green); }
@@ -146,16 +142,12 @@
     <div class="section-title">알고리즘 추천주</div>
     <div class="stock-list" id="stock-list">
       <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;border-radius:8px"></div></div>
-      <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;border-radius:8px"></div></div>
-      <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;border-radius:8px"></div></div>
     </div>
   </div>
 
   <div class="section" style="margin-top:12px;">
     <div class="section-title">오늘의 경제 뉴스</div>
     <div class="news-list" id="news-list">
-      <div class="news-card"><div class="skeleton" style="width:100%;height:50px;border-radius:8px"></div></div>
-      <div class="news-card"><div class="skeleton" style="width:100%;height:50px;border-radius:8px"></div></div>
       <div class="news-card"><div class="skeleton" style="width:100%;height:50px;border-radius:8px"></div></div>
     </div>
   </div>
@@ -173,54 +165,40 @@
 </div>
 
 <script>
-// ── API 호출 (Vercel 서버리스) ─────────────────
-async function fetchMarket() {
-  const res = await fetch('/api/market');
-  return await res.json();
-}
-async function fetchSupply() {
-  const res = await fetch('/api/supply');
-  return await res.json();
-}
-async function fetchStocks() {
-  const res = await fetch('/api/stocks');
-  return await res.json();
-}
-async function fetchNews() {
-  const res = await fetch('/api/news');
-  return await res.json();
+// ── 유틸리티: 문자열에서 숫자 추출 (컴마 제거 필수) ──
+function cleanNum(val) {
+  if (val === undefined || val === null) return 0;
+  if (typeof val === 'number') return val;
+  return parseFloat(String(val).replace(/,/g, '')) || 0;
 }
 
-// ── 시장 날씨 ─────────────────────────────────
+// ── API 호출 함수 ─────────────────
+async function fetchData(endpoint) {
+  try {
+    const res = await fetch(endpoint);
+    if (!res.ok) throw new Error('Network Error');
+    return await res.json();
+  } catch (e) {
+    console.error(`${endpoint} 로드 실패:`, e);
+    return { success: false };
+  }
+}
+
+// ── 시장 날씨 계산 ──────────────────
 function calcWeather(kospiChg, usdChg, foreignNet) {
   let score = 50;
-  score += kospiChg > 0 ? Math.min(kospiChg*4,20) : Math.max(kospiChg*4,-20);
+  score += kospiChg > 0 ? Math.min(kospiChg * 4, 20) : Math.max(kospiChg * 4, -20);
   score += usdChg < 0 ? 8 : usdChg > 5 ? -8 : 0;
-  score += foreignNet > 2000 ? 10 : foreignNet < -2000 ? -10 : 0;
+  score += foreignNet > 1000 ? 10 : foreignNet < -1000 ? -10 : 0;
   score = Math.max(10, Math.min(90, Math.round(score)));
+  
   if (score >= 65) return { score, icon:'☀️', title:'대체로 맑음', desc:'시장 에너지 높음. 외인 매수세 우위, 공격적 포지션 고려 가능합니다.', color:'var(--green)', gradient:'linear-gradient(90deg,#15803d,#22c55e)' };
   if (score >= 50) return { score, icon:'🌤️', title:'맑고 약간 흐림', desc:'긍정적이나 변동성 주의. 분할 매수 전략이 유효합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#d97706,#f59e0b)' };
   if (score >= 35) return { score, icon:'⛅', title:'흐리고 불안정', desc:'방향성 불명확. 섣부른 진입보다 관망이 유리합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#92400e,#d97706)' };
   return { score, icon:'🌧️', title:'흐림 — 주의', desc:'하락 압력 우세. 현금 비중을 높이고 방어적 포지션을 권장합니다.', color:'var(--red)', gradient:'linear-gradient(90deg,#991b1b,#ef4444)' };
 }
 
-// ── 감성 분석 ─────────────────────────────────
-function guessSentiment(t) {
-  if (['상승','급등','호재','매수','강세','반등','성장','증가','흑자','상향','돌파','회복'].some(k=>t.includes(k))) return 'pos';
-  if (['하락','급락','악재','매도','약세','우려','감소','적자','하향','위기','폭락','충격'].some(k=>t.includes(k))) return 'neg';
-  return 'neu';
-}
-
-function formatTime(pubDate) {
-  try {
-    const diff = Math.floor((Date.now() - new Date(pubDate)) / 60000);
-    if (diff < 60) return `${diff}분 전`;
-    if (diff < 1440) return `${Math.floor(diff/60)}시간 전`;
-    return `${Math.floor(diff/1440)}일 전`;
-  } catch { return '방금 전'; }
-}
-
-// ── 렌더링 ────────────────────────────────────
+// ── 렌더링 함수들 ────────────────────
 function renderWeather(w) {
   document.getElementById('weather-icon').textContent = w.icon;
   document.getElementById('weather-title').textContent = w.title;
@@ -231,16 +209,22 @@ function renderWeather(w) {
   f.style.width = w.score+'%'; f.style.background = w.gradient;
 }
 
-function renderMacro(rate, usd, kospi) {
-  const uc = parseFloat(usd.chg), kc = parseFloat(kospi.chg);
+function renderMacro(data) {
+  if (!data.success) return;
+  const rate = data.rate || '3.50%';
+  const usdVal = cleanNum(data.usd.val);
+  const usdChg = cleanNum(data.usd.chg);
+  const kospiVal = cleanNum(data.kospi.val);
+  const kospiChg = cleanNum(data.kospi.chg);
+
   document.getElementById('macro-grid').innerHTML = `
     <div class="macro-card"><div class="macro-name">기준금리</div><div class="macro-val">${rate}</div><div class="macro-chg flat">동결</div></div>
-    <div class="macro-card"><div class="macro-name">원/달러</div><div class="macro-val">${usd.val}</div><div class="macro-chg ${uc>0?'up':'down'}">${uc>0?'▲':'▼'} ${Math.abs(uc)}</div></div>
-    <div class="macro-card"><div class="macro-name">코스피</div><div class="macro-val">${parseFloat(kospi.val).toLocaleString()}</div><div class="macro-chg ${kc>0?'up':'down'}">${kc>0?'▲':'▼'} ${Math.abs(kc)}</div></div>`;
+    <div class="macro-card"><div class="macro-name">원/달러</div><div class="macro-val">${usdVal.toLocaleString()}</div><div class="macro-chg ${usdChg>0?'up':'down'}">${usdChg>0?'▲':'▼'} ${Math.abs(usdChg)}</div></div>
+    <div class="macro-card"><div class="macro-name">코스피</div><div class="macro-val">${kospiVal.toLocaleString()}</div><div class="macro-chg ${kospiChg>0?'up':'down'}">${kospiChg>0?'▲':'▼'} ${Math.abs(kospiChg)}</div></div>`;
 }
 
 function renderSupply(data) {
-  const f = data.foreignNet, i = data.instNet;
+  const f = cleanNum(data.foreignNet), i = cleanNum(data.instNet);
   const pct = v => Math.min(Math.abs(v)/5000*100,100);
   const col = v => v>0?'var(--green)':'var(--red)';
   const mock = data.isMock ? '<span class="mock-badge">추정</span>' : '';
@@ -250,8 +234,9 @@ function renderSupply(data) {
 }
 
 function renderStocks(data) {
+  const items = data.stocks || [];
   const mock = data.isMock ? '<span class="mock-badge">샘플</span>' : '';
-  document.getElementById('stock-list').innerHTML = data.stocks.map(s => `
+  document.getElementById('stock-list').innerHTML = items.map(s => `
     <div class="stock-card">
       <div class="stock-rank">${s.rank}</div>
       <div class="stock-info"><div class="stock-name">${s.name}${mock}</div><div class="stock-reason">${s.reason}</div></div>
@@ -260,68 +245,71 @@ function renderStocks(data) {
 }
 
 function renderNews(data) {
-  const dc={pos:'var(--green)',neg:'var(--red)',neu:'var(--muted)'};
-  const ts={pos:'background:var(--green-bg);color:var(--green)',neg:'background:var(--red-bg);color:var(--red)',neu:'background:var(--bg3);color:var(--muted)'};
-  const tt={pos:'호재',neg:'악재',neu:'중립'};
-  const news = data.news || [];
-  document.getElementById('news-list').innerHTML = news.map(n => {
-    const sentiment = guessSentiment(n.title);
+  const items = data.news || [];
+  document.getElementById('news-list').innerHTML = items.map(n => {
+    const kw = ['상승','급등','호재','매수','강세'].some(k=>n.title.includes(k)) ? 'pos' : 
+               ['하락','급락','악재','매도','약세'].some(k=>n.title.includes(k)) ? 'neg' : 'neu';
+    const colors = {pos:'var(--green)', neg:'var(--red)', neu:'var(--muted)'};
     return `
     <a class="news-card" href="${n.url}" target="_blank" rel="noopener">
-      <div class="news-dot" style="background:${dc[sentiment]}"></div>
+      <div class="news-dot" style="background:${colors[kw]}"></div>
       <div class="news-body">
         <div class="news-title">${n.title}</div>
-        <div class="news-meta">${n.source} · ${formatTime(n.time)}<span class="news-tag" style="${ts[sentiment]}">${tt[sentiment]}</span></div>
+        <div class="news-meta">${n.source} · 뉴스</div>
       </div>
     </a>`;
   }).join('');
 }
 
-function generateBriefing(supply, usdChg, kospiChg) {
-  const fd = supply.foreignNet>0?'순매수':'순매도';
-  const fa = Math.abs(supply.foreignNet).toLocaleString();
-  let msg = `외국인 ${fd} ${fa}억. `;
-  if (kospiChg > 10) msg += '코스피 강세. 단기 상승 모멘텀 기대됩니다.';
-  else if (usdChg > 5) msg += '환율 강세 주의. 방어적 접근 권장.';
-  else if (supply.foreignNet > 1000) msg += '외인 대규모 유입 중. 긍정적 흐름 지속 기대.';
-  else if (supply.foreignNet < -1000) msg += '외인 이탈 주의. 관망 후 저점 확인 후 진입 전략 권장.';
-  else msg += '시장 혼조세. 선별적 종목 접근이 유효합니다.';
+function generateBriefing(supply, market) {
+  const fNet = cleanNum(supply.foreignNet);
+  const kChg = cleanNum(market?.kospi?.chg);
+  let msg = `외국인 ${fNet > 0 ? '순매수' : '순매도'} ${Math.abs(fNet).toLocaleString()}억. `;
+  if (kChg > 10) msg += '코스피 강세 흐름. 수급 개선이 뚜렷합니다.';
+  else if (fNet < -2000) msg += '외인 대량 매도 주의. 보수적 접근이 필요합니다.';
+  else msg += '시장 관망세 우세. 업종별 차별화 장세가 예상됩니다.';
   return msg;
 }
 
-// ── 메인 ─────────────────────────────────────
+// ── 메인 실행 로직 ────────────────────
 async function loadAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
+  
   try {
     const [market, supply, stocks, news] = await Promise.all([
-      fetchMarket(), fetchSupply(), fetchStocks(), fetchNews()
+      fetchData('/api/market'),
+      fetchData('/api/supply'),
+      fetchData('/api/stocks'),
+      fetchData('/api/news')
     ]);
 
-    const kospiChg = parseFloat(market.kospi.chg);
-    const usdChg = parseFloat(market.usd.chg);
-    const weather = calcWeather(kospiChg, usdChg, supply.foreignNet);
-
-    renderWeather(weather);
-    renderMacro(market.rate, market.usd, market.kospi);
-    renderSupply(supply);
-    renderStocks(stocks);
-    renderNews(news);
-    document.getElementById('briefing-text').textContent = generateBriefing(supply, usdChg, kospiChg);
+    if (market.success) {
+      const w = calcWeather(cleanNum(market.kospi.chg), cleanNum(market.usd.chg), cleanNum(supply.foreignNet));
+      renderWeather(w);
+      renderMacro(market);
+      document.getElementById('briefing-text').textContent = generateBriefing(supply, market);
+    }
+    
+    if (supply.success) renderSupply(supply);
+    if (stocks.success) renderStocks(stocks);
+    if (news.success) renderNews(news);
 
     const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
     document.getElementById('last-update').textContent = `${t} 업데이트`;
     document.getElementById('update-time').textContent = `마지막 업데이트: ${t}`;
+
   } catch(e) {
-    console.error(e);
-    document.getElementById('briefing-text').textContent = '데이터를 불러오지 못했습니다. 새로고침을 눌러주세요.';
+    document.getElementById('briefing-text').textContent = '데이터 연결에 실패했습니다.';
   } finally {
-    setTimeout(() => btn.classList.remove('spinning'), 500);
+    setTimeout(() => btn.classList.remove('spinning'), 600);
   }
 }
 
+// 초기 실행
 loadAll();
-setInterval(loadAll, 5*60*1000);
+// 5분마다 자동 갱신
+setInterval(loadAll, 5 * 60 * 1000);
 </script>
 </body>
 </html>
