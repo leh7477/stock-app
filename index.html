@@ -130,43 +130,21 @@
     </div>
   </div>
 
-async function updateSupply() {
-  try {
-    // 백엔드 API 호출
-    const res = await fetch('/api/supply');
-    const data = await res.json();
-
-    if (data.success) {
-      // 1. 개인 순매수 꽂기
-      const pEl = document.getElementById('personalNet');
-      if (pEl) {
-        pEl.innerText = data.personalNet + "억";
-        // 플러스면 파란색, 마이너스면 빨간색 (2026년 하락장 감성)
-        pEl.style.color = data.personalNet >= 0 ? "#4A90E2" : "#F44336";
-      }
-
-      // 2. 외국인 순매수 꽂기
-      const fEl = document.getElementById('foreignNet');
-      if (fEl) {
-        fEl.innerText = data.foreignNet + "억";
-        fEl.style.color = data.foreignNet >= 0 ? "#4A90E2" : "#F44336";
-      }
-
-      // 3. 기관 순매수 꽂기
-      const iEl = document.getElementById('instNet');
-      if (iEl) {
-        iEl.innerText = data.instNet + "억";
-        iEl.style.color = data.instNet >= 0 ? "#4A90E2" : "#F44336";
-      }
-    }
-  } catch (err) {
-    console.error("수급 데이터 호출 실패:", err);
-  }
-}
-
-// 한투 API 제한(1분 1회)을 고려해서 65초마다 실행
-setInterval(updateSupply, 65000); 
-updateSupply(); // 페이지 열자마자 한 번 실행
+<div class="section-title">개인·외인·기관 수급</div>
+<div class="supply-container" style="display: flex; gap: 10px;">
+  <div class="supply-card" style="flex: 1;">
+    <div class="label">개인 순매수</div>
+    <div class="value" id="personalNet">---</div>
+  </div>
+  <div class="supply-card" style="flex: 1;">
+    <div class="label">외국인 순매수</div>
+    <div class="value" id="foreignNet">---</div>
+  </div>
+  <div class="supply-card" style="flex: 1;">
+    <div class="label">기관 순매수</div>
+    <div class="value" id="instNet">---</div>
+  </div>
+</div>
 
 </div>
 
