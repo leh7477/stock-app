@@ -130,16 +130,28 @@
     </div>
   </div>
 
-  <div class="section" style="margin-top:4px;">
-    <div class="section-title">외인·기관 수급</div>
-    <div class="supply-grid" id="supply-grid">
-      <div class="supply-card"><div class="supply-label">외국인</div><div class="skeleton" style="height:20px;width:60px;margin:6px 0"></div></div>
-      <div class="supply-card"><div class="supply-label">기관</div><div class="skeleton" style="height:20px;width:60px;margin:6px 0"></div></div>
-    </div>
+<div class="section-title">개인·외인·기관 수급</div>
+<div class="supply-container" style="display: flex; gap: 10px;">
+  
+  <div class="supply-card">
+    <div class="label">개인 순매수</div>
+    <div class="value" id="personalNet">0억</div>
   </div>
 
+  <div class="supply-card">
+    <div class="label">외국인 순매수</div>
+    <div class="value" id="foreignNet">0억</div>
+  </div>
+
+  <div class="supply-card">
+    <div class="label">기관 순매수</div>
+    <div class="value" id="instNet">0억</div>
+  </div>
+
+</div>
+
   <div class="section" style="margin-top:12px;">
-    <div class="section-title">알고리즘 추천주</div>
+    <div class="section-title">거래량 상위</div>
     <div class="stock-list" id="stock-list">
       <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;border-radius:8px"></div></div>
     </div>
