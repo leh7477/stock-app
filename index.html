@@ -24,58 +24,42 @@
   .refresh-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: color 0.2s; }
   .refresh-btn.spinning { animation: spin 0.8s linear; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  
   .section { padding: 16px 16px 0; }
   .section-title { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
   
-  /* 거시 지표 & 수급 그리드 공통 */
-  .macro-grid, .supply-grid { display: grid; gap: 8px; margin-bottom: 8px; }
-  .macro-grid { grid-template-columns: 1fr 1fr 1fr; }
-  .supply-grid { grid-template-columns: 1fr 1fr 1fr; } /* 3칸으로 수정 */
-
-  .macro-card, .supply-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; text-align: center; }
-  .macro-name, .supply-label { font-size: 10px; color: var(--muted); margin-bottom: 6px; white-space: nowrap; }
-  .macro-val, .supply-val { font-size: 15px; font-weight: 600; }
-  .macro-chg { font-size: 10px; margin-top: 3px; }
+  /* 수급 카드 그리드 (3칸 정렬) */
+  .supply-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .supply-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 8px; text-align: center; }
+  .supply-label { font-size: 10px; color: var(--muted); margin-bottom: 6px; white-space: nowrap; }
+  .supply-val { font-size: 14px; font-weight: 600; }
   
-  .up { color: var(--red); } .down { color: var(--blue); } .flat { color: var(--muted); } .pos { color: var(--green); }
+  /* 거시 지표 그리드 */
+  .macro-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+  .macro-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; text-align: center; }
+  .macro-name { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
+  .macro-val { font-size: 15px; font-weight: 600; }
+  .macro-chg { font-size: 10px; margin-top: 3px; }
+
+  .up { color: var(--red); } .down { color: var(--blue); } .flat { color: var(--muted); }
 
   .weather-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 10px; }
-  .weather-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .weather-top { display: flex; align-items: center; justify-content: space-between; }
   .weather-icon { font-size: 32px; }
-  .weather-right { text-align: right; }
   .weather-score { font-size: 28px; font-weight: 600; }
-  .weather-label { font-size: 10px; color: var(--muted); margin-top: 1px; }
-  .weather-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-  .weather-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
   
-  .gauge { margin-top: 14px; }
-  .gauge-bar { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
-  .gauge-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
-  .gauge-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: var(--muted); }
-
-  .briefing { background: var(--green-bg); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
-  .briefing-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
-  .briefing-text { font-size: 12px; color: rgba(255,255,255,0.8); line-height: 1.6; }
+  .briefing { background: var(--green-bg); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; margin-bottom: 8px; }
+  .briefing-text { font-size: 12px; line-height: 1.6; color: rgba(255,255,255,0.8); }
 
   .stock-list { display: flex; flex-direction: column; gap: 8px; }
-  .stock-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px; }
-  .stock-info { flex: 1; }
-  .stock-name { font-size: 14px; font-weight: 600; }
-  .stock-reason { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .stock-price { font-size: 14px; font-weight: 600; text-align: right; }
-  .stock-right { text-align: right; }
+  .stock-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; align-items: center; justify-content: space-between; }
 
   .nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--bg); border-top: 1px solid var(--border); display: flex; padding: 10px 0 16px; z-index: 20; }
-  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
-  .nav-icon { font-size: 20px; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
   .nav-label { font-size: 10px; color: var(--muted); }
-  .nav-item.active .nav-label { color: var(--green); }
 
-  .skeleton { background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; }
+  .skeleton { background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; height: 20px; }
   @keyframes shimmer { to { background-position: -200% 0; } }
-  .update-time { font-size: 10px; color: var(--muted); text-align: center; padding: 12px 0 4px; }
-  .disclaimer { font-size: 10px; color: var(--muted); text-align: center; padding: 8px 20px 16px; line-height: 1.5; border-top: 1px solid var(--border); margin-top: 12px; }
-  .mock-badge { font-size: 9px; color: var(--amber); background: var(--amber-bg); padding: 1px 6px; border-radius: 99px; margin-left: 2px; }
 </style>
 </head>
 <body>
@@ -83,7 +67,7 @@
   <div class="header">
     <div class="header-left">
       <h1>탐욕의 장 📈</h1>
-      <p id="last-update">업데이트 중...</p>
+      <p id="last-update">데이터 확인 중...</p>
     </div>
     <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">↻</button>
   </div>
@@ -94,177 +78,134 @@
       <div class="weather-top">
         <div>
           <div class="weather-icon" id="weather-icon">⏳</div>
-          <div class="weather-title" id="weather-title">불러오는 중...</div>
-          <div class="weather-desc" id="weather-desc">잠시만 기다려 주세요.</div>
+          <div class="weather-title" id="weather-title" style="font-size:15px; font-weight:600; margin-top:5px;">불러오는 중...</div>
         </div>
-        <div class="weather-right">
-          <div class="weather-score" id="weather-score" style="color:var(--muted)">--</div>
-          <div class="weather-label">시장 점수</div>
+        <div style="text-align:right">
+          <div class="weather-score" id="weather-score">--</div>
+          <div style="font-size:10px; color:var(--muted)">시장 점수</div>
         </div>
-      </div>
-      <div class="gauge">
-        <div class="gauge-bar"><div class="gauge-fill" id="gauge-fill" style="width:0%;background:var(--muted)"></div></div>
-        <div class="gauge-labels"><span>공포</span><span>중립</span><span>탐욕</span></div>
       </div>
     </div>
   </div>
 
   <div class="section">
     <div class="briefing">
-      <div class="briefing-icon">📊</div>
-      <div class="briefing-text" id="briefing-text">시장 데이터 분석 중...</div>
+      <div class="briefing-text" id="briefing-text">AI가 수급 데이터를 분석하고 있습니다.</div>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">거시 지표</div>
     <div class="macro-grid" id="macro-grid">
-      <div class="macro-card"><div class="macro-name">기준금리</div><div class="skeleton" style="height:20px;width:100%;"></div></div>
-      <div class="macro-card"><div class="macro-name">원/달러</div><div class="skeleton" style="height:20px;width:100%;"></div></div>
-      <div class="macro-card"><div class="macro-name">코스피</div><div class="skeleton" style="height:20px;width:100%;"></div></div>
+      <div class="macro-card"><div class="macro-name">기준금리</div><div class="skeleton"></div></div>
+      <div class="macro-card"><div class="macro-name">원/달러</div><div class="skeleton"></div></div>
+      <div class="macro-card"><div class="macro-name">코스피</div><div class="skeleton"></div></div>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">개인·외인·기관 수급</div>
-    <div class="supply-grid" id="supply-grid">
-      <div class="supply-card"><div class="supply-label">개인</div><div class="supply-val">---</div></div>
-      <div class="supply-card"><div class="supply-label">외국인</div><div class="supply-val">---</div></div>
-      <div class="supply-card"><div class="supply-label">기관</div><div class="supply-val">---</div></div>
+    <div class="supply-grid">
+      <div class="supply-card">
+        <div class="supply-label">개인 순매수</div>
+        <div class="supply-val" id="personalNet">---</div>
+      </div>
+      <div class="supply-card">
+        <div class="supply-label">외국인 순매수</div>
+        <div class="supply-val" id="foreignNet">---</div>
+      </div>
+      <div class="supply-card">
+        <div class="supply-label">기관 순매수</div>
+        <div class="supply-val" id="instNet">---</div>
+      </div>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">거래량 상위</div>
     <div class="stock-list" id="stock-list">
-      <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;"></div></div>
+      <div class="skeleton" style="height:60px; margin-bottom:8px;"></div>
+      <div class="skeleton" style="height:60px;"></div>
     </div>
   </div>
-
-  <div class="section">
-    <div class="section-title">오늘의 경제 뉴스</div>
-    <div class="news-list" id="news-list">
-      <div class="news-card"><div class="skeleton" style="width:100%;height:50px;"></div></div>
-    </div>
-  </div>
-
-  <div class="update-time" id="update-time"></div>
-  <div class="disclaimer">※ 본 앱은 공개 데이터 기반 정보 제공 목적이며,<br>투자 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>
 </div>
 
 <div class="nav">
-  <div class="nav-item active"><div class="nav-icon">🏠</div><div class="nav-label">홈</div></div>
-  <div class="nav-item"><div class="nav-icon">📊</div><div class="nav-label">추천주</div></div>
-  <div class="nav-item"><div class="nav-icon">🌍</div><div class="nav-label">외인추적</div></div>
-  <div class="nav-item"><div class="nav-icon">📰</div><div class="nav-label">뉴스</div></div>
-  <div class="nav-item"><div class="nav-icon">⚙️</div><div class="nav-label">설정</div></div>
+  <div class="nav-item"><div style="font-size:20px">🏠</div><div class="nav-label">홈</div></div>
+  <div class="nav-item"><div style="font-size:20px">📊</div><div class="nav-label">추천</div></div>
+  <div class="nav-item"><div style="font-size:20px">🌍</div><div class="nav-label">수급</div></div>
+  <div class="nav-item"><div style="font-size:20px">⚙️</div><div class="nav-label">설정</div></div>
 </div>
 
 <script>
-function cleanNum(val) {
-  if (val === undefined || val === null) return 0;
-  if (typeof val === 'number') return val;
-  return parseFloat(String(val).replace(/,/g, '')) || 0;
-}
-
-async function fetchData(endpoint) {
+async function fetchData(url) {
   try {
-    const res = await fetch(endpoint);
+    const res = await fetch(url);
+    if (!res.ok) return { success: false, msg: 'HTTP_ERROR' };
     return await res.json();
   } catch (e) {
-    return { success: false };
+    return { success: false, msg: 'FETCH_ERROR' };
   }
 }
 
-function calcWeather(kospiChg, usdChg, foreignNet) {
-  let score = 50;
-  score += kospiChg > 0 ? Math.min(kospiChg * 4, 20) : Math.max(kospiChg * 4, -20);
-  score += usdChg < 0 ? 8 : -8;
-  score += foreignNet > 1000 ? 10 : foreignNet < -1000 ? -10 : 0;
-  score = Math.max(10, Math.min(90, Math.round(score)));
-  
-  if (score >= 65) return { score, icon:'☀️', title:'대체로 맑음', desc:'시장 에너지 높음. 외인 매수세 우위 장세입니다.', color:'var(--green)', gradient:'linear-gradient(90deg,#15803d,#22c55e)' };
-  if (score >= 45) return { score, icon:'🌤️', title:'맑고 약간 흐림', desc:'긍정적이나 변동성 주의. 관망과 대응이 필요한 시점입니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#d97706,#f59e0b)' };
-  return { score, icon:'🌧️', title:'흐림 — 주의', desc:'하락 압력 우세. 방어적 포지션을 권장합니다.', color:'var(--red)', gradient:'linear-gradient(90deg,#991b1b,#ef4444)' };
+function renderSupply(data) {
+  const pEl = document.getElementById('personalNet');
+  const fEl = document.getElementById('foreignNet');
+  const iEl = document.getElementById('instNet');
+
+  if (!data || !data.success) {
+    pEl.innerText = "Error"; fEl.innerText = "Error"; iEl.innerText = "Error";
+    return;
+  }
+
+  const p = data.personalNet;
+  const f = data.foreignNet;
+  const i = data.instNet;
+
+  // 0원 땜질 방지: null이면 '대기', 있으면 숫자
+  pEl.innerText = (p !== null) ? (p > 0 ? '+' : '') + p.toLocaleString() + "억" : "대기";
+  fEl.innerText = (f !== null) ? (f > 0 ? '+' : '') + f.toLocaleString() + "억" : "대기";
+  iEl.innerText = (i !== null) ? (i > 0 ? '+' : '') + i.toLocaleString() + "억" : "대기";
+
+  if (p !== null) pEl.className = p >= 0 ? 'supply-val up' : 'supply-val down';
+  if (f !== null) fEl.className = f >= 0 ? 'supply-val up' : 'supply-val down';
+  if (i !== null) iEl.className = i >= 0 ? 'supply-val up' : 'supply-val down';
 }
 
 function renderMacro(data) {
   if (!data.success) return;
-  const rate = data.rate || '3.50%';
-  const usdVal = cleanNum(data.usd.val);
-  const usdChg = cleanNum(data.usd.chg);
-  const kospiVal = cleanNum(data.kospi.val);
-  const kospiChg = cleanNum(data.kospi.chg);
-
   document.getElementById('macro-grid').innerHTML = `
-    <div class="macro-card"><div class="macro-name">기준금리</div><div class="macro-val">${rate}</div><div class="macro-chg flat">동결</div></div>
-    <div class="macro-card"><div class="macro-name">원/달러</div><div class="macro-val">${usdVal.toLocaleString()}</div><div class="macro-chg ${usdChg>0?'up':'down'}">${usdChg>0?'▲':'▼'} ${Math.abs(usdChg)}</div></div>
-    <div class="macro-card"><div class="macro-name">코스피</div><div class="macro-val">${kospiVal.toLocaleString()}</div><div class="macro-chg ${kospiChg>0?'up':'down'}">${kospiChg>0?'▲':'▼'} ${Math.abs(kospiChg)}</div></div>`;
-}
-
-function renderSupply(data) {
-  if (!data.success) return;
-  const p = cleanNum(data.personalNet), f = cleanNum(data.foreignNet), i = cleanNum(data.instNet);
-  const mock = data.isMock ? '<span class="mock-badge">추정</span>' : '';
-  
-  document.getElementById('supply-grid').innerHTML = `
-    <div class="supply-card"><div class="supply-label">개인${mock}</div><div class="supply-val ${p>0?'up':'down'}">${p>0?'+':''}${p.toLocaleString()}억</div></div>
-    <div class="supply-card"><div class="supply-label">외국인${mock}</div><div class="supply-val ${f>0?'up':'down'}">${f>0?'+':''}${f.toLocaleString()}억</div></div>
-    <div class="supply-card"><div class="supply-label">기관${mock}</div><div class="supply-val ${i>0?'up':'down'}">${i>0?'+':''}${i.toLocaleString()}억</div></div>`;
-}
-
-function renderStocks(data) {
-  const items = data.stocks || [];
-  document.getElementById('stock-list').innerHTML = items.map(s => `
-    <div class="stock-card">
-      <div class="stock-info">
-        <div class="stock-name">${s.name}</div>
-        <div class="stock-reason">${s.sector || '실시간 거래량 상위'}</div>
-      </div>
-      <div class="stock-right">
-        <div class="stock-price">${s.price}</div>
-        <div class="stock-reason ${s.trend==='up'?'up':'down'}">${s.change}</div>
-      </div>
-    </div>`).join('');
-}
-
-function renderNews(data) {
-  const items = data.news || [];
-  document.getElementById('news-list').innerHTML = items.map(n => `
-    <a class="news-card" href="${n.url}" target="_blank">
-      <div class="news-body">
-        <div class="news-title">${n.title}</div>
-        <div class="news-meta">${n.source}</div>
-      </div>
-    </a>`).join('');
+    <div class="macro-card"><div class="macro-name">기준금리</div><div class="macro-val">${data.rate || '3.50%'}</div><div class="macro-chg flat">동결</div></div>
+    <div class="macro-card"><div class="macro-name">원/달러</div><div class="macro-val">${data.usd.val}</div><div class="macro-chg ${data.usd.chg > 0 ? 'up' : 'down'}">${data.usd.chg}%</div></div>
+    <div class="macro-card"><div class="macro-name">코스피</div><div class="macro-val">${data.kospi.val}</div><div class="macro-chg ${data.kospi.chg > 0 ? 'up' : 'down'}">${data.kospi.chg}%</div></div>
+  `;
 }
 
 async function loadAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
-  
-  const [market, supply, stocks, news] = await Promise.all([
-    fetchData('/api/market'), fetchData('/api/supply'), fetchData('/api/stocks'), fetchData('/api/news')
+
+  const [market, supply, stocks] = await Promise.all([
+    fetchData('/api/market'),
+    fetchData('/api/supply'),
+    fetchData('/api/stocks')
   ]);
 
-  if (market.success) {
-    renderWeather(calcWeather(cleanNum(market.kospi.chg), cleanNum(market.usd.chg), cleanNum(supply.foreignNet)));
-    renderMacro(market);
-    document.getElementById('briefing-text').textContent = generateBriefing(supply, market);
+  if (supply) renderSupply(supply);
+  if (market) renderMacro(market);
+  
+  if (stocks.success) {
+    document.getElementById('stock-list').innerHTML = stocks.stocks.map(s => `
+      <div class="stock-card">
+        <div><div style="font-weight:600">${s.name}</div><div style="font-size:11px; color:var(--muted)">${s.sector}</div></div>
+        <div style="text-align:right"><div style="font-weight:600">${s.price}</div><div class="${s.trend === 'up' ? 'up' : 'down'}" style="font-size:11px">${s.change}</div></div>
+      </div>
+    `).join('');
   }
-  if (supply.success) renderSupply(supply);
-  if (stocks.success) renderStocks(stocks);
-  if (news.success) renderNews(news);
 
-  const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('last-update').textContent = `${t} 업데이트`;
-  document.getElementById('update-time').textContent = `마지막 업데이트: ${t}`;
-  setTimeout(() => btn.classList.remove('spinning'), 600);
-}
-
-function generateBriefing(supply, market) {
-  const fNet = cleanNum(supply.foreignNet);
-  return `현재 외국인 ${fNet > 0 ? '순매수' : '순매도'} ${Math.abs(fNet).toLocaleString()}억. 시장 관망세 속 업종별 차별화가 진행 중입니다.`;
+  const now = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('last-update').innerText = now + " 기준 탐욕 지수";
+  btn.classList.remove('spinning');
 }
 
 loadAll();
