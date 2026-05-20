@@ -2,10 +2,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
-  let usd = { val: '1,500', chg: '0' };
-  let kospi = { val: '7,500', chg: '0' };
+  let usd = null;
+  let kospi = null;
 
-  // 환율 (ECOS)
   try {
     const today = new Date();
     const from = new Date();
@@ -29,7 +28,6 @@ export default async function handler(req, res) {
     console.error('환율 오류:', e.message);
   }
 
-  // 코스피 (Yahoo Finance)
   try {
     const kospiRes = await fetch(
       'https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&range=5d',
