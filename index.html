@@ -26,6 +26,19 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   .section { padding: 16px 16px 0; }
   .section-title { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+  
+  /* 거시 지표 & 수급 그리드 공통 */
+  .macro-grid, .supply-grid { display: grid; gap: 8px; margin-bottom: 8px; }
+  .macro-grid { grid-template-columns: 1fr 1fr 1fr; }
+  .supply-grid { grid-template-columns: 1fr 1fr 1fr; } /* 3칸으로 수정 */
+
+  .macro-card, .supply-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; text-align: center; }
+  .macro-name, .supply-label { font-size: 10px; color: var(--muted); margin-bottom: 6px; white-space: nowrap; }
+  .macro-val, .supply-val { font-size: 15px; font-weight: 600; }
+  .macro-chg { font-size: 10px; margin-top: 3px; }
+  
+  .up { color: var(--red); } .down { color: var(--blue); } .flat { color: var(--muted); } .pos { color: var(--green); }
+
   .weather-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 16px; margin-bottom: 10px; }
   .weather-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
   .weather-icon { font-size: 32px; }
@@ -34,53 +47,35 @@
   .weather-label { font-size: 10px; color: var(--muted); margin-top: 1px; }
   .weather-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
   .weather-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  
   .gauge { margin-top: 14px; }
   .gauge-bar { height: 4px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
   .gauge-fill { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
   .gauge-labels { display: flex; justify-content: space-between; margin-top: 5px; font-size: 10px; color: var(--muted); }
-  .macro-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 8px; }
-  .macro-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 10px; }
-  .macro-name { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
-  .macro-val { font-size: 15px; font-weight: 600; }
-  .macro-chg { font-size: 10px; margin-top: 3px; }
-  .up { color: var(--red); } .down { color: var(--blue); } .flat { color: var(--muted); } .pos { color: var(--green); }
+
   .briefing { background: var(--green-bg); border: 1px solid rgba(34,197,94,0.2); border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
   .briefing-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
   .briefing-text { font-size: 12px; color: rgba(255,255,255,0.8); line-height: 1.6; }
+
   .stock-list { display: flex; flex-direction: column; gap: 8px; }
-  .stock-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px; transition: border-color 0.2s; }
+  .stock-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; align-items: center; gap: 12px; }
   .stock-info { flex: 1; }
   .stock-name { font-size: 14px; font-weight: 600; }
   .stock-reason { font-size: 11px; color: var(--muted); margin-top: 2px; }
-  .stock-price { font-size: 14px; font-weight: 600; }
-  .stock-signal { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 99px; margin-top: 3px; }
-  .signal-buy { background: var(--green-bg); color: var(--green); }
-  .signal-watch { background: var(--amber-bg); color: var(--amber); }
-  .signal-caution { background: var(--red-bg); color: var(--red); }
-  .news-list { display: flex; flex-direction: column; gap: 8px; }
-  .news-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start; text-decoration: none; transition: border-color 0.2s; }
-  .news-card:hover { border-color: rgba(255,255,255,0.15); }
-  .news-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
-  .news-body { flex: 1; }
-  .news-title { font-size: 13px; color: var(--text); line-height: 1.5; }
-  .news-meta { font-size: 10px; color: var(--muted); margin-top: 4px; }
-  .news-tag { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 99px; margin-left: 4px; vertical-align: middle; }
-  .supply-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .supply-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; }
-  .supply-label { font-size: 10px; color: var(--muted); margin-bottom: 6px; }
-  .supply-val { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-  .supply-bar-wrap { height: 3px; background: var(--bg3); border-radius: 99px; overflow: hidden; }
-  .supply-bar { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
+  .stock-price { font-size: 14px; font-weight: 600; text-align: right; }
+  .stock-right { text-align: right; }
+
   .nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--bg); border-top: 1px solid var(--border); display: flex; padding: 10px 0 16px; z-index: 20; }
-  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 4px; }
+  .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
   .nav-icon { font-size: 20px; }
   .nav-label { font-size: 10px; color: var(--muted); }
   .nav-item.active .nav-label { color: var(--green); }
+
   .skeleton { background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; }
   @keyframes shimmer { to { background-position: -200% 0; } }
   .update-time { font-size: 10px; color: var(--muted); text-align: center; padding: 12px 0 4px; }
   .disclaimer { font-size: 10px; color: var(--muted); text-align: center; padding: 8px 20px 16px; line-height: 1.5; border-top: 1px solid var(--border); margin-top: 12px; }
-  .mock-badge { font-size: 9px; color: var(--amber); background: var(--amber-bg); padding: 1px 6px; border-radius: 99px; margin-left: 4px; }
+  .mock-badge { font-size: 9px; color: var(--amber); background: var(--amber-bg); padding: 1px 6px; border-radius: 99px; margin-left: 2px; }
 </style>
 </head>
 <body>
@@ -124,41 +119,32 @@
   <div class="section">
     <div class="section-title">거시 지표</div>
     <div class="macro-grid" id="macro-grid">
-      <div class="macro-card"><div class="macro-name">기준금리</div><div class="skeleton" style="height:20px;width:50px;margin-top:4px"></div></div>
-      <div class="macro-card"><div class="macro-name">원/달러</div><div class="skeleton" style="height:20px;width:50px;margin-top:4px"></div></div>
-      <div class="macro-card"><div class="macro-name">코스피</div><div class="skeleton" style="height:20px;width:50px;margin-top:4px"></div></div>
+      <div class="macro-card"><div class="macro-name">기준금리</div><div class="skeleton" style="height:20px;width:100%;"></div></div>
+      <div class="macro-card"><div class="macro-name">원/달러</div><div class="skeleton" style="height:20px;width:100%;"></div></div>
+      <div class="macro-card"><div class="macro-name">코스피</div><div class="skeleton" style="height:20px;width:100%;"></div></div>
     </div>
   </div>
 
-<div class="section-title">개인·외인·기관 수급</div>
-<div class="supply-container" style="display: flex; gap: 10px;">
-  <div class="supply-card" style="flex: 1;">
-    <div class="label">개인 순매수</div>
-    <div class="value" id="personalNet">---</div>
+  <div class="section">
+    <div class="section-title">개인·외인·기관 수급</div>
+    <div class="supply-grid" id="supply-grid">
+      <div class="supply-card"><div class="supply-label">개인</div><div class="supply-val">---</div></div>
+      <div class="supply-card"><div class="supply-label">외국인</div><div class="supply-val">---</div></div>
+      <div class="supply-card"><div class="supply-label">기관</div><div class="supply-val">---</div></div>
+    </div>
   </div>
-  <div class="supply-card" style="flex: 1;">
-    <div class="label">외국인 순매수</div>
-    <div class="value" id="foreignNet">---</div>
-  </div>
-  <div class="supply-card" style="flex: 1;">
-    <div class="label">기관 순매수</div>
-    <div class="value" id="instNet">---</div>
-  </div>
-</div>
 
-</div>
-
-  <div class="section" style="margin-top:12px;">
+  <div class="section">
     <div class="section-title">거래량 상위</div>
     <div class="stock-list" id="stock-list">
-      <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;border-radius:8px"></div></div>
+      <div class="stock-card"><div class="skeleton" style="width:100%;height:44px;"></div></div>
     </div>
   </div>
 
-  <div class="section" style="margin-top:12px;">
+  <div class="section">
     <div class="section-title">오늘의 경제 뉴스</div>
     <div class="news-list" id="news-list">
-      <div class="news-card"><div class="skeleton" style="width:100%;height:50px;border-radius:8px"></div></div>
+      <div class="news-card"><div class="skeleton" style="width:100%;height:50px;"></div></div>
     </div>
   </div>
 
@@ -175,48 +161,31 @@
 </div>
 
 <script>
-// ── 유틸리티: 문자열에서 숫자 추출 (컴마 제거 필수) ──
 function cleanNum(val) {
   if (val === undefined || val === null) return 0;
   if (typeof val === 'number') return val;
   return parseFloat(String(val).replace(/,/g, '')) || 0;
 }
 
-// ── API 호출 함수 ─────────────────
 async function fetchData(endpoint) {
   try {
     const res = await fetch(endpoint);
-    if (!res.ok) throw new Error('Network Error');
     return await res.json();
   } catch (e) {
-    console.error(`${endpoint} 로드 실패:`, e);
     return { success: false };
   }
 }
 
-// ── 시장 날씨 계산 ──────────────────
 function calcWeather(kospiChg, usdChg, foreignNet) {
   let score = 50;
   score += kospiChg > 0 ? Math.min(kospiChg * 4, 20) : Math.max(kospiChg * 4, -20);
-  score += usdChg < 0 ? 8 : usdChg > 5 ? -8 : 0;
+  score += usdChg < 0 ? 8 : -8;
   score += foreignNet > 1000 ? 10 : foreignNet < -1000 ? -10 : 0;
   score = Math.max(10, Math.min(90, Math.round(score)));
   
-  if (score >= 65) return { score, icon:'☀️', title:'대체로 맑음', desc:'시장 에너지 높음. 외인 매수세 우위, 공격적 포지션 고려 가능합니다.', color:'var(--green)', gradient:'linear-gradient(90deg,#15803d,#22c55e)' };
-  if (score >= 50) return { score, icon:'🌤️', title:'맑고 약간 흐림', desc:'긍정적이나 변동성 주의. 분할 매수 전략이 유효합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#d97706,#f59e0b)' };
-  if (score >= 35) return { score, icon:'⛅', title:'흐리고 불안정', desc:'방향성 불명확. 섣부른 진입보다 관망이 유리합니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#92400e,#d97706)' };
-  return { score, icon:'🌧️', title:'흐림 — 주의', desc:'하락 압력 우세. 현금 비중을 높이고 방어적 포지션을 권장합니다.', color:'var(--red)', gradient:'linear-gradient(90deg,#991b1b,#ef4444)' };
-}
-
-// ── 렌더링 함수들 ────────────────────
-function renderWeather(w) {
-  document.getElementById('weather-icon').textContent = w.icon;
-  document.getElementById('weather-title').textContent = w.title;
-  document.getElementById('weather-desc').textContent = w.desc;
-  const s = document.getElementById('weather-score');
-  s.textContent = w.score; s.style.color = w.color;
-  const f = document.getElementById('gauge-fill');
-  f.style.width = w.score+'%'; f.style.background = w.gradient;
+  if (score >= 65) return { score, icon:'☀️', title:'대체로 맑음', desc:'시장 에너지 높음. 외인 매수세 우위 장세입니다.', color:'var(--green)', gradient:'linear-gradient(90deg,#15803d,#22c55e)' };
+  if (score >= 45) return { score, icon:'🌤️', title:'맑고 약간 흐림', desc:'긍정적이나 변동성 주의. 관망과 대응이 필요한 시점입니다.', color:'var(--amber)', gradient:'linear-gradient(90deg,#d97706,#f59e0b)' };
+  return { score, icon:'🌧️', title:'흐림 — 주의', desc:'하락 압력 우세. 방어적 포지션을 권장합니다.', color:'var(--red)', gradient:'linear-gradient(90deg,#991b1b,#ef4444)' };
 }
 
 function renderMacro(data) {
@@ -234,92 +203,72 @@ function renderMacro(data) {
 }
 
 function renderSupply(data) {
-  const f = cleanNum(data.foreignNet), i = cleanNum(data.instNet);
-  const pct = v => Math.min(Math.abs(v)/5000*100,100);
-  const col = v => v>0?'var(--green)':'var(--red)';
+  if (!data.success) return;
+  const p = cleanNum(data.personalNet), f = cleanNum(data.foreignNet), i = cleanNum(data.instNet);
   const mock = data.isMock ? '<span class="mock-badge">추정</span>' : '';
+  
   document.getElementById('supply-grid').innerHTML = `
-    <div class="supply-card"><div class="supply-label">외국인 순매수${mock}</div><div class="supply-val ${f>0?'pos':'up'}">${f>0?'+':''}${f.toLocaleString()}억</div><div class="supply-bar-wrap"><div class="supply-bar" style="width:${pct(f)}%;background:${col(f)}"></div></div></div>
-    <div class="supply-card"><div class="supply-label">기관 순매수${mock}</div><div class="supply-val ${i>0?'pos':'up'}">${i>0?'+':''}${i.toLocaleString()}억</div><div class="supply-bar-wrap"><div class="supply-bar" style="width:${pct(i)}%;background:${col(i)}"></div></div></div>`;
+    <div class="supply-card"><div class="supply-label">개인${mock}</div><div class="supply-val ${p>0?'up':'down'}">${p>0?'+':''}${p.toLocaleString()}억</div></div>
+    <div class="supply-card"><div class="supply-label">외국인${mock}</div><div class="supply-val ${f>0?'up':'down'}">${f>0?'+':''}${f.toLocaleString()}억</div></div>
+    <div class="supply-card"><div class="supply-label">기관${mock}</div><div class="supply-val ${i>0?'up':'down'}">${i>0?'+':''}${i.toLocaleString()}억</div></div>`;
 }
 
 function renderStocks(data) {
   const items = data.stocks || [];
-  const mock = data.isMock ? '<span class="mock-badge">샘플</span>' : '';
   document.getElementById('stock-list').innerHTML = items.map(s => `
     <div class="stock-card">
-      <div class="stock-rank">${s.rank}</div>
-      <div class="stock-info"><div class="stock-name">${s.name}${mock}</div><div class="stock-reason">${s.reason}</div></div>
-      <div class="stock-right"><div class="stock-price">${s.price}</div><span class="stock-signal signal-${s.signal}">${s.signalText}</span></div>
+      <div class="stock-info">
+        <div class="stock-name">${s.name}</div>
+        <div class="stock-reason">${s.sector || '실시간 거래량 상위'}</div>
+      </div>
+      <div class="stock-right">
+        <div class="stock-price">${s.price}</div>
+        <div class="stock-reason ${s.trend==='up'?'up':'down'}">${s.change}</div>
+      </div>
     </div>`).join('');
 }
 
 function renderNews(data) {
   const items = data.news || [];
-  document.getElementById('news-list').innerHTML = items.map(n => {
-    const kw = ['상승','급등','호재','매수','강세'].some(k=>n.title.includes(k)) ? 'pos' : 
-               ['하락','급락','악재','매도','약세'].some(k=>n.title.includes(k)) ? 'neg' : 'neu';
-    const colors = {pos:'var(--green)', neg:'var(--red)', neu:'var(--muted)'};
-    return `
-    <a class="news-card" href="${n.url}" target="_blank" rel="noopener">
-      <div class="news-dot" style="background:${colors[kw]}"></div>
+  document.getElementById('news-list').innerHTML = items.map(n => `
+    <a class="news-card" href="${n.url}" target="_blank">
       <div class="news-body">
         <div class="news-title">${n.title}</div>
-        <div class="news-meta">${n.source} · 뉴스</div>
+        <div class="news-meta">${n.source}</div>
       </div>
-    </a>`;
-  }).join('');
+    </a>`).join('');
 }
 
-function generateBriefing(supply, market) {
-  const fNet = cleanNum(supply.foreignNet);
-  const kChg = cleanNum(market?.kospi?.chg);
-  let msg = `외국인 ${fNet > 0 ? '순매수' : '순매도'} ${Math.abs(fNet).toLocaleString()}억. `;
-  if (kChg > 10) msg += '코스피 강세 흐름. 수급 개선이 뚜렷합니다.';
-  else if (fNet < -2000) msg += '외인 대량 매도 주의. 보수적 접근이 필요합니다.';
-  else msg += '시장 관망세 우세. 업종별 차별화 장세가 예상됩니다.';
-  return msg;
-}
-
-// ── 메인 실행 로직 ────────────────────
 async function loadAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
   
-  try {
-    const [market, supply, stocks, news] = await Promise.all([
-      fetchData('/api/market'),
-      fetchData('/api/supply'),
-      fetchData('/api/stocks'),
-      fetchData('/api/news')
-    ]);https://github.com/leh7477/stock-app/blob/main/index.html
+  const [market, supply, stocks, news] = await Promise.all([
+    fetchData('/api/market'), fetchData('/api/supply'), fetchData('/api/stocks'), fetchData('/api/news')
+  ]);
 
-    if (market.success) {
-      const w = calcWeather(cleanNum(market.kospi.chg), cleanNum(market.usd.chg), cleanNum(supply.foreignNet));
-      renderWeather(w);
-      renderMacro(market);
-      document.getElementById('briefing-text').textContent = generateBriefing(supply, market);
-    }
-    
-    if (supply.success) renderSupply(supply);
-    if (stocks.success) renderStocks(stocks);
-    if (news.success) renderNews(news);
-
-    const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-    document.getElementById('last-update').textContent = `${t} 업데이트`;
-    document.getElementById('update-time').textContent = `마지막 업데이트: ${t}`;
-
-  } catch(e) {
-    document.getElementById('briefing-text').textContent = '데이터 연결에 실패했습니다.';
-  } finally {
-    setTimeout(() => btn.classList.remove('spinning'), 600);
+  if (market.success) {
+    renderWeather(calcWeather(cleanNum(market.kospi.chg), cleanNum(market.usd.chg), cleanNum(supply.foreignNet)));
+    renderMacro(market);
+    document.getElementById('briefing-text').textContent = generateBriefing(supply, market);
   }
+  if (supply.success) renderSupply(supply);
+  if (stocks.success) renderStocks(stocks);
+  if (news.success) renderNews(news);
+
+  const t = new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('last-update').textContent = `${t} 업데이트`;
+  document.getElementById('update-time').textContent = `마지막 업데이트: ${t}`;
+  setTimeout(() => btn.classList.remove('spinning'), 600);
 }
 
-// 초기 실행
-setInterval(() => {
-        loadAll();
-    }, 30000);
+function generateBriefing(supply, market) {
+  const fNet = cleanNum(supply.foreignNet);
+  return `현재 외국인 ${fNet > 0 ? '순매수' : '순매도'} ${Math.abs(fNet).toLocaleString()}억. 시장 관망세 속 업종별 차별화가 진행 중입니다.`;
+}
+
+loadAll();
+setInterval(loadAll, 65000);
 </script>
 </body>
 </html>
