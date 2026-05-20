@@ -1,25 +1,41 @@
+// 서버가 켜져 있는 동안 토큰을 저장할 변수 (메모리 캐싱)
+let cachedToken = null;
+let tokenExpireTime = 0;
+
 export default async function handler(req, res) {
   try {
-    const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        grant_type: "client_credentials",
-        appkey: process.env.KIS_APP_KEY.trim(),
-        appsecret: process.env.KIS_APP_SECRET.trim()
-      }),
-    });
-    const authData = await authRes.json();
+    const now = Date.now();
 
-    // 토큰 못 받으면 여기서 바로 컷 (0 안 보냄)
-    if (!authData.access_token) {
-      return res.status(500).json({ success: false, msg: "토큰 발급 실패" });
+    // 1. 토큰이 없거나 만료되었다면 (유효기간 24시간 중 여유있게 20시간 설정) 새로 발급
+    if (!cachedToken || now > tokenExpireTime) {
+      const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          grant_type: "client_credentials",
+          appkey: process.env.KIS_APP_KEY.trim(),
+          appsecret: process.env.KIS_APP_SECRET.trim()
+        }),
+      });
+      const authData = await authRes.json();
+
+      if (authData.access_token) {
+        cachedToken = authData.access_token;
+        // 현재 시간 + 20시간 뒤를 만료 시간으로 설정 (한투 토큰은 보통 24시간 유효)
+        tokenExpireTime = now + (20 * 60 * 60 * 1000);
+        console.log("새 토큰 발급 완료");
+      } else {
+        return res.status(500).json({ success: false, msg: "토큰 발급 실패" });
+      }
+    } else {
+      console.log("기존 토큰 재사용 중");
     }
 
+    // 2. 저장된 토큰(cachedToken)으로 수급 데이터 호출
     const supplyRes = await fetch("https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor", {
       headers: {
         "content-type": "application/json",
-        "authorization": `Bearer ${authData.access_token}`,
+        "authorization": `Bearer ${cachedToken}`,
         "appkey": process.env.KIS_APP_KEY.trim(),
         "appsecret": process.env.KIS_APP_SECRET.trim(),
         "tr_id": "FHKST01010900",
@@ -29,7 +45,6 @@ export default async function handler(req, res) {
 
     const data = await supplyRes.json();
     
-    // 데이터가 있을 때만 숫자를 보냄
     if (data.output && data.output.length > 0) {
       const v = data.output[0];
       res.status(200).json({
