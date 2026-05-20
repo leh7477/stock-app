@@ -91,20 +91,20 @@ export default async function handler(req, res) {
       // 장 마감 후: 일별 투자자 매매동향
       console.log('장 마감 후 일별 수급 조회');
       supplyRes = await fetch(
-        `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice?fid_cond_mrkt_div_code=J&fid_input_iscd=0001&fid_input_date_1=${today}&fid_input_date_2=${today}&fid_period_div_code=D&fid_org_adj_prc=0`,
+        `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=0001`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
             'appkey': process.env.KIS_APP_KEY,
             'appsecret': process.env.KIS_APP_SECRET,
-            'tr_id': 'FHKST03010100',
+            'tr_id': 'FHKST01010900',
             'Content-Type': 'application/json'
           }
         }
       );
       const supplyData = await supplyRes.json();
       console.log('마감 수급:', JSON.stringify(supplyData));
-      const output = supplyData?.output2?.[0];
+      const output = supplyData?.output;
       foreignNet = parseInt(output?.frgn_ntby_qty || 0);
       instNet = parseInt(output?.orgn_ntby_qty || 0);
       personalNet = parseInt(output?.indv_ntby_qty || 0);
