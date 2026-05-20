@@ -28,6 +28,26 @@ async function getKisToken() {
   return token;
 }
 
+// 자주 쓰는 종목 코드 매핑
+const STOCK_MAP = {
+  '삼성전자': '005930', 'sk하이닉스': '000660', 'sk하이닉스': '000660',
+  '하이닉스': '000660', 'lg에너지솔루션': '373220', 'lg에너지': '373220',
+  '삼성바이오로직스': '207940', '삼성바이오': '207940',
+  '현대차': '005380', '현대자동차': '005380',
+  '셀트리온': '068270', '기아': '000270', '기아차': '000270',
+  'kb금융': '105560', '신한지주': '055550', '하나금융': '086790',
+  '포스코': '005490', 'posco': '005490', 'posco홀딩스': '005490',
+  '카카오': '035720', '네이버': '035420', 'naver': '035420',
+  'lg화학': '051910', 'sk이노베이션': '096770', 'sk이노': '096770',
+  '현대모비스': '012330', '삼성물산': '028260', 'lg전자': '066570',
+  '삼성에스디에스': '018260', '삼성sds': '018260',
+  'sk텔레콤': '017670', 'kt': '030200', 'lg유플러스': '032640',
+  '두산에너빌리티': '034020', '한국전력': '015760', '한전': '015760',
+  '크래프톤': '259960', '엔씨소프트': '036570', '엔씨': '036570',
+  '카카오뱅크': '323410', '카카오페이': '377300',
+  '현대제철': '004020', '고려아연': '010130',
+};
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -38,24 +58,40 @@ export default async function handler(req, res) {
   try {
     const token = await getKisToken();
 
-    // 종목 검색
-    const searchRes = await fetch(
-      `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/search-stock-info?PDNO=${encodeURIComponent(query)}&PRDT_TYPE_CD=300`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'appkey': process.env.KIS_APP_KEY,
-          'appsecret': process.env.KIS_APP_SECRET,
-          'tr_id': 'CTPF1002R',
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    const searchData = await searchRes.json();
-    const code = searchData?.output?.shtn_pdno || query;
-    const name = searchData?.output?.prdt_abrv_name || query;
+    // 종목코드 찾기 (숫자면 바로 사용, 아니면 매핑 테이블 조회)
+    const isCode = /^\d{6}$/.test(query);
+    let code = isCode ? query : (STOCK_MAP[query.toLowerCase()] || STOCK_MAP[query] || null);
+    let name = query;
 
-    // 현재가 + 상세 시세
+    // 매핑에 없으면 KIS 검색 API 시도
+    if (!code) {
+      try {
+        const searchRes = await fetch(
+          `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/search-stock-info?PDNO=${encodeURIComponent(query)}&PRDT_TYPE_CD=300`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'appkey': process.env.KIS_APP_KEY,
+              'appsecret': process.env.KIS_APP_SECRET,
+              'tr_id': 'CTPF1002R',
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        const searchData = await searchRes.json();
+        console.log('검색 응답:', JSON.stringify(searchData).slice(0, 300));
+        if (searchData?.output?.shtn_pdno) {
+          code = searchData.output.shtn_pdno;
+          name = searchData.output.prdt_abrv_name || query;
+        }
+      } catch(e) { console.error('검색 오류:', e.message); }
+    }
+
+    if (!code) {
+      return res.status(200).json({ success: false, error: '종목을 찾을 수 없습니다.' });
+    }
+
+    // 현재가 조회
     const priceRes = await fetch(
       `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`,
       {
@@ -70,6 +106,7 @@ export default async function handler(req, res) {
     );
     const priceData = await priceRes.json();
     const o = priceData?.output;
+    if (o?.prdt_abrv_name) name = o.prdt_abrv_name;
 
     // 투자자 동향
     const investRes = await fetch(
