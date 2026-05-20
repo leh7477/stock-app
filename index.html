@@ -86,6 +86,14 @@
     <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">↻</button>
   </div>
 
+<div class="section" style="padding-top:12px;">
+    <div style="display:flex;gap:8px;">
+      <input id="search-input" type="text" placeholder="종목명 또는 코드 검색" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;" />
+      <button onclick="searchStock()" style="background:var(--green);border:none;border-radius:10px;padding:10px 16px;color:#000;font-size:14px;font-weight:600;cursor:pointer;">검색</button>
+    </div>
+    <div id="search-result" style="display:none;margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;"></div>
+  </div>
+  
   <div class="section">
     <div class="section-title">시장 날씨</div>
     <div class="weather-card">
@@ -295,6 +303,57 @@ async function loadAll() {
 
 loadAll();
 setInterval(loadAll, 5 * 60 * 1000);
+
+async function searchStock() {
+  const query = document.getElementById('search-input').value.trim();
+  if (!query) return;
+  const resultEl = document.getElementById('search-result');
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">검색 중...</div>';
+
+  try {
+    const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    if (!data.success || !data.stock) {
+      resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">검색 결과가 없습니다.</div>';
+      return;
+    }
+    const s = data.stock;
+    const chgColor = parseFloat(s.chgRate) >= 0 ? 'var(--green)' : 'var(--red)';
+    const chgSign = parseFloat(s.chgRate) >= 0 ? '▲' : '▼';
+    resultEl.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:15px;font-weight:600;">${s.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${s.code}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:16px;font-weight:600;">${s.price}원</div>
+          <div style="font-size:12px;color:${chgColor};margin-top:2px;">${chgSign} ${Math.abs(s.chgRate)}%</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--muted);">외국인</div>
+          <div style="font-size:13px;font-weight:600;color:${s.foreignNet>=0?'var(--green)':'var(--red)'};">${s.foreignNet>=0?'+':''}${s.foreignNet}주</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--muted);">거래량</div>
+          <div style="font-size:13px;font-weight:600;">${s.volume}</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:10px;color:var(--muted);">시가총액</div>
+          <div style="font-size:13px;font-weight:600;">${s.marketCap}</div>
+        </div>
+      </div>`;
+  } catch(e) {
+    resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">오류가 발생했습니다.</div>';
+  }
+}
+
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') searchStock();
+});
 </script>
 </body>
 </html>
