@@ -11,6 +11,16 @@ export default async function handler(req, res) {
     });
     const authData = await authRes.json();
 
+    // 토큰 발급 제한(1분 1회)에 걸린 경우
+    if (!authData.access_token) {
+      return res.status(200).json({ 
+        success: true, 
+        personalNet: "대기", 
+        foreignNet: "대기", 
+        instNet: "대기" 
+      });
+    }
+
     const supplyRes = await fetch("https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor", {
       headers: {
         "content-type": "application/json",
@@ -26,17 +36,17 @@ export default async function handler(req, res) {
     
     if (data.output && data.output.length > 0) {
       const v = data.output[0];
-      // 한투 API 금액 단위는 보통 '백만원'입니다. 이를 '억'으로 환산 (/100)
+      // 숫자로 변환이 확실히 되도록 Number() 처리 및 억 단위 환산
       res.status(200).json({
         success: true,
-        personalNet: Math.round(Number(v.pru_ntby_amt) / 100), // 개인
-        foreignNet: Math.round(Number(v.frgn_ntby_amt) / 100),  // 외인
-        instNet: Math.round(Number(v.orgn_ntby_amt) / 100)      // 기관
+        personalNet: Math.round(Number(v.pru_ntby_amt) / 100) || 0,
+        foreignNet: Math.round(Number(v.frgn_ntby_amt) / 100) || 0,
+        instNet: Math.round(Number(v.orgn_ntby_amt) / 100) || 0
       });
     } else {
-      res.status(200).json({ success: true, personalNet: 0, foreignNet: 0, instNet: 0 });
+      res.status(200).json({ success: true, personalNet: "점검", foreignNet: "점검", instNet: "점검" });
     }
   } catch (e) {
-    res.status(200).json({ success: true, personalNet: 0, foreignNet: 0, instNet: 0 });
+    res.status(200).json({ success: false, personalNet: "에러", foreignNet: "에러", instNet: "에러" });
   }
 }
