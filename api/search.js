@@ -1,7 +1,6 @@
 async function getKisToken() {
   const redisUrl = process.env.KV_REST_API_URL;
   const redisToken = process.env.KV_REST_API_TOKEN;
-
   const getRes = await fetch(`${redisUrl}/get/kis_token`, {
     headers: { Authorization: `Bearer ${redisToken}` }
   });
@@ -26,7 +25,6 @@ async function getKisToken() {
     headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ value: token, ex: 82800 })
   });
-
   return token;
 }
 
@@ -35,7 +33,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   const query = req.query?.query || '';
-  if (!query) return res.status(200).json({ success: false, error: '검색어 없음' });
+  if (!query) return res.status(200).json({ success: false });
 
   try {
     const token = await getKisToken();
@@ -54,12 +52,10 @@ export default async function handler(req, res) {
       }
     );
     const searchData = await searchRes.json();
-    console.log('검색 응답:', JSON.stringify(searchData).slice(0, 300));
-
     const code = searchData?.output?.shtn_pdno || query;
     const name = searchData?.output?.prdt_abrv_name || query;
 
-    // 현재가 조회
+    // 현재가 + 상세 시세
     const priceRes = await fetch(
       `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`,
       {
@@ -73,25 +69,59 @@ export default async function handler(req, res) {
       }
     );
     const priceData = await priceRes.json();
-    console.log('시세 응답:', JSON.stringify(priceData).slice(0, 300));
-    const output = priceData?.output;
+    const o = priceData?.output;
 
-    const price = parseInt(output?.stck_prpr || 0);
-    const chgRate = parseFloat(output?.prdy_ctrt || 0);
-    const volume = parseInt(output?.acml_vol || 0);
-    const foreignNet = parseInt(output?.frgn_ntby_qty || 0);
-    const marketCap = parseInt(output?.hts_avls || 0);
+    // 투자자 동향
+    const investRes = await fetch(
+      `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'appkey': process.env.KIS_APP_KEY,
+          'appsecret': process.env.KIS_APP_SECRET,
+          'tr_id': 'FHKST01010900',
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    const investData = await investRes.json();
+    const inv = investData?.output;
+
+    const price = parseInt(o?.stck_prpr || 0);
+    const chgRate = parseFloat(o?.prdy_ctrt || 0);
+    const chgAmt = parseInt(o?.prdy_vrss || 0);
+    const open = parseInt(o?.stck_oprc || 0);
+    const close = parseInt(o?.stck_clpr || 0);
+    const high = parseInt(o?.stck_hgpr || 0);
+    const low = parseInt(o?.stck_lwpr || 0);
+    const high52 = parseInt(o?.stck_dryy_hgpr || 0);
+    const low52 = parseInt(o?.stck_dryy_lwpr || 0);
+    const volume = parseInt(o?.acml_vol || 0);
+    const tradingValue = parseInt(o?.acml_tr_pbmn || 0);
+    const marketCap = parseInt(o?.hts_avls || 0);
+    const foreignNet = parseInt(inv?.frgn_ntby_qty || 0);
+    const instNet = parseInt(inv?.orgn_ntby_qty || 0);
+    const personalNet = parseInt(inv?.indv_ntby_qty || 0);
 
     res.status(200).json({
       success: true,
       stock: {
-        name,
-        code,
+        name, code,
         price: price.toLocaleString(),
         chgRate: chgRate.toFixed(2),
-        volume: (volume/10000).toFixed(0) + '만주',
-        foreignNet,
-        marketCap: (marketCap/100000000).toFixed(0) + '억'
+        chgAmt: chgAmt.toLocaleString(),
+        open: open.toLocaleString(),
+        close: close.toLocaleString(),
+        high: high.toLocaleString(),
+        low: low.toLocaleString(),
+        high52: high52.toLocaleString(),
+        low52: low52.toLocaleString(),
+        volume: volume.toLocaleString(),
+        tradingValue: (tradingValue/100000000).toFixed(0) + '억',
+        marketCap: (marketCap/100000000).toFixed(0) + '억',
+        foreignNet: foreignNet.toLocaleString(),
+        instNet: instNet.toLocaleString(),
+        personalNet: personalNet.toLocaleString()
       }
     });
 
