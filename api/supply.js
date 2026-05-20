@@ -1,4 +1,3 @@
-// 서버 메모리에 토큰 저장 (알림톡 최소화)
 let cachedToken = "";
 let tokenExpireTime = 0;
 
@@ -6,7 +5,7 @@ export default async function handler(req, res) {
   try {
     const now = Date.now();
 
-    // 1. 토큰 갱신 (만료 1시간 전까지만 재사용)
+    // 1. 토큰 재사용 로직
     if (!cachedToken || now > (tokenExpireTime - 3600000)) {
       const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
         method: "POST",
@@ -22,9 +21,10 @@ export default async function handler(req, res) {
       if (authData.access_token) {
         cachedToken = authData.access_token;
         tokenExpireTime = now + (authData.expires_in * 1000);
+        console.log("✅ 새 토큰 발급 성공");
       } else {
-        // 토큰 발급 실패 시 0이 아니라 실패 사유를 보냄
-        return res.status(500).json({ success: false, msg: "TOKEN_FAIL", detail: authData });
+        console.error("❌ 토큰 발급 실패:", authData);
+        return res.status(500).json({ success: false, msg: "TOKEN_ERROR", detail: authData });
       }
     }
 
@@ -42,21 +42,22 @@ export default async function handler(req, res) {
 
     const data = await supplyRes.json();
     
+    // 3. 한투 응답 데이터 검증 (핵심!)
     if (data.output && data.output.length > 0) {
       const v = data.output[0];
-      // 숫자가 없으면 0이 아니라 null로 보냄
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         personalNet: v.pru_ntby_amt ? Math.round(Number(v.pru_ntby_amt) / 100) : null,
         foreignNet: v.frgn_ntby_amt ? Math.round(Number(v.frgn_ntby_amt) / 100) : null,
         instNet: v.orgn_ntby_amt ? Math.round(Number(v.orgn_ntby_amt) / 100) : null
       });
     } else {
-      // 데이터가 없으면 에러로 처리
-      res.status(500).json({ success: false, msg: "NO_DATA", raw: data });
+      // 여기가 500 에러의 주범일 가능성이 큼
+      console.error("❌ 한투 데이터 응답 이상:", data);
+      return res.status(500).json({ success: false, msg: "API_RESPONSE_ERROR", raw: data });
     }
   } catch (e) {
-    // 에러 발생 시 0을 주지 않고 에러 내용을 보냄
-    res.status(500).json({ success: false, msg: "SERVER_ERROR", error: e.message });
+    console.error("❌ 서버 내부 에러:", e.message);
+    return res.status(500).json({ success: false, msg: "SERVER_CRASH", error: e.message });
   }
 }
