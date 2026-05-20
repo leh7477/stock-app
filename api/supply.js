@@ -1,13 +1,13 @@
-// 서버가 켜져 있는 동안 토큰을 저장할 변수 (메모리 캐싱)
-let cachedToken = null;
+// 서버 메모리에 토큰 저장 (알림톡 최소화)
+let cachedToken = "";
 let tokenExpireTime = 0;
 
 export default async function handler(req, res) {
   try {
     const now = Date.now();
 
-    // 1. 토큰이 없거나 만료되었다면 (유효기간 24시간 중 여유있게 20시간 설정) 새로 발급
-    if (!cachedToken || now > tokenExpireTime) {
+    // 1. 토큰 갱신 (만료 1시간 전까지만 재사용)
+    if (!cachedToken || now > (tokenExpireTime - 3600000)) {
       const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -18,20 +18,17 @@ export default async function handler(req, res) {
         }),
       });
       const authData = await authRes.json();
-
+      
       if (authData.access_token) {
         cachedToken = authData.access_token;
-        // 현재 시간 + 20시간 뒤를 만료 시간으로 설정 (한투 토큰은 보통 24시간 유효)
-        tokenExpireTime = now + (20 * 60 * 60 * 1000);
-        console.log("새 토큰 발급 완료");
+        tokenExpireTime = now + (authData.expires_in * 1000);
       } else {
-        return res.status(500).json({ success: false, msg: "토큰 발급 실패" });
+        // 토큰 발급 실패 시 0이 아니라 실패 사유를 보냄
+        return res.status(500).json({ success: false, msg: "TOKEN_FAIL", detail: authData });
       }
-    } else {
-      console.log("기존 토큰 재사용 중");
     }
 
-    // 2. 저장된 토큰(cachedToken)으로 수급 데이터 호출
+    // 2. 수급 데이터 호출
     const supplyRes = await fetch("https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor", {
       headers: {
         "content-type": "application/json",
@@ -47,16 +44,19 @@ export default async function handler(req, res) {
     
     if (data.output && data.output.length > 0) {
       const v = data.output[0];
+      // 숫자가 없으면 0이 아니라 null로 보냄
       res.status(200).json({
         success: true,
-        personalNet: Math.round(Number(v.pru_ntby_amt) / 100),
-        foreignNet: Math.round(Number(v.frgn_ntby_amt) / 100),
-        instNet: Math.round(Number(v.orgn_ntby_amt) / 100)
+        personalNet: v.pru_ntby_amt ? Math.round(Number(v.pru_ntby_amt) / 100) : null,
+        foreignNet: v.frgn_ntby_amt ? Math.round(Number(v.frgn_ntby_amt) / 100) : null,
+        instNet: v.orgn_ntby_amt ? Math.round(Number(v.orgn_ntby_amt) / 100) : null
       });
     } else {
-      res.status(500).json({ success: false, msg: "데이터 없음" });
+      // 데이터가 없으면 에러로 처리
+      res.status(500).json({ success: false, msg: "NO_DATA", raw: data });
     }
   } catch (e) {
-    res.status(500).json({ success: false, msg: "서버 에러" });
+    // 에러 발생 시 0을 주지 않고 에러 내용을 보냄
+    res.status(500).json({ success: false, msg: "SERVER_ERROR", error: e.message });
   }
 }
