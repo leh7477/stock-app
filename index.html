@@ -282,7 +282,7 @@ async function loadAll() {
       fetchData('/api/supply'),
       fetchData('/api/stocks'),
       fetchData('/api/news')
-    ]);
+    ]);https://github.com/leh7477/stock-app/blob/main/index.html
 
     if (market.success) {
       const w = calcWeather(cleanNum(market.kospi.chg), cleanNum(market.usd.chg), cleanNum(supply.foreignNet));
@@ -307,9 +307,9 @@ async function loadAll() {
 }
 
 // 초기 실행
-loadAll();
-// 5분마다 자동 갱신
-setInterval(loadAll, 5 * 60 * 1000);
+setInterval(() => {
+        loadAll();
+    }, 30000);
 </script>
 </body>
 </html>
