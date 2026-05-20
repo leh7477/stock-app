@@ -1,3 +1,20 @@
+function parseNaverDate(pubDate) {
+  try {
+    // "Wed, 20 May 2026 11:23:00 +0900" 형식 파싱
+    const d = new Date(pubDate);
+    if (isNaN(d.getTime())) throw new Error('invalid');
+    // 한국 시간 기준으로 보정
+    const now = new Date();
+    const diff = Math.floor((now - d) / 60000);
+    if (diff < 1) return '방금 전';
+    if (diff < 60) return `${diff}분 전`;
+    if (diff < 1440) return `${Math.floor(diff/60)}시간 전`;
+    return `${Math.floor(diff/1440)}일 전`;
+  } catch(e) {
+    return '최근';
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
@@ -14,40 +31,26 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
+    console.log('뉴스 첫번째 pubDate:', data.items?.[0]?.pubDate);
 
-    const news = data.items.map(item => {
-      // pubDate 예시: "Wed, 20 May 2026 11:23:00 +0900"
-      const pubDate = item.pubDate;
-      let timeStr = '방금 전';
-      try {
-        const d = new Date(pubDate);
-        const now = new Date();
-        const diff = Math.floor((now - d) / 60000);
-        if (diff < 1) timeStr = '방금 전';
-        else if (diff < 60) timeStr = `${diff}분 전`;
-        else if (diff < 1440) timeStr = `${Math.floor(diff/60)}시간 전`;
-        else timeStr = `${Math.floor(diff/1440)}일 전`;
-      } catch(e) {}
-
-      return {
-        title: item.title
-          .replace(/<[^>]+>/g, '')
-          .replace(/&quot;/g, '"')
-          .replace(/&amp;/g, '&')
-          .replace(/&#39;/g, "'")
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>'),
-        source: item.originallink?.includes('mk.co.kr') ? '매일경제' :
-                item.originallink?.includes('hankyung') ? '한국경제' :
-                item.originallink?.includes('chosun') ? '조선비즈' :
-                item.originallink?.includes('yna.co.kr') ? '연합뉴스' :
-                item.originallink?.includes('newsis') ? '뉴시스' :
-                item.originallink?.includes('edaily') ? '이데일리' :
-                item.originallink?.includes('mt.co.kr') ? '머니투데이' : '경제뉴스',
-        time: timeStr,
-        url: item.originallink || item.link
-      };
-    });
+    const news = data.items.map(item => ({
+      title: item.title
+        .replace(/<[^>]+>/g, '')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>'),
+      source: item.originallink?.includes('mk.co.kr') ? '매일경제' :
+              item.originallink?.includes('hankyung') ? '한국경제' :
+              item.originallink?.includes('chosun') ? '조선비즈' :
+              item.originallink?.includes('yna.co.kr') ? '연합뉴스' :
+              item.originallink?.includes('newsis') ? '뉴시스' :
+              item.originallink?.includes('edaily') ? '이데일리' :
+              item.originallink?.includes('mt.co.kr') ? '머니투데이' : '경제뉴스',
+      time: parseNaverDate(item.pubDate),
+      url: item.originallink || item.link
+    }));
 
     res.status(200).json({ success: true, news });
   } catch (error) {
