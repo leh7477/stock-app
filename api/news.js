@@ -22,7 +22,8 @@ export default async function handler(req, res) {
 
   try {
     const query = encodeURIComponent('코스피 외인 기관 주식 증권');
-    const url = `https://openapi.naver.com/v1/search/news.json?query=${query}&display=8&sort=date`;
+    const timestamp = Date.now();
+    const url = `https://openapi.naver.com/v1/search/news.json?query=${query}&display=8&sort=date&start=1&_t=${timestamp}`;
 
     const response = await fetch(url, {
       headers: {
