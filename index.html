@@ -309,45 +309,78 @@ async function searchStock() {
   if (!query) return;
   const resultEl = document.getElementById('search-result');
   resultEl.style.display = 'block';
-  resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">검색 중...</div>';
+  resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">검색 중...</div>';
 
   try {
     const res = await fetch(`/api/search?query=${encodeURIComponent(query)}`);
     const data = await res.json();
     if (!data.success || !data.stock) {
-      resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">검색 결과가 없습니다.</div>';
+      resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">검색 결과가 없습니다.</div>';
       return;
     }
     const s = data.stock;
-    const chgColor = parseFloat(s.chgRate) >= 0 ? 'var(--green)' : 'var(--red)';
-    const chgSign = parseFloat(s.chgRate) >= 0 ? '▲' : '▼';
+    const isUp = parseFloat(s.chgRate) >= 0;
+    const chgColor = isUp ? 'var(--green)' : 'var(--red)';
+    const chgSign = isUp ? '▲' : '▼';
+
     resultEl.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
         <div>
-          <div style="font-size:15px;font-weight:600;">${s.name}</div>
+          <div style="font-size:16px;font-weight:600;">${s.name}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px;">${s.code}</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:16px;font-weight:600;">${s.price}원</div>
-          <div style="font-size:12px;color:${chgColor};margin-top:2px;">${chgSign} ${Math.abs(s.chgRate)}%</div>
+          <div style="font-size:20px;font-weight:600;color:${chgColor};">${s.price}원</div>
+          <div style="font-size:12px;color:${chgColor};margin-top:2px;">${chgSign} ${Math.abs(s.chgRate)}% (${s.chgAmt}원)</div>
         </div>
       </div>
-      <div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--muted);">외국인</div>
-          <div style="font-size:13px;font-weight:600;color:${s.foreignNet>=0?'var(--green)':'var(--red)'};">${s.foreignNet>=0?'+':''}${s.foreignNet}주</div>
+
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:500;">오늘 시세</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">시작가</span><span style="font-size:12px;font-weight:500;">${s.open}원</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">종가</span><span style="font-size:12px;font-weight:500;">${s.close}원</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">최고가</span><span style="font-size:12px;font-weight:500;color:var(--red);">${s.high}원</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">최저가</span><span style="font-size:12px;font-weight:500;color:var(--blue);">${s.low}원</span></div>
         </div>
-        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--muted);">거래량</div>
-          <div style="font-size:13px;font-weight:600;">${s.volume}</div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:500;">52주 범위</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">최고가</span><span style="font-size:12px;font-weight:500;color:var(--red);">${s.high52}원</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">최저가</span><span style="font-size:12px;font-weight:500;color:var(--blue);">${s.low52}원</span></div>
         </div>
-        <div style="background:var(--bg3);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-size:10px;color:var(--muted);">시가총액</div>
-          <div style="font-size:13px;font-weight:600;">${s.marketCap}</div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-bottom:10px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:500;">거래 정보</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">거래량</span><span style="font-size:12px;font-weight:500;">${s.volume}주</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">거래대금</span><span style="font-size:12px;font-weight:500;">${s.tradingValue}</span></div>
+          <div style="display:flex;justify-content:space-between;"><span style="font-size:11px;color:var(--muted);">시가총액</span><span style="font-size:12px;font-weight:500;">${s.marketCap}</span></div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:500;">투자자 동향</div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;">개인</span>
+            <span style="font-size:13px;font-weight:600;color:${parseInt(s.personalNet.replace(/,/g,''))>=0?'var(--green)':'var(--red)'};">${parseInt(s.personalNet.replace(/,/g,''))>=0?'+':''}${s.personalNet}주</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;">외국인</span>
+            <span style="font-size:13px;font-weight:600;color:${parseInt(s.foreignNet.replace(/,/g,''))>=0?'var(--green)':'var(--red)'};">${parseInt(s.foreignNet.replace(/,/g,''))>=0?'+':''}${s.foreignNet}주</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;">기관</span>
+            <span style="font-size:13px;font-weight:600;color:${parseInt(s.instNet.replace(/,/g,''))>=0?'var(--green)':'var(--red)'};">${parseInt(s.instNet.replace(/,/g,''))>=0?'+':''}${s.instNet}주</span>
+          </div>
         </div>
       </div>`;
   } catch(e) {
-    resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;">오류가 발생했습니다.</div>';
+    resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">오류가 발생했습니다.</div>';
   }
 }
 
