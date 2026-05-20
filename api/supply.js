@@ -1,53 +1,59 @@
 export default async function handler(req, res) {
-  // 캐시 방지
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
   try {
-    // 1. KIS 접근 토큰 발급 (수급 데이터를 가져오기 위한 통행증)
+    // 1. 토큰 발급 - 실전투자 서버 규격에 맞게 헤더 보강
     const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
       method: "POST",
+      headers: { 
+        "Content-Type": "application/json; charset=UTF-8" 
+      },
       body: JSON.stringify({
         grant_type: "client_credentials",
-        appkey: process.env.KIS_APP_KEY,
-        appsecret: process.env.KIS_APP_SECRET,
+        appkey: process.env.KIS_APP_KEY.trim(), // 앞뒤 공백 강제 제거
+        appsecret: process.env.KIS_APP_SECRET.trim()
       }),
     });
+
     const authData = await authRes.json();
-    const token = authData.access_token;
 
-    if (!token) throw new Error("KIS 토큰 발급 실패. 앱키와 비밀키를 확인하세요.");
+    if (!authData.access_token) {
+      console.error("한투 서버 거절 사유:", authData);
+      return res.status(401).json({ 
+        success: false, 
+        msg: "한투 서버가 토큰 발급을 거절함",
+        reason: authData.error_description 
+      });
+    }
 
-    // 2. 투자자별 매매동향 API 호출 (코스피 기준)
-    // [항목코드] 0001: 코스피, 1001: 코스닥
+    // 2. 수급 데이터 호출
     const supplyRes = await fetch("https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor", {
+      method: "GET",
       headers: {
-        "Content-Type": "application/json",
-        "authorization": `Bearer ${token}`,
-        "appkey": process.env.KIS_APP_KEY,
-        "appsecret": process.env.KIS_APP_SECRET,
-        "tr_id": "FHKST01010900", // 투자자별 매매동향 TR ID
+        "content-type": "application/json; charset=utf-8",
+        "authorization": `Bearer ${authData.access_token}`,
+        "appkey": process.env.KIS_APP_KEY.trim(),
+        "appsecret": process.env.KIS_APP_SECRET.trim(),
+        "tr_id": "FHKST01010900", // 투자자별 매매동향
+        "custtype": "P" // 개인 고객 설정
       }
     });
 
     const supplyData = await supplyRes.json();
     
-    // 3. 데이터 파싱 (단위: 억 원으로 변환)
-    // output[0]은 현재 시점의 데이터를 담고 있습니다.
-    const foreignNet = Math.round(parseInt(supplyData.output[0].fore_ntby_qty) / 100); 
-    const instNet = Math.round(parseInt(supplyData.output[0].orgn_ntby_qty) / 100);
-
-    res.status(200).json({
-      success: true,
-      foreignNet: foreignNet, // 외국인 순매수합계
-      instNet: instNet,      // 기관 순매수합계
-      isMock: false          // 이제 진짜 데이터이므로 false
-    });
+    if (supplyData.output && supplyData.output.length > 0) {
+      const data = supplyData.output[0];
+      res.status(200).json({
+        success: true,
+        foreignNet: Math.round(parseInt(data.fore_ntby_qty) / 100), // 억 단위
+        instNet: Math.round(parseInt(data.orgn_ntby_qty) / 100),
+        isMock: false
+      });
+    } else {
+      throw new Error("데이터 응답 형식이 다릅니다.");
+    }
 
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      error: "수급 데이터 호출 실패", 
-      detail: error.message 
-    });
+    res.status(500).json({ success: false, error: error.message });
   }
 }
