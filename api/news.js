@@ -1,11 +1,12 @@
 function parseNaverDate(pubDate) {
   try {
-    // "Wed, 20 May 2026 11:23:00 +0900" 형식 파싱
+    // "Wed, 20 May 2026 10:07:00 +0900" 형식
+    // new Date()는 +0900 오프셋 자동 처리하므로 UTC로 변환됨
     const d = new Date(pubDate);
-    if (isNaN(d.getTime())) throw new Error('invalid');
-    // 한국 시간 기준으로 보정
     const now = new Date();
-    const diff = Math.floor((now - d) / 60000);
+    const diffMs = now.getTime() - d.getTime();
+    const diff = Math.floor(diffMs / 60000);
+    if (diff < 0) return '방금 전';
     if (diff < 1) return '방금 전';
     if (diff < 60) return `${diff}분 전`;
     if (diff < 1440) return `${Math.floor(diff/60)}시간 전`;
@@ -31,7 +32,11 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    console.log('뉴스 첫번째 pubDate:', data.items?.[0]?.pubDate);
+
+    // 서버 현재 시간 로깅 (디버깅용)
+    console.log('서버 현재시각(UTC):', new Date().toISOString());
+    console.log('뉴스 pubDate 샘플:', data.items?.[0]?.pubDate);
+    console.log('파싱 결과:', parseNaverDate(data.items?.[0]?.pubDate));
 
     const news = data.items.map(item => ({
       title: item.title
