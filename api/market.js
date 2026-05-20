@@ -1,47 +1,50 @@
-let cachedToken = null;
-let tokenExpireTime = 0;
-
 export default async function handler(req, res) {
-  // 캐시 헤더 추가 (브라우저가 30초 동안은 서버에 묻지도 않고 지 화면 꺼 쓰게 함)
-  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
 
+  let usd = { val: '1,500', chg: '0' };
+  let kospi = { val: '7,500', chg: '0' };
+
+  // 환율 (ECOS)
   try {
-    const now = Date.now();
-    if (!cachedToken || now > tokenExpireTime) {
-      const authRes = await fetch("https://openapi.koreainvestment.com:9443/oauth2/tokenP", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          grant_type: "client_credentials",
-          appkey: process.env.KIS_APP_KEY.trim(),
-          appsecret: process.env.KIS_APP_SECRET.trim()
-        }),
-      });
-      const authData = await authRes.json();
-      cachedToken = authData.access_token;
-      tokenExpireTime = now + (20 * 60 * 60 * 1000);
+    const today = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - 15);
+    const fmt = d => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,'0');
+      const day = String(d.getDate()).padStart(2,'0');
+      return `${y}${m}${day}`;
+    };
+    const ecosUrl = `https://ecos.bok.or.kr/api/StatisticSearch/${process.env.ECOS_API_KEY}/json/kr/1/10/731Y001/DD/${fmt(from)}/${fmt(today)}/0000001`;
+    const ecosRes = await fetch(ecosUrl);
+    const ecosData = await ecosRes.json();
+    const rows = ecosData?.StatisticSearch?.row;
+    if (rows?.length >= 2) {
+      const cur = parseFloat(rows[rows.length-1].DATA_VALUE);
+      const prev = parseFloat(rows[rows.length-2].DATA_VALUE);
+      usd = { val: Math.round(cur).toLocaleString(), chg: (cur-prev).toFixed(1) };
     }
-
-    // 여러 API를 동시에 찌름 (순차 x, 병렬 o)
-    const [kospiRes, usdRes] = await Promise.all([
-      fetch(`https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-index-price?FID_COND_MRKT_DIV_CODE=U&FID_INPUT_ISCD=0001`, {
-        headers: { "content-type": "application/json", "authorization": `Bearer ${cachedToken}`, "appkey": process.env.KIS_APP_KEY, "appsecret": process.env.KIS_APP_SECRET, "tr_id": "FHKST01010100" }
-      }),
-      fetch(`https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-price?FID_COND_MRKT_DIV_CODE=F&FID_INPUT_ISCD=FX@KRW&FID_PERIOD_DIV_CODE=D&FID_ORG_ADJ_PRC=0`, {
-        headers: { "content-type": "application/json", "authorization": `Bearer ${cachedToken}`, "appkey": process.env.KIS_APP_KEY, "appsecret": process.env.KIS_APP_SECRET, "tr_id": "FHKST03030100" }
-      })
-    ]);
-
-    const kData = await kospiRes.json();
-    const uData = await usdRes.json();
-
-    res.status(200).json({
-      success: true,
-      kospi: { val: kData.output.stck_prpr, chg: kData.output.prdy_ctrt },
-      usd: { val: uData.output[0].ovrs_nmix_prpr, chg: uData.output[0].prdy_ctrt },
-      rate: "3.50%"
-    });
-  } catch (e) {
-    res.status(200).json({ success: false });
+  } catch(e) {
+    console.error('환율 오류:', e.message);
   }
+
+  // 코스피 (Yahoo Finance)
+  try {
+    const kospiRes = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&range=5d',
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+    );
+    const kospiData = await kospiRes.json();
+    const closes = kospiData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v != null);
+    if (closes?.length >= 2) {
+      const cur = closes[closes.length-1];
+      const prev = closes[closes.length-2];
+      kospi = { val: cur.toFixed(2), chg: (cur-prev).toFixed(2) };
+    }
+  } catch(e) {
+    console.error('코스피 오류:', e.message);
+  }
+
+  res.status(200).json({ success: true, rate: '2.50%', usd, kospi });
 }
