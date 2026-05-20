@@ -5,10 +5,11 @@ export default async function handler(req, res) {
   let usd = null;
   let kospi = null;
 
+  // 환율 (ECOS)
   try {
     const today = new Date();
     const from = new Date();
-    from.setDate(from.getDate() - 15);
+    from.setDate(from.getDate() - 30);
     const fmt = d => {
       const y = d.getFullYear();
       const m = String(d.getMonth()+1).padStart(2,'0');
@@ -17,7 +18,9 @@ export default async function handler(req, res) {
     };
     const ecosUrl = `https://ecos.bok.or.kr/api/StatisticSearch/${process.env.ECOS_API_KEY}/json/kr/1/10/731Y001/DD/${fmt(from)}/${fmt(today)}/0000001`;
     const ecosRes = await fetch(ecosUrl);
-    const ecosData = await ecosRes.json();
+    const ecosText = await ecosRes.text();
+    console.log('ECOS 응답:', ecosText.slice(0, 200));
+    const ecosData = JSON.parse(ecosText);
     const rows = ecosData?.StatisticSearch?.row;
     if (rows?.length >= 2) {
       const cur = parseFloat(rows[rows.length-1].DATA_VALUE);
@@ -28,12 +31,15 @@ export default async function handler(req, res) {
     console.error('환율 오류:', e.message);
   }
 
+  // 코스피 (Yahoo Finance)
   try {
     const kospiRes = await fetch(
       'https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?interval=1d&range=5d',
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
+      { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }
     );
-    const kospiData = await kospiRes.json();
+    const kospiText = await kospiRes.text();
+    console.log('Yahoo 응답 앞부분:', kospiText.slice(0, 200));
+    const kospiData = JSON.parse(kospiText);
     const closes = kospiData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(v => v != null);
     if (closes?.length >= 2) {
       const cur = closes[closes.length-1];
