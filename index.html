@@ -378,6 +378,65 @@ async function searchStock() {
             <span style="font-size:13px;font-weight:600;color:${parseInt(s.instNet.replace(/,/g,''))>=0?'var(--green)':'var(--red)'};">${parseInt(s.instNet.replace(/,/g,''))>=0?'+':''}${s.instNet}주</span>
           </div>
         </div>
+        ${s.analysis ? `
+      <div style="background:var(--bg3);border-radius:10px;padding:12px;margin-top:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:11px;color:var(--muted);font-weight:500;">AI 기술적 분석</div>
+          <div style="font-size:13px;font-weight:600;color:${s.analysis.opinionColor};">${s.analysis.opinion}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+          <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">5일 이평</div>
+            <div style="font-size:12px;font-weight:500;margin-top:3px;">${s.analysis.ma5}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">20일 이평</div>
+            <div style="font-size:12px;font-weight:500;margin-top:3px;">${s.analysis.ma20}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">60일 이평</div>
+            <div style="font-size:12px;font-weight:500;margin-top:3px;">${s.analysis.ma60}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+          <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">5일 거래량</div>
+            <div style="font-size:12px;font-weight:500;margin-top:3px;">${s.analysis.vol5}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">20일 거래량</div>
+            <div style="font-size:12px;font-weight:500;margin-top:3px;">${s.analysis.vol20}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">60일 거래량</div>
+            <div style="font-size:12px;font-weight:500;margin-top:3px;">${s.analysis.vol60}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+          <div style="background:var(--red-bg);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">저항가</div>
+            <div style="font-size:12px;font-weight:600;color:var(--red);margin-top:3px;">${s.analysis.resistance}원</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">+${s.analysis.resistanceGap}%</div>
+          </div>
+          <div style="background:var(--green-bg);border-radius:8px;padding:8px;text-align:center;">
+            <div style="font-size:10px;color:var(--muted);">지지가</div>
+            <div style="font-size:12px;font-weight:600;color:var(--green);margin-top:3px;">${s.analysis.support}원</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">-${s.analysis.supportGap}%</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          ${s.analysis.signals.map(sig => `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <div style="width:5px;height:5px;border-radius:50%;background:${s.analysis.opinionColor};flex-shrink:0;"></div>
+              <div style="font-size:11px;color:var(--text);">${sig}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
       </div>`;
   } catch(e) {
     resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">오류가 발생했습니다.</div>';
