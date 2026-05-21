@@ -170,7 +170,7 @@ export default async function handler(req, res) {
 
     const [priceRes, investRes, dailyRes] = await Promise.all([
       fetch(`https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`, { headers: { ...headers, 'tr_id': 'FHKST01010100' } }),
-      fetch(`https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`, { headers: { ...headers, 'tr_id': 'FHKST01010900' } }),
+      fetch(`https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`, { headers: { ...headers, 'tr_id': 'FHKST01010900', 'custtype': 'P' } }),
       fetch(`https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-price?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}&fid_period_div_code=D&fid_org_adj_prc=0`, { headers: { ...headers, 'tr_id': 'FHKST01010400' } })
     ]);
 
@@ -185,7 +185,7 @@ export default async function handler(req, res) {
     if (o?.hts_kor_isnm) name = o.hts_kor_isnm;
 
     const price = parseInt(o?.stck_prpr || 0);
-    const foreignNet = parseInt(inv?.frgn_ntby_qty || 0);
+    const foreignNet = parseInt(inv?.frgn_ntby_qty || inv?.frgn_ntby_tr_pbmn || 0);
 
     // 기술적 분석
     const analysis = analyzeTechnical(daily, price, foreignNet);
