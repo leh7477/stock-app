@@ -77,7 +77,7 @@ export default async function handler(req, res) {
     console.log('[stocks] Kiwoom raw:', JSON.stringify(data).slice(0, 300));
 
     const list = data.orgn_frgnr_cont_trde_prst || [];
-    if (list.length === 0) throw new Error('빈 응답');
+    if (list.length === 0) throw new Error('빈 응답: ' + JSON.stringify(data).slice(0, 200));
 
     const stocks = list.slice(0, 5).map((s, i) => {
       const orgAmt  = parseInt(String(s.orgn_nettrde_amt  || '0').replace(/,/g, '')) || 0;
