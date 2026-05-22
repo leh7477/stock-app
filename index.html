@@ -21,6 +21,7 @@
   .header { padding: 20px 20px 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
   .header-left h1 { font-size: 18px; font-weight: 600; }
   .header-left p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .stale-badge { display:none; font-size:9px; color:var(--amber); background:var(--amber-bg); border:1px solid rgba(245,158,11,0.2); padding:1px 6px; border-radius:99px; margin-left:6px; vertical-align:middle; }
   .refresh-btn { width: 34px; height: 34px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; }
   .refresh-btn.spinning { animation: spin 0.8s linear; }
   @keyframes spin { to { transform: rotate(360deg); } }
@@ -81,7 +82,7 @@
   <div class="header">
     <div class="header-left">
       <h1>탐욕의 장 📈</h1>
-      <p id="last-update">데이터 확인 중...</p>
+      <p id="last-update">데이터 확인 중...<span class="stale-badge" id="stale-badge">갱신 중</span></p>
     </div>
     <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">↻</button>
   </div>
@@ -167,6 +168,25 @@
 
 <script>
 // ── 각 섹션 독립 로딩 (빠른 것부터 먼저 표시) ──────────
+// ── 로컬 캐시 ──────────────────────────────────────
+const CACHE_TTL = 30 * 60 * 1000; // 30분까지는 이전 데이터 표시
+
+function saveCache(key, data) {
+  try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
+}
+
+function loadCache(key) {
+  try {
+    const item = JSON.parse(localStorage.getItem(key));
+    return (item && Date.now() - item.ts < CACHE_TTL) ? item : null;
+  } catch { return null; }
+}
+
+function setStaleBadge(visible) {
+  const el = document.getElementById('stale-badge');
+  if (el) el.style.display = visible ? 'inline' : 'none';
+}
+
 async function fetchData(url) {
   try {
     const res = await fetch(url);
@@ -272,33 +292,71 @@ function renderNews(data) {
   }).join('');
 }
 
-// ── 메인: 섹션별로 뜨는 즉시 렌더링 ─────────────────
+// ── 메인: 캐시 즉시 표시 → 백그라운드 갱신 ──────────
 async function loadAll() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
 
-  // 빠른 API 먼저 (market, news)
-  // 느린 API 나중에 (supply, stocks - KIS)
-  fetchData('/api/market').then(data => {
-    if (data?.success) {
-      window._kospiChg = parseFloat(data.kospi?.chg || 0);
-      window._usdChg = parseFloat(data.usd?.chg || 0);
-    }
+  // 1) 캐시 데이터 즉시 렌더링 (있으면 스켈레톤 없이 바로 표시)
+  const cached = {
+    market: loadCache('cache_market'),
+    supply: loadCache('cache_supply'),
+    stocks: loadCache('cache_stocks'),
+    news:   loadCache('cache_news'),
+  };
+  const hasCache = Object.values(cached).some(Boolean);
+
+  if (cached.market) {
+    window._kospiChg = parseFloat(cached.market.data.kospi?.chg || 0);
+    window._usdChg   = parseFloat(cached.market.data.usd?.chg   || 0);
+    renderMarket(cached.market.data);
+  }
+  if (cached.supply) renderSupply(cached.supply.data);
+  if (cached.stocks) renderStocks(cached.stocks.data);
+  if (cached.news)   renderNews(cached.news.data);
+
+  if (hasCache) {
+    // 캐시 시각 표시 + 갱신 중 뱃지 노출
+    const oldest = Math.min(...Object.values(cached).filter(Boolean).map(c => c.ts));
+    const ago = Math.round((Date.now() - oldest) / 60000);
+    document.getElementById('last-update').textContent = `${ago}분 전 데이터`;
+    setStaleBadge(true);
+  }
+
+  // 2) 백그라운드 갱신 — promise를 변수에 담아 재사용 (중복 호출 방지)
+  const p_market = fetchData('/api/market').then(data => {
+    if (!data?.success) return;
+    window._kospiChg = parseFloat(data.kospi?.chg || 0);
+    window._usdChg   = parseFloat(data.usd?.chg   || 0);
     renderMarket(data);
+    saveCache('cache_market', data);
   });
 
-  fetchData('/api/news').then(renderNews);
+  const p_news = fetchData('/api/news').then(data => {
+    if (!data?.success) return;
+    renderNews(data);
+    saveCache('cache_news', data);
+  });
 
-  fetchData('/api/supply').then(renderSupply);
+  const p_supply = fetchData('/api/supply').then(data => {
+    if (!data?.success) return;
+    renderSupply(data);
+    saveCache('cache_supply', data);
+  });
 
-  fetchData('/api/stocks').then(renderStocks);
+  const p_stocks = fetchData('/api/stocks').then(data => {
+    if (!data?.success) return;
+    renderStocks(data);
+    saveCache('cache_stocks', data);
+  });
 
-  // 업데이트 시간
-  setTimeout(() => {
+  // 3) 모든 갱신 완료 후 뱃지 숨기고 시각 업데이트
+  Promise.allSettled([p_market, p_news, p_supply, p_stocks]).then(() => {
     const t = new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
     document.getElementById('last-update').textContent = `${t} 업데이트`;
+    setStaleBadge(false);
     btn.classList.remove('spinning');
-  }, 2000);
+  });
 }
 
 loadAll();
