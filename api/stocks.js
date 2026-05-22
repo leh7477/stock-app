@@ -123,6 +123,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, stocks });
   } catch (e) {
     console.error('[stocks] Kiwoom failed:', e.message);
+    var _kiwoomErr = e.message;
   }
 
   // 2순위: Redis 캐시 (사용자 PC에서 갱신한 마지막 데이터)
@@ -151,5 +152,5 @@ export default async function handler(req, res) {
     console.error('[stocks] cache read failed:', e.message);
   }
 
-  res.status(200).json({ success: true, stocks: [] });
+  res.status(200).json({ success: true, stocks: [], _err: _kiwoomErr });
 }
