@@ -68,7 +68,7 @@ async function fetchFromKiwoom() {
   console.log('[stocks] Kiwoom raw:', JSON.stringify(data).slice(0, 300));
 
   const list = data.orgn_frgnr_cont_trde_prst || [];
-  if (list.length === 0) throw new Error('빈 응답: ' + JSON.stringify(data).slice(0, 200));
+  if (list.length === 0) throw new Error('빈 응답');
 
   return list.slice(0, 5).map((s, i) => {
     const orgAmt  = parseInt(String(s.orgn_nettrde_amt  || '0').replace(/,/g, '')) || 0;
@@ -131,7 +131,6 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${redisToken}` },
     }).then(r => r.json());
 
-    console.log('[stocks] cache result type:', typeof cached.result, 'len:', String(cached.result || '').length);
     if (cached.result) {
       const raw = JSON.parse(cached.result);
       const stocks = raw.map(s => {
@@ -152,5 +151,5 @@ export default async function handler(req, res) {
     console.error('[stocks] cache read failed:', e.message);
   }
 
-  res.status(200).json({ success: true, stocks: [], _debug: 'no cache' });
+  res.status(200).json({ success: true, stocks: [] });
 }
