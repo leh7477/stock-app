@@ -133,7 +133,18 @@ export default async function handler(req, res) {
 
     console.log('[stocks] cache result type:', typeof cached.result, 'len:', String(cached.result || '').length);
     if (cached.result) {
-      const stocks = JSON.parse(cached.result);
+      const raw = JSON.parse(cached.result);
+      const stocks = raw.map(s => {
+        // reason/signalText가 없으면 (PowerShell 갱신 스크립트 데이터) 여기서 생성
+        if (!s.signalText) {
+          const parts = [];
+          if ((s.orgDays || 0) > 0) parts.push(`기관 ${s.orgDays}일 연속매수`);
+          if ((s.frgDays || 0) > 0) parts.push(`외인 ${s.frgDays}일 연속매수`);
+          s.reason = parts.length > 0 ? parts.join(' · ') : '기관+외인 동반 수급';
+          s.signalText = s.signal === 'buy' ? '상승 강세' : s.signal === 'caution' ? '하락 주의' : '보합';
+        }
+        return s;
+      });
       console.log('[stocks] returning cached data, count:', stocks.length);
       return res.status(200).json({ success: true, stocks, source: 'cache' });
     }
