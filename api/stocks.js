@@ -1,4 +1,5 @@
-const TIMEOUT_MS = 6000;
+const BASE = 'https://api.kiwoom.com';
+const TIMEOUT_MS = 7000;
 
 async function timedFetch(url, options = {}) {
   const ctrl = new AbortController();
@@ -13,30 +14,32 @@ async function timedFetch(url, options = {}) {
   }
 }
 
-async function getKisToken() {
-  const redisUrl = process.env.KV_REST_API_URL;
+async function getKiwoomToken() {
+  const redisUrl   = process.env.KV_REST_API_URL;
   const redisToken = process.env.KV_REST_API_TOKEN;
 
-  const getRes = await timedFetch(`${redisUrl}/get/kis_token`, {
+  // Redis 캐시 확인 (토큰 재발급 최소화)
+  const cached = await timedFetch(`${redisUrl}/get/kiwoom_token`, {
     headers: { Authorization: `Bearer ${redisToken}` },
-  });
-  const getData = await getRes.json();
-  if (getData.result) return getData.result;
+  }).then(r => r.json());
+  if (cached.result) return cached.result;
 
-  const tokenRes = await timedFetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
+  // 신규 토큰 발급
+  const data = await timedFetch(`${BASE}/oauth2/token`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { 'Content-Type': 'application/json;charset=UTF-8' },
     body: JSON.stringify({
       grant_type: 'client_credentials',
-      appkey: process.env.KIS_APP_KEY,
-      appsecret: process.env.KIS_APP_SECRET,
+      appkey:    process.env.KIWOOM_APP_KEY,
+      secretkey: process.env.KIWOOM_SECRET_KEY,
     }),
-  });
-  const tokenData = await tokenRes.json();
-  const token = tokenData.access_token;
-  if (!token) throw new Error('토큰 발급 실패: ' + JSON.stringify(tokenData));
+  }).then(r => r.json());
 
-  await timedFetch(`${redisUrl}/set/kis_token`, {
+  const token = data.token;
+  if (!token) throw new Error('키움 토큰 발급 실패: ' + JSON.stringify(data));
+
+  // 23시간 캐시
+  await timedFetch(`${redisUrl}/set/kiwoom_token`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ value: token, ex: 82800 }),
@@ -51,39 +54,61 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
 
   try {
-    const token = await getKisToken();
+    const token = await getKiwoomToken();
 
-    const volRes = await timedFetch(
-      'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/ranking/volume?fid_cond_mrkt_div_code=J&fid_cond_scr_div_code=20171&fid_input_iscd=0000&fid_div_cls_code=0&fid_blng_cls_code=0&fid_trgt_cls_code=111111111&fid_trgt_exls_cls_code=000000&fid_input_price_1=0&fid_input_price_2=0&fid_vol_cnt=100000&fid_input_date_1=',
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          appkey: process.env.KIS_APP_KEY,
-          appsecret: process.env.KIS_APP_SECRET,
-          tr_id: 'FHPST01710000',
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    // ka10131 — 기관외국인연속매매현황요청
+    const data = await timedFetch(`${BASE}/api/dostk/frgnistt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json;charset=UTF-8',
+        'authorization': `Bearer ${token}`,
+        'api-id': 'ka10131',
+      },
+      body: JSON.stringify({
+        dt:          '1',   // 최근일
+        mrkt_tp:     '001', // 코스피
+        netslmt_tp:  '2',   // 순매수(고정값)
+        stk_inds_tp: '0',   // 종목(주식)
+        amt_qty_tp:  '0',   // 금액
+        stex_tp:     '3',   // 통합
+      }),
+    }).then(r => r.json());
 
-    const volData = await volRes.json();
-    const items = volData?.output?.slice(0, 5) || [];
+    console.log('[stocks] Kiwoom raw:', JSON.stringify(data).slice(0, 300));
 
-    if (items.length === 0) {
-      return res.status(200).json({ success: true, stocks: [] });
-    }
+    const list = data.orgn_frgnr_cont_trde_prst || [];
+    if (list.length === 0) throw new Error('빈 응답');
 
-    const stocks = items.map((s, i) => {
-      const price   = parseInt(s.stck_prpr || 0);
-      const volume  = parseInt(s.acml_vol  || 0);
-      const chgRate = parseFloat(s.prdy_ctrt || 0);
-      const signal     = chgRate > 3 ? 'buy' : chgRate < -3 ? 'caution' : 'watch';
-      const signalText = signal === 'buy' ? '상승 강세' : signal === 'caution' ? '하락 주의' : '보합';
+    const stocks = list.slice(0, 5).map((s, i) => {
+      const orgAmt  = parseInt(String(s.orgn_nettrde_amt  || '0').replace(/,/g, '')) || 0;
+      const frgAmt  = parseInt(String(s.frgnr_nettrde_amt || '0').replace(/,/g, '')) || 0;
+      const chgRate = parseFloat(s.prid_stkpc_flu_rt || '0');
+      const orgDays = parseInt(s.orgn_cont_netprps_dys  || '0');
+      const frgDays = parseInt(s.frgnr_cont_netprps_dys || '0');
+
+      // 시그널: 기관+외인 모두 순매수이고 주가 상승 → 매수
+      const signal =
+        orgAmt > 0 && frgAmt > 0 && chgRate > 0 ? 'buy' :
+        orgAmt < 0 && frgAmt < 0               ? 'caution' : 'watch';
+      const signalText =
+        signal === 'buy' ? '상승 강세' : signal === 'caution' ? '하락 주의' : '보합';
+
+      // 이유 문구 구성
+      const parts = [];
+      if (orgDays > 0) parts.push(`기관 ${orgDays}일 연속매수`);
+      if (frgDays > 0) parts.push(`외인 ${frgDays}일 연속매수`);
+      if (parts.length === 0) parts.push(`기관+외인 동반 수급`);
+
+      // prid_stkpc_flu_rt를 가격 란에 표시 (현재가 미제공)
+      const priceDisplay = chgRate >= 0
+        ? `+${chgRate}%`
+        : `${chgRate}%`;
+
       return {
         rank: i + 1,
-        name: s.hts_kor_isnm,
-        price: price > 0 ? price.toLocaleString() + '원' : '-',
-        reason: `거래량 ${(volume / 10000).toFixed(0)}만주 · 전일대비 ${chgRate > 0 ? '+' : ''}${chgRate}%`,
+        name: s.stk_nm || '-',
+        price: priceDisplay,
+        reason: parts.join(' · '),
         signal,
         signalText,
       };
@@ -91,7 +116,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ success: true, stocks });
   } catch (error) {
-    console.error('거래량 오류:', error.message);
+    console.error('[stocks] Kiwoom failed:', error.message);
     res.status(200).json({ success: true, stocks: [] });
   }
 }
