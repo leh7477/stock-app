@@ -117,6 +117,6 @@ export default async function handler(req, res) {
     res.status(200).json({ success: true, stocks });
   } catch (error) {
     console.error('[stocks] Kiwoom failed:', error.message);
-    res.status(200).json({ success: true, stocks: [] });
+    res.status(200).json({ success: true, stocks: [], _err: error.message });
   }
 }
