@@ -131,6 +131,7 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${redisToken}` },
     }).then(r => r.json());
 
+    console.log('[stocks] cache result type:', typeof cached.result, 'len:', String(cached.result || '').length);
     if (cached.result) {
       const stocks = JSON.parse(cached.result);
       console.log('[stocks] returning cached data, count:', stocks.length);
@@ -140,5 +141,5 @@ export default async function handler(req, res) {
     console.error('[stocks] cache read failed:', e.message);
   }
 
-  res.status(200).json({ success: true, stocks: [] });
+  res.status(200).json({ success: true, stocks: [], _debug: 'no cache' });
 }
