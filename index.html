@@ -75,6 +75,12 @@
   .skeleton { background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 6px; }
   @keyframes shimmer { to { background-position: -200% 0; } }
   .disclaimer { font-size: 10px; color: var(--muted); text-align: center; padding: 12px 20px 16px; line-height: 1.5; border-top: 1px solid var(--border); margin-top: 12px; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .nav-item { cursor: pointer; }
+  .nav-item.active .nav-icon { opacity: 1; }
+  .nav-item .nav-icon { opacity: 0.5; }
+  .nav-item.active .nav-label { color: var(--green); }
 </style>
 </head>
 <body>
@@ -87,6 +93,8 @@
     <button class="refresh-btn" id="refresh-btn" onclick="loadAll()">↻</button>
   </div>
 
+<div id="tab-home" class="tab-panel active">
+
 <div class="section" style="padding-top:12px;">
     <div style="display:flex;gap:8px;">
       <input id="search-input" type="text" placeholder="종목명 또는 코드 검색" style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;" />
@@ -94,7 +102,7 @@
     </div>
     <div id="search-result" style="display:none;margin-top:8px;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px;"></div>
   </div>
-  
+
   <div class="section">
     <div class="section-title">시장 날씨</div>
     <div class="weather-card">
@@ -147,7 +155,11 @@
     </div>
   </div>
 
-  <div class="section" style="margin-top:12px;">
+  <div class="disclaimer">※ 본 앱은 정보 제공 목적이며 투자 권유가 아닙니다.<br>모든 투자의 책임은 본인에게 있습니다.</div>
+</div><!-- /tab-home -->
+
+<div id="tab-news" class="tab-panel">
+  <div class="section" style="padding-top:16px;">
     <div class="section-title">최근 주요 공시</div>
     <div class="news-list" id="dart-list">
       <div class="skeleton" style="height:52px"></div>
@@ -166,12 +178,12 @@
   </div>
 
   <div class="disclaimer">※ 본 앱은 정보 제공 목적이며 투자 권유가 아닙니다.<br>모든 투자의 책임은 본인에게 있습니다.</div>
-</div>
+</div><!-- /tab-news -->
 
 <div class="nav">
-  <div class="nav-item active"><div class="nav-icon">🏠</div><div class="nav-label">홈</div></div>
+  <div class="nav-item active" id="nav-home" onclick="switchTab('home')"><div class="nav-icon">🏠</div><div class="nav-label">홈</div></div>
   <a class="nav-item" href="/analyzer.html" style="text-decoration:none;"><div class="nav-icon">📊</div><div class="nav-label">분석기</div></a>
-  <div class="nav-item"><div class="nav-icon">📰</div><div class="nav-label">뉴스</div></div>
+  <div class="nav-item" id="nav-news" onclick="switchTab('news')"><div class="nav-icon">📰</div><div class="nav-label">뉴스·공시</div></div>
   <div class="nav-item"><div class="nav-icon">⚙️</div><div class="nav-label">설정</div></div>
 </div>
 
@@ -389,6 +401,14 @@ async function loadAll() {
     setStaleBadge(false);
     btn.classList.remove('spinning');
   });
+}
+
+function switchTab(tab) {
+  document.getElementById('tab-home').classList.toggle('active', tab === 'home');
+  document.getElementById('tab-news').classList.toggle('active', tab === 'news');
+  document.getElementById('nav-home').classList.toggle('active', tab === 'home');
+  document.getElementById('nav-news').classList.toggle('active', tab === 'news');
+  window.scrollTo(0, 0);
 }
 
 loadAll();
