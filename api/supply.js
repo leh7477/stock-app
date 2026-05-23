@@ -1,3 +1,5 @@
+import { getKrxInvestorData } from './krx.js';
+
 const TIMEOUT_MS = 7000;
 
 async function timedFetch(url, options = {}) {
@@ -99,7 +101,23 @@ export default async function handler(req, res) {
     console.error('[supply] KIS failed:', e.message);
   }
 
-  // 2순위: Redis 캐시 (전날/당일 장중 마지막 값)
+  // 2순위: KRX 전일 확정 데이터 (장 마감 후 자동 갱신, IP 제한 없음)
+  try {
+    const data = await getKrxInvestorData();
+    console.log('[supply] KRX success:', JSON.stringify(data));
+
+    await timedFetch(`${redisUrl}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['SET', 'supply_cache', JSON.stringify(data), 'EX', '90000']]),
+    }).catch(() => {});
+
+    return res.status(200).json({ success: true, ...data, isMock: false, source: 'KRX' });
+  } catch (e) {
+    console.error('[supply] KRX failed:', e.message);
+  }
+
+  // 3순위: Redis 캐시 (이전 성공 데이터)
   try {
     const cached = await timedFetch(`${redisUrl}/get/supply_cache`, {
       headers: { Authorization: `Bearer ${redisToken}` },
