@@ -148,6 +148,15 @@
   </div>
 
   <div class="section" style="margin-top:12px;">
+    <div class="section-title">최근 주요 공시</div>
+    <div class="news-list" id="dart-list">
+      <div class="skeleton" style="height:52px"></div>
+      <div class="skeleton" style="height:52px"></div>
+      <div class="skeleton" style="height:52px"></div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-top:12px;">
     <div class="section-title">오늘의 경제 뉴스</div>
     <div class="news-list" id="news-list">
       <div class="skeleton" style="height:52px"></div>
@@ -277,6 +286,21 @@ function renderStocks(data) {
     </div>`).join('');
 }
 
+function renderDart(data) {
+  if (!data?.success || !data.disclosures?.length) {
+    document.getElementById('dart-list').innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px">공시 데이터 없음</div>`;
+    return;
+  }
+  document.getElementById('dart-list').innerHTML = data.disclosures.map(d => `
+    <a class="news-card" href="${d.url}" target="_blank" rel="noopener">
+      <div class="news-dot" style="background:var(--blue)"></div>
+      <div class="news-body">
+        <div class="news-title">${d.corpName} · ${d.reportName}</div>
+        <div class="news-meta">${d.market} · ${d.date}</div>
+      </div>
+    </a>`).join('');
+}
+
 function renderNews(data) {
   if (!data?.success || !data.news?.length) {
     document.getElementById('news-list').innerHTML = `<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px">뉴스를 불러오는 중입니다.</div>`;
@@ -303,6 +327,7 @@ async function loadAll() {
     supply: loadCache('cache_supply'),
     stocks: loadCache('cache_stocks'),
     news:   loadCache('cache_news'),
+    dart:   loadCache('cache_dart'),
   };
   const hasCache = Object.values(cached).some(Boolean);
 
@@ -313,6 +338,7 @@ async function loadAll() {
   }
   if (cached.supply) renderSupply(cached.supply.data);
   if (cached.stocks) renderStocks(cached.stocks.data);
+  if (cached.dart)   renderDart(cached.dart.data);
   if (cached.news)   renderNews(cached.news.data);
 
   if (hasCache) {
@@ -350,8 +376,14 @@ async function loadAll() {
     saveCache('cache_stocks', data);
   });
 
+  const p_dart = fetchData('/api/dart').then(data => {
+    if (!data?.success) return;
+    renderDart(data);
+    saveCache('cache_dart', data);
+  });
+
   // 3) 모든 갱신 완료 후 뱃지 숨기고 시각 업데이트
-  Promise.allSettled([p_market, p_news, p_supply, p_stocks]).then(() => {
+  Promise.allSettled([p_market, p_news, p_supply, p_stocks, p_dart]).then(() => {
     const t = new Date().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
     document.getElementById('last-update').textContent = `${t} 업데이트`;
     setStaleBadge(false);
