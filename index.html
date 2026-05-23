@@ -170,7 +170,7 @@
 
 <div class="nav">
   <div class="nav-item active"><div class="nav-icon">🏠</div><div class="nav-label">홈</div></div>
-  <div class="nav-item"><div class="nav-icon">📊</div><div class="nav-label">수급</div></div>
+  <a class="nav-item" href="/analyzer.html" style="text-decoration:none;"><div class="nav-icon">📊</div><div class="nav-label">분석기</div></a>
   <div class="nav-item"><div class="nav-icon">📰</div><div class="nav-label">뉴스</div></div>
   <div class="nav-item"><div class="nav-icon">⚙️</div><div class="nav-label">설정</div></div>
 </div>
@@ -527,6 +527,7 @@ async function searchStock() {
           `).join('')}
         </div>
       </div>` : ''}
+      <a href="/analyzer.html?q=${s.code}" style="display:block;margin-top:12px;background:var(--blue);color:#fff;text-align:center;padding:10px;border-radius:10px;text-decoration:none;font-size:13px;font-weight:600;">📊 차트·지표 상세 분석 →</a>
       </div>`;
   } catch(e) {
     resultEl.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px;">오류가 발생했습니다.</div>';
