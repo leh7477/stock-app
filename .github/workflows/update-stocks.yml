@@ -1,0 +1,41 @@
+name: 전종목 MA 분석 업데이트
+
+on:
+  schedule:
+    # 매주 월~금 KST 16:30 (UTC 07:30) - 장 마감(15:30) 후 1시간 뒤
+    - cron: '30 7 * * 1-5'
+  workflow_dispatch:
+    # 수동 실행 가능 (GitHub Actions 탭 → Run workflow)
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30    # 최대 30분 (전종목 처리 여유있게)
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 전종목 MA 분석 실행
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          KIS_APP_KEY:       ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET:    ${{ secrets.KIS_APP_SECRET }}
+        run: node scripts/update-recommend.js
+
+# ──────────────────────────────────────────────────────────────────
+# GitHub Secrets 설정 방법:
+#   GitHub 레포 → Settings → Secrets and variables → Actions → New secret
+#
+#   필요한 secrets:
+#     KV_REST_API_URL    : Upstash Redis REST URL (Vercel에서 복사)
+#     KV_REST_API_TOKEN  : Upstash Redis Token
+#     KIS_APP_KEY        : 한국투자증권 App Key
+#     KIS_APP_SECRET     : 한국투자증권 App Secret
+# ──────────────────────────────────────────────────────────────────

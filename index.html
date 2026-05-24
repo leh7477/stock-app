@@ -193,11 +193,17 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
     <!-- 필터 버튼 -->
     <div class="filter-row">
-      <span class="filter-label">기간 필터</span>
-      <button class="fbtn active" id="f-all"   onclick="setFilter('all')">전체</button>
-      <button class="fbtn green"  id="f-ma5"   onclick="setFilter('ma5')">5일선 ▲</button>
-      <button class="fbtn green"  id="f-ma20"  onclick="setFilter('ma20')">20일선 ▲</button>
-      <button class="fbtn green"  id="f-ma60"  onclick="setFilter('ma60')">60일선 ▲</button>
+      <span class="filter-label">시장</span>
+      <button class="fbtn active" id="m-all"    onclick="setMarket('')">전체</button>
+      <button class="fbtn"        id="m-kospi"  onclick="setMarket('KOSPI')">KOSPI</button>
+      <button class="fbtn"        id="m-kosdaq" onclick="setMarket('KOSDAQ')">KOSDAQ</button>
+    </div>
+    <div class="filter-row" style="padding-top:0">
+      <span class="filter-label">이평선</span>
+      <button class="fbtn active" id="f-all"    onclick="setFilter('all')">전체</button>
+      <button class="fbtn green"  id="f-ma5"    onclick="setFilter('ma5')">5일선 ▲</button>
+      <button class="fbtn green"  id="f-ma20"   onclick="setFilter('ma20')">20일선 ▲</button>
+      <button class="fbtn green"  id="f-ma60"   onclick="setFilter('ma60')">60일선 ▲</button>
       <button class="fbtn"        id="f-golden" onclick="setFilter('golden')">골든크로스 ✓</button>
     </div>
 
@@ -223,6 +229,12 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <div class="skeleton" style="height:72px;border-radius:14px;"></div>
       <div class="skeleton" style="height:72px;border-radius:14px;"></div>
       <div class="skeleton" style="height:72px;border-radius:14px;"></div>
+    </div>
+    <div id="load-more-wrap" style="display:none;text-align:center;padding:16px 0 4px;">
+      <button id="load-more-btn" onclick="loadMore()"
+        style="background:var(--card);border:1.5px solid var(--border);border-radius:99px;padding:10px 28px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;box-shadow:var(--shadow);">
+        더 보기 <span id="load-more-cnt"></span>
+      </button>
     </div>
 
     <!-- 초보자 가이드 -->
@@ -291,10 +303,16 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
 <script>
 // ── 상수 ──────────────────────────────────────────────
-const CACHE_TTL  = 6 * 60 * 60 * 1000; // 6시간
-const NEWS_TTL   = 30 * 60 * 1000;      // 30분
-let allStocks    = [];
-let curFilter    = 'all';
+const CACHE_TTL = 6 * 60 * 60 * 1000;  // 6시간
+const NEWS_TTL  = 30 * 60 * 1000;      // 30분
+const PAGE_SIZE = 100;                  // 한 번에 표시할 종목 수
+
+let allStocks   = [];
+let curFilter   = 'all';
+let curMarket   = '';
+let curOffset   = 0;
+let totalCount  = 0;
+let totalAll    = 0;
 
 // 아바타 컬러
 const AV_COLORS = ['#ef4444','#f97316','#eab308','#16a34a','#0d9488','#2563eb','#7c3aed','#db2777','#0891b2','#65a30d'];
@@ -358,30 +376,29 @@ function cardHTML(s) {
   </div>`;
 }
 
-// ── 필터 적용 ─────────────────────────────────────────
+// ── 필터 / 마켓 ───────────────────────────────────────
 function setFilter(f) {
   curFilter = f;
+  curOffset = 0;
   ['all','ma5','ma20','ma60','golden'].forEach(k => {
     const el = document.getElementById('f-' + k);
     if (el) el.classList.toggle('active', k === f);
   });
-  applyFilter();
+  loadData();
+}
+
+function setMarket(m) {
+  curMarket = m;
+  curOffset = 0;
+  ['all','kospi','kosdaq'].forEach(k => {
+    const el = document.getElementById('m-' + k);
+    if (el) el.classList.toggle('active', (m === '' ? 'all' : m.toLowerCase()) === k);
+  });
+  loadData();
 }
 
 function applyFilter() {
-  const cards = document.querySelectorAll('.scard');
-  let visible = 0;
-  cards.forEach(el => {
-    let show = true;
-    if (curFilter === 'ma5')    show = el.dataset.ma5    === 'up';
-    if (curFilter === 'ma20')   show = el.dataset.ma20   === 'up';
-    if (curFilter === 'ma60')   show = el.dataset.ma60   === 'up';
-    if (curFilter === 'golden') show = el.dataset.golden === 'true';
-    el.style.display = show ? '' : 'none';
-    if (show) visible++;
-  });
-  const cnt = document.getElementById('result-cnt');
-  if (cnt) cnt.textContent = `${visible}개 종목`;
+  // 서버 필터링 방식으로 전환 → 클라이언트 필터 불필요 (호환성 유지용)
 }
 
 // ── 탭 전환 ─────────────────────────────────────────────
@@ -424,35 +441,87 @@ function qs(name) {
 }
 
 // ── 추천 데이터 로드 ─────────────────────────────────────
-async function loadData() {
+async function loadData(append = false) {
   const btn = document.getElementById('refresh-btn');
-  btn.classList.add('spinning');
+  if (!append) btn.classList.add('spinning');
 
-  // 캐시 즉시 표시
-  const cached = loadCache('recommend_data');
-  if (cached) renderStocks(cached);
-
-  // API 호출
-  const data = await fetchJ('/api/recommend');
-  if (data?.success && data.stocks?.length) {
-    renderStocks(data);
-    saveCache('recommend_data', data);
+  // 캐시 우선 표시 (첫 로드 & 필터 변경 없을 때만)
+  if (!append && curOffset === 0) {
+    const cacheKey = `rec_${curMarket}_${curFilter}`;
+    const cached = loadCache(cacheKey);
+    if (cached) {
+      renderStocks(cached, false);
+    }
   }
 
-  btn.classList.remove('spinning');
+  const params = new URLSearchParams({
+    limit:  PAGE_SIZE,
+    offset: curOffset,
+  });
+  if (curMarket) params.set('market', curMarket);
+  if (curFilter !== 'all') params.set('filter', curFilter);
+
+  const data = await fetchJ(`/api/recommend?${params}`);
+
+  if (data?.success) {
+    renderStocks(data, append);
+    // 첫 페이지만 캐시 저장
+    if (curOffset === 0) {
+      const cacheKey = `rec_${curMarket}_${curFilter}`;
+      saveCache(cacheKey, data);
+    }
+  } else if (!append) {
+    // 데이터 없음 안내
+    const msg = data?.hint
+      ? `<div style="text-align:center;color:var(--muted);padding:40px 16px;font-size:13px;line-height:1.8;">
+           📭 분석 데이터가 아직 준비되지 않았습니다.<br>
+           <span style="font-size:12px;">GitHub Actions 워크플로우를 수동으로 실행해주세요.</span>
+         </div>`
+      : `<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">데이터를 불러오지 못했습니다.</div>`;
+    document.getElementById('stock-list').innerHTML = msg;
+  }
+
+  if (!append) btn.classList.remove('spinning');
 }
 
-function renderStocks(data) {
-  allStocks = data.stocks || [];
+async function loadMore() {
+  curOffset += PAGE_SIZE;
+  await loadData(true);
+}
+
+function renderStocks(data, append = false) {
+  const stocks = data.stocks || [];
+  totalCount = data.total   || 0;
+  totalAll   = data.totalAll || totalCount;
+
+  if (!append) allStocks = stocks;
+  else         allStocks = [...allStocks, ...stocks];
+
   const dateEl = document.getElementById('base-date');
-  if (dateEl) dateEl.textContent = `전일 종가 기준 · ${data.baseDate || ''}`;
+  if (dateEl && data.baseDate) {
+    dateEl.textContent = `전일 종가 기준 · ${data.baseDate}`;
+  }
 
-  const html = allStocks.map(s => cardHTML(s)).join('');
-  document.getElementById('stock-list').innerHTML = html ||
-    `<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">데이터를 불러오지 못했습니다.</div>`;
+  const listEl = document.getElementById('stock-list');
+  const html   = allStocks.map(s => cardHTML(s)).join('');
+  listEl.innerHTML = html ||
+    `<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">해당 조건의 종목이 없습니다.</div>`;
 
-  document.getElementById('result-cnt').textContent = `${allStocks.length}개 종목`;
-  applyFilter();
+  // 카운트 표시
+  const shown = allStocks.length;
+  document.getElementById('result-cnt').textContent =
+    totalAll > 0
+      ? `분석 ${totalAll.toLocaleString()}개 중 ${shown.toLocaleString()}개 표시`
+      : `${shown}개 종목`;
+
+  // 더 보기 버튼
+  const hasMore = shown < totalCount;
+  const moreWrap = document.getElementById('load-more-wrap');
+  const moreCnt  = document.getElementById('load-more-cnt');
+  if (moreWrap) {
+    moreWrap.style.display = hasMore ? '' : 'none';
+    if (moreCnt) moreCnt.textContent = `(${(totalCount - shown).toLocaleString()}개 더)`;
+  }
 }
 
 // ── 뉴스·공시 로드 ──────────────────────────────────────
