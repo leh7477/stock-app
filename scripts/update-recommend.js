@@ -215,13 +215,21 @@ function analyze(stock, closes) {
 
 // ─── 단일 종목 처리 (KOSPI→KOSDAQ 순서로 자동 감지) ──────────────────────
 
+let _debugLogged = 0; // 처음 3개만 상세 로그
+
 async function processStock(token, stock) {
-  // market이 이미 알려진 경우
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
     try {
       const raw = await fetchDailyCandles(token, stock.code, mkCode);
+
+      // 처음 3개 종목은 KIS 응답 전체 로그
+      if (_debugLogged < 3) {
+        _debugLogged++;
+        console.log(`[debug ${stock.code}/${mkCode}] rt_cd=${raw?.rt_cd} msg=${raw?.msg1} output2_len=${raw?.output2?.length}`);
+      }
+
       if (!raw?.output2?.length) continue;
 
       const closes = raw.output2.slice().reverse().map(d => parseNum(d.stck_clpr));
@@ -229,7 +237,13 @@ async function processStock(token, stock) {
 
       const market = mkCode === 'J' ? 'KOSPI' : 'KOSDAQ';
       return analyze({ ...stock, market }, closes);
-    } catch { continue; }
+    } catch (e) {
+      if (_debugLogged < 3) {
+        _debugLogged++;
+        console.log(`[debug ${stock.code}/${mkCode}] catch: ${e.message}`);
+      }
+      continue;
+    }
   }
   return null;
 }
