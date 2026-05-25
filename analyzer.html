@@ -146,11 +146,23 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 
 .empty{text-align:center;color:var(--muted);padding:20px;font-size:12px;}
 .green{color:var(--green);} .red{color:var(--red);} .muted{color:var(--muted);}
+.price-up{color:#dc2626;} .price-down{color:#2563eb;}
 
 #state-idle{padding:60px 20px;text-align:center;color:var(--muted);}
 #state-loading{padding-top:16px;display:none;}
 #state-result{display:none;}
 #state-error{padding:20px 0;display:none;text-align:center;color:var(--red);}
+
+/* ── 시장 뱃지 ── */
+.market-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.03em;}
+.market-badge.kospi{background:rgba(220,38,38,0.1);color:#dc2626;}
+.market-badge.kosdaq{background:rgba(37,99,235,0.1);color:#2563eb;}
+.mktcap-text{font-size:12px;color:var(--muted);}
+
+/* ── AI 의견 ── */
+.ai-paras{display:flex;flex-direction:column;gap:8px;}
+.ai-para{font-size:13px;line-height:1.75;color:var(--text);padding:11px 14px;background:var(--bg3);border-radius:10px;border-left:3px solid var(--blue);}
+.ai-disc{font-size:10px;color:var(--muted);text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 
 /* ── 반응형 ── */
 @media(max-width:680px){
@@ -218,7 +230,11 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
     <div class="stock-header-wide">
       <div class="shw-left">
         <div class="stock-name" id="r-name"></div>
-        <div class="stock-code" id="r-code"></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
+          <span class="market-badge" id="r-market-badge"></span>
+          <span class="stock-code" id="r-code"></span>
+          <span class="mktcap-text" id="r-mktcap"></span>
+        </div>
       </div>
       <div class="shw-right">
         <div class="stock-price" id="r-price"></div>
@@ -320,7 +336,13 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       </div><!-- /우측 -->
     </div><!-- /detail-grid -->
 
-    <!-- ③ 최근 공시 (full width) -->
+    <!-- ③ AI 의견 (full width) -->
+    <div class="dl-card full-row">
+      <div class="dl-title">🤖 AI 의견 <span style="font-weight:400;color:var(--muted);font-size:10px;">기술적 분석 기반 자동 생성</span></div>
+      <div id="r-ai-opinion"></div>
+    </div>
+
+    <!-- ④ 최근 공시 (full width) -->
     <div class="dl-card full-row">
       <div class="dl-title">최근 공시 (1개월)</div>
       <div class="dart-list" id="r-dart"></div>
@@ -365,7 +387,7 @@ function renderCharts(data) {
   if (!mainChart) mainChart = echarts.init(document.getElementById('mainChart'), null, {renderer:'canvas'});
   else mainChart.clear();
 
-  const upColor='#16a34a', downColor='#dc2626';
+  const upColor='#dc2626', downColor='#2563eb'; // 한국 주식 관례: 상승=빨강, 하락=파랑
   // 기본 뷰: 최근 60일. 슬라이더로 전체 기간까지 드래그 가능
   const total = dates.length;
   const defaultStart = total > 60 ? Math.round((total - 60) / total * 100) : 0;
@@ -592,13 +614,26 @@ function renderResult(data) {
   // 헤더
   document.getElementById('r-name').textContent = stock.name;
   document.getElementById('r-code').textContent = stock.code;
+
+  // 시장 뱃지 + 시총
+  const mbEl = document.getElementById('r-market-badge');
+  const mktName = stock.market || '';
+  if (mktName) {
+    mbEl.textContent = mktName;
+    mbEl.className = 'market-badge ' + (mktName.includes('코스닥') ? 'kosdaq' : 'kospi');
+    mbEl.style.display = '';
+  } else {
+    mbEl.style.display = 'none';
+  }
+  document.getElementById('r-mktcap').textContent = stock.marketCap ? '시총 ' + stock.marketCap : '';
+
   const isUp = parseFloat(stock.chgRate) >= 0;
   const priceEl = document.getElementById('r-price');
   priceEl.textContent = stock.price.toLocaleString() + '원';
-  priceEl.className = 'stock-price ' + (isUp?'green':'red');
+  priceEl.className = 'stock-price ' + (isUp ? 'price-up' : 'price-down');
   const chgEl = document.getElementById('r-chg');
   chgEl.textContent = (isUp?'▲':'▼') + ' ' + Math.abs(stock.chgAmt).toLocaleString() + '원 (' + (isUp?'+':'') + stock.chgRate + '%)';
-  chgEl.className = 'stock-chg ' + (isUp?'green':'red');
+  chgEl.className = 'stock-chg ' + (isUp ? 'price-up' : 'price-down');
 
   // MA
   document.getElementById('r-ma5').textContent  = analysis.ma5;
@@ -649,15 +684,61 @@ function renderResult(data) {
       </a>`).join('');
   }
 
-  // 점수 + 전략 + 체크리스트 + 수급
+  // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
   renderStrategy(data.recommend);
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);
+  renderAIOpinion(data);
 
   renderCharts(data);
   show('result');
   setTimeout(()=>{ mainChart?.resize(); rsiChart?.resize(); }, 100);
+}
+
+function renderAIOpinion(data) {
+  const el = document.getElementById('r-ai-opinion');
+  const { stock, analysis, score, recommend, checklist } = data;
+  const name = stock.name;
+  const priceStr = typeof stock.price === 'number' ? stock.price.toLocaleString() : String(stock.price);
+  const paras = [];
+
+  // 1. 현황 요약
+  const scoreLvl = score >= 68 ? '강한 매수 신호' : score >= 55 ? '긍정적' : score >= 45 ? '혼조세' : '약세';
+  const chgNum = parseFloat(stock.chgRate);
+  const chgText = chgNum >= 0
+    ? `전일 대비 +${stock.chgRate}% 상승`
+    : `전일 대비 ${stock.chgRate}% 하락`;
+  paras.push(`${name}은(는) ${priceStr}원에 거래 중이며, ${chgText}했습니다. 종합 점수 ${score}점으로 ${scoreLvl}를 나타내고 있습니다.`);
+
+  // 2. 이평선 배열
+  const maItem = (checklist || []).find(c => c.label === '이평선 배열');
+  if (maItem?.status === 'ok') {
+    paras.push(`이동평균선이 정배열(MA5 ${analysis.ma5} > MA20 ${analysis.ma20} > MA60 ${analysis.ma60}원) 구조를 유지해 중장기 상승 흐름이 이어지고 있습니다. 단기 조정 시 MA5 부근이 매수 구간으로 작용할 가능성이 높습니다.`);
+  } else if (maItem?.status === 'fail') {
+    paras.push(`이동평균선이 역배열 상태로 하락 추세가 진행 중입니다. MA5(${analysis.ma5}원)와 MA20(${analysis.ma20}원)이 저항으로 작용하고 있어 반등 시 매도 압력이 집중될 수 있습니다.`);
+  } else {
+    paras.push(`이동평균선이 혼조 배열 상태로 뚜렷한 추세를 확인하기 어렵습니다. MA5(${analysis.ma5}원), MA20(${analysis.ma20}원) 사이에서 등락을 반복하며 방향성을 탐색 중입니다.`);
+  }
+
+  // 3. RSI 모멘텀
+  const rsi = analysis.currentRSI;
+  if (rsi !== null) {
+    if (rsi <= 30)      paras.push(`RSI ${rsi}로 과매도 구간에 도달했습니다. 단기 반등 가능성이 열려 있으나, 추세 전환(종가가 MA5 상향 돌파) 확인 후 진입하는 것이 안전합니다.`);
+    else if (rsi >= 70) paras.push(`RSI ${rsi}로 과매수 구간에 진입했습니다. 단기 피로 누적으로 조정이 나타날 수 있어 신규 매수보다 일부 익절을 고려해 볼 시점입니다.`);
+    else if (rsi >= 55) paras.push(`RSI ${rsi}로 강세 흐름이 지속되고 있습니다. 과매수 구간에는 아직 진입하지 않아 추가 상승 여력이 남아 있을 수 있습니다.`);
+    else                paras.push(`RSI ${rsi}로 중립~약세 구간에 위치합니다. RSI 50선 회복 여부가 단기 방향성의 관건이 될 것입니다.`);
+  }
+
+  // 4. 매매 전략 요약
+  if (recommend && recommend.grade !== 'bear') {
+    paras.push(`저항선 ${analysis.resistance}원(+${analysis.resistanceGap}%), 지지선 ${analysis.support}원(-${analysis.supportGap}%)을 고려할 때, ${recommend.buyLow.toLocaleString()}~${recommend.buyHigh.toLocaleString()}원 분할 매수, 목표가 ${recommend.target.toLocaleString()}원, 손절가 ${recommend.stop.toLocaleString()}원 기준으로 리스크를 관리하는 전략이 합리적입니다.`);
+  } else {
+    paras.push(`저항선 ${analysis.resistance}원(+${analysis.resistanceGap}%), 지지선 ${analysis.support}원(-${analysis.supportGap}%)이 형성되어 있습니다. 현재는 신규 진입보다 지지선(${analysis.support}원) 회복 확인 후 접근하는 것이 안전합니다.`);
+  }
+
+  el.innerHTML = `<div class="ai-paras">${paras.map(p => `<div class="ai-para">${p}</div>`).join('')}</div>
+    <div class="ai-disc">※ 기술적 분석 지표 기반 자동 생성 의견이며 투자 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
 }
 
 async function doSearch() {

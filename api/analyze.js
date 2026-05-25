@@ -346,6 +346,8 @@ export default async function handler(req, res) {
 
     // 분석은 일봉 기준으로 계산
     const closes = dailyHistory.map(d => d.close);
+    // 차트 지표는 주봉 기준 (chart xAxis와 데이터 수 일치)
+    const weeklyCloses = history.map(d => d.close);
     const isDown = ['4', '5'].includes(pOut.prdy_vrss_sign);
     const latest = {
       close:  parseNum(pOut.stck_prpr),
@@ -389,13 +391,27 @@ export default async function handler(req, res) {
       }
     }
 
-    // 지표 계산
+    // 일봉 기반 분석 지표 (점수·체크리스트·추천 전략용)
     const ma5arr  = calcMA(closes, 5);
     const ma20arr = calcMA(closes, 20);
     const ma60arr = calcMA(closes, Math.min(60, closes.length));
     const rsiArr  = calcRSI(closes);
     const boll    = calcBollinger(closes);
     const analysis = buildAnalysis(closes, ma5arr, ma20arr, ma60arr, rsiArr);
+
+    // 주봉 기반 차트 지표 (chart xAxis 길이와 맞춤)
+    const wMA5  = calcMA(weeklyCloses, 5);
+    const wMA20 = calcMA(weeklyCloses, 20);
+    const wMA60 = calcMA(weeklyCloses, Math.min(60, weeklyCloses.length));
+    const wRSI  = calcRSI(weeklyCloses);
+    const wBoll = calcBollinger(weeklyCloses);
+
+    // 시장 구분 + 시가총액
+    const market = pOut.rprs_mrkt_kor_name || '';
+    const marketCapV = parseInt(pOut.hts_avls || 0);
+    const marketCap = marketCapV >= 10000
+      ? (marketCapV / 10000).toFixed(1) + '조'
+      : marketCapV ? marketCapV.toLocaleString() + '억' : '';
 
     const chgAmt  = parseNum(pOut.prdy_vrss) * (isDown ? -1 : 1);
     const chgRate = (parseFloat(pOut.prdy_ctrt || 0) * (isDown ? -1 : 1)).toFixed(2);
@@ -410,9 +426,9 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       success: true,
-      stock: { name, code, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume },
+      stock: { name, code, market, marketCap, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume },
       history,
-      indicators: { ma5:ma5arr, ma20:ma20arr, ma60:ma60arr, rsi:rsiArr, bollUpper:boll.upper, bollMid:boll.mid, bollLower:boll.lower },
+      indicators: { ma5:wMA5, ma20:wMA20, ma60:wMA60, rsi:wRSI, bollUpper:wBoll.upper, bollMid:wBoll.mid, bollLower:wBoll.lower },
       analysis,
       score,
       recommend,
