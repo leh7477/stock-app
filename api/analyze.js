@@ -502,19 +502,26 @@ export default async function handler(req, res) {
     const dailyUrl = (d1, d2) =>
       `${chartBase}?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${d1}&FID_INPUT_DATE_2=${d2}&FID_PERIOD_DIV_CODE=D&FID_ORG_ADJ_PRC=0`;
 
+    // 현재가: KOSPI(J) 우선, 가격 0이면 KOSDAQ(Q) 재시도
+    const priceUrl = (mktCd) =>
+      `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=${mktCd}&FID_INPUT_ISCD=${code}`;
+
     const [priceRaw, cd1, cw1, cw2, cw3] = await Promise.all([
-      timedFetch(
-        `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}`,
-        { headers: kisHdr('FHKST01010100') }
-      ).then(r => r.json()).catch(() => null),
+      timedFetch(priceUrl('J'), { headers: kisHdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
       timedFetch(dailyUrl(fmtD(ago(240)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
     ]);
 
-    const pOut = priceRaw?.output;
-    if (!pOut?.stck_prpr || pOut.stck_prpr === '0') throw new Error('현재가 조회 실패');
+    // J로 가격 0이면 KOSDAQ(Q)으로 재시도
+    let pOut = priceRaw?.output;
+    if (!pOut?.stck_prpr || pOut.stck_prpr === '0') {
+      const priceRawQ = await timedFetch(priceUrl('Q'), { headers: kisHdr('FHKST01010100') })
+        .then(r => r.json()).catch(() => null);
+      pOut = priceRawQ?.output;
+    }
+    if (!pOut?.stck_prpr || pOut.stck_prpr === '0') throw new Error('현재가 조회 실패 (KOSPI·KOSDAQ 모두 시도)');
     if (!name) name = pOut.hts_kor_isnm?.trim()
       || cd1?.output1?.hts_kor_isnm?.trim()
       || cw1?.output1?.hts_kor_isnm?.trim()
