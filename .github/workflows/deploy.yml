@@ -1,0 +1,29 @@
+name: Deploy to Oracle Cloud Instance
+
+on:
+  push:
+    branches:
+      - main  # main 브랜치에 코드가 push(저장)되면 자동으로 이 배포 작업이 켜집니다.
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1단계: 우리가 GitHub Secrets에 저장한 5개의 열쇠를 가지고 오라클 로그인하기
+      - name: Configure Oracle Cloud Infrastructure CLI
+        uses: oracle-actions/configure-oci-cli@v1.3.0
+        with:
+          user: ${{ secrets.OCI_USER_OCID }}
+          tenancy: ${{ secrets.OCI_TENANCY_OCID }}
+          fingerprint: ${{ secrets.OCI_FINGERPRINT }}
+          region: ${{ secrets.OCI_REGION }}
+          api_key: ${{ secrets.OCI_PRIVATE_KEY }}
+
+      # 2단계: 로그인이 정상적으로 잘 되었는지 오라클 서버에 명령어 날려보기 (접속 테스트)
+      - name: Test OCI CLI Connection
+        run: |
+          oci iam region list --output table
