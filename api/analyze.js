@@ -281,37 +281,64 @@ export default async function handler(req, res) {
 
     if (!code) return res.status(200).json({ success:false, error:'종목을 찾을 수 없습니다. 종목코드(6자리)로 다시 시도해보세요.' });
 
-    // NAVER 가격 히스토리 (최대 5년치)
-    const rawPrices = await timedFetch(
-      `https://m.stock.naver.com/api/stock/${code}/price?pageSize=1300&page=1`,
-      { headers:{ Referer:'https://m.stock.naver.com', 'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)' } }
-    ).then(r=>r.json());
+    // KIS 4개 병렬 호출: 현재가 + 주봉 5년 차트 (3개 구간)
+    if (!token) throw new Error('KIS 토큰 없음');
 
-    if (!Array.isArray(rawPrices) || rawPrices.length === 0) throw new Error('가격 데이터 없음');
+    const now  = new Date(Date.now() + 9 * 3600 * 1000); // KST
+    const fmtD = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+    const ago  = (days) => now.getTime() - days * 864e5;
 
-    // NAVER는 최신이 앞 → 역순으로 시간순
-    const history = rawPrices.reverse().map(d => ({
-      date:   d.localTradedAt,
-      open:   parseNum(d.openPrice),
-      high:   parseNum(d.highPrice),
-      low:    parseNum(d.lowPrice),
-      close:  parseNum(d.closePrice),
-      volume: d.accumulatedTradingVolume,
-      chgRate: parseFloat(d.fluctuationsRatio||0),
-    }));
+    const kisHdr = (tr) => ({
+      Authorization: `Bearer ${token}`,
+      appkey:    process.env.KIS_APP_KEY,
+      appsecret: process.env.KIS_APP_SECRET,
+      'tr_id':   tr,
+      custtype:  'P',
+      'Content-Type': 'application/json',
+    });
+    const chartBase = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice`;
+    const chartUrl  = (d1, d2) =>
+      `${chartBase}?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${d1}&FID_INPUT_DATE_2=${d2}&FID_PERIOD_DIV_CODE=W&FID_ORG_ADJ_PRC=0`;
 
-    const closes = history.map(d=>d.close);
-    const latest = history[history.length-1];
-    const prev   = history[history.length-2];
+    const [priceRaw, cw1, cw2, cw3] = await Promise.all([
+      timedFetch(
+        `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}`,
+        { headers: kisHdr('FHKST01010100') }
+      ).then(r => r.json()).catch(() => null),
+      timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+    ]);
 
-    // NAVER 종목 기본정보 (이름)
-    if (!name) {
-      const basic = await timedFetch(
-        `https://m.stock.naver.com/api/stock/${code}/basic`,
-        { headers:{ Referer:'https://m.stock.naver.com', 'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)' } }
-      ).then(r=>r.json()).catch(()=>({}));
-      name = basic.stockName || basic.name || code;
-    }
+    const pOut = priceRaw?.output;
+    if (!pOut?.stck_prpr || pOut.stck_prpr === '0') throw new Error('현재가 조회 실패');
+    if (!name) name = pOut.hts_kor_isnm || code;
+
+    const convRow = (d) => ({
+      date:   `${d.stck_bsop_date.slice(0,4)}-${d.stck_bsop_date.slice(4,6)}-${d.stck_bsop_date.slice(6,8)}`,
+      open:   parseNum(d.stck_oprc),
+      high:   parseNum(d.stck_hgpr),
+      low:    parseNum(d.stck_lwpr),
+      close:  parseNum(d.stck_clpr),
+      volume: parseNum(d.acml_vol),
+    });
+    const rows1 = (cw1?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
+    const rows2 = (cw2?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
+    const rows3 = (cw3?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
+
+    // KIS는 최신이 앞 → 역순 정렬 후 합치기
+    const history = [...rows3, ...rows2, ...rows1].reverse().map(convRow);
+    if (history.length === 0) throw new Error('차트 데이터 없음');
+
+    const closes = history.map(d => d.close);
+    const isDown = ['4', '5'].includes(pOut.prdy_vrss_sign);
+    const latest = {
+      close:  parseNum(pOut.stck_prpr),
+      open:   parseNum(pOut.stck_oprc),
+      high:   parseNum(pOut.stck_hgpr),
+      low:    parseNum(pOut.stck_lwpr),
+      volume: parseNum(pOut.acml_vol),
+    };
 
     // 투자자 수급 (5일/20일 누적) — GitHub Actions 사전 계산 → Redis 읽기
     let investorSupply = null;
@@ -355,8 +382,8 @@ export default async function handler(req, res) {
     const boll    = calcBollinger(closes);
     const analysis = buildAnalysis(closes, ma5arr, ma20arr, ma60arr, rsiArr);
 
-    const chgAmt  = latest.close - prev.close;
-    const chgRate = (chgAmt/prev.close*100).toFixed(2);
+    const chgAmt  = parseNum(pOut.prdy_vrss) * (isDown ? -1 : 1);
+    const chgRate = (parseFloat(pOut.prdy_ctrt || 0) * (isDown ? -1 : 1)).toFixed(2);
 
     const n             = closes.length - 1;
     const recentCloses  = closes.slice(-20);
