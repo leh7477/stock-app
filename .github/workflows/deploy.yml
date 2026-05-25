@@ -1,9 +1,7 @@
 name: Deploy to Oracle Cloud Instance
 
 on:
-  push:
-    branches:
-      - main  # main 브랜치에 push되면 자동 배포
+  workflow_dispatch:  # 수동 실행 전용 (나중에 Oracle 재연동 시 사용)
 
 jobs:
   deploy:
