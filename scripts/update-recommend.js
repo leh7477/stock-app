@@ -104,10 +104,10 @@ async function fetchAllListedStocks() {
       while ((cm = cellRe.exec(rowMatch[1])) !== null) {
         cells.push(cm[1].replace(/<[^>]+>/g, '').trim());
       }
-      if (cells.length < 2) continue;
-      const name = cells[0];
-      const code = cells[1].replace(/\D/g, '').padStart(6, '0');
-      const sector = cells[2] || '';
+      if (cells.length < 3) continue;
+      const name   = cells[0];
+      const sector = cells[1] || '';  // 업종분류
+      const code   = cells[2].replace(/\D/g, '').padStart(6, '0');  // 종목코드 (3번째 컬럼)
       if (!code || !/^\d{6}$/.test(code) || !name) continue;
       if (SKIP_KEYWORDS.some(kw => name.includes(kw))) continue;
       if (isETF(name)) continue;
