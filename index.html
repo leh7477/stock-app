@@ -649,12 +649,12 @@ function makeTop10Cards(stocks, tab) {
     } else if (tab === 'frgnbuy') {
       const qty = s.frgnBuyQty || 0;
       const txt = qty >= 10000 ? '+' + (qty/10000).toFixed(1) + '만' : '+' + qty.toLocaleString();
-      bigLine = `<div class="top10-big" style="color:var(--green)">${txt}</div>`;
+      bigLine = `<div class="top10-big" style="color:var(--red)">${txt}</div>`;
       subLine = `<div class="top10-sub">외인 순매수</div>`;
     } else if (tab === 'frgnsell') {
       const qty = Math.abs(s.frgnBuyQty || 0);
       const txt = qty >= 10000 ? '-' + (qty/10000).toFixed(1) + '만' : '-' + qty.toLocaleString();
-      bigLine = `<div class="top10-big" style="color:var(--red)">${txt}</div>`;
+      bigLine = `<div class="top10-big" style="color:var(--blue)">${txt}</div>`;
       subLine = `<div class="top10-sub">외인 순매도</div>`;
     } else if (tab === 'volume') {
       const v = s.volume || 0;

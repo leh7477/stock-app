@@ -55,6 +55,11 @@ export default async function handler(req, res) {
     let stocks = payload.stocks || [];
     const totalAll = stocks.length;
 
+    // ETF·레버리지·인버스 판별 (TOP10 및 종목 리스트에서 제외)
+    const ETF_PREFIX = /^(KODEX|TIGER|ARIRANG|KINDEX|KOSEF|KBSTAR|HANARO|TIMEFOLIO|TREX|FOCUS|PLUS|SOL |ACE )/i;
+    const ETF_WORD   = /레버리지|인버스|선물|스팩|ETF|리츠|인프라|부동산/;
+    const isETF = s => ETF_PREFIX.test(s.name || '') || ETF_WORD.test(s.name || '');
+
     // 필터 적용
     if (market) {
       stocks = stocks.filter(s => s.market === market);
@@ -78,30 +83,32 @@ export default async function handler(req, res) {
 
     const all = payload.stocks || [];
 
-    // ── 5종류 Top10 (필터 무관, 전체 기준) ────────────────────────────────
+    // ── 5종류 Top10 (필터 무관, 전체 기준 / ETF·레버리지 제외) ──────────────
+    const pureStocks = all.filter(s => !isETF(s));
+
     // 분석 상위
-    const top10Score = all.slice(0, 10);
+    const top10Score = pureStocks.slice(0, 10);
 
     // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간)
-    const top10Buy = all
+    const top10Buy = pureStocks
       .filter(s => s.ma5 && s.price && s.score >= 55
                 && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
       .slice(0, 10);
 
     // 외인 순매수 상위
-    const top10FrgnBuy = all
+    const top10FrgnBuy = pureStocks
       .filter(s => (s.frgnBuyQty || 0) > 0)
       .sort((a, b) => (b.frgnBuyQty || 0) - (a.frgnBuyQty || 0))
       .slice(0, 10);
 
     // 외인 순매도 상위 (가장 많이 판 종목)
-    const top10FrgnSell = all
+    const top10FrgnSell = pureStocks
       .filter(s => (s.frgnBuyQty || 0) < 0)
       .sort((a, b) => (a.frgnBuyQty || 0) - (b.frgnBuyQty || 0))
       .slice(0, 10);
 
     // 거래량 상위
-    const top10Volume = all
+    const top10Volume = pureStocks
       .filter(s => (s.volume || 0) > 0)
       .sort((a, b) => (b.volume || 0) - (a.volume || 0))
       .slice(0, 10);

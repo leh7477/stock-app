@@ -20,11 +20,15 @@ const BATCH_SIZE  = 6;     // 종목당 API 3회 → 6개 병렬 = 약 18 calls/
 const BATCH_DELAY = 1200;
 const TIMEOUT_MS  = 10000;
 
-// 분석 제외 키워드 (스팩, 특수 목적 법인)
+// 분석 제외 키워드 (스팩, ETF, 레버리지, 특수 목적 법인)
 const SKIP_KEYWORDS = [
   '기업인수목적', '스팩', 'SPAC', '선박투자회사',
   '부동산투자회사', '인프라투자회사', '위탁관리부동산',
 ];
+// ETF·레버리지·인버스 제외 (이름 기준)
+const ETF_PREFIX = /^(KODEX|TIGER|ARIRANG|KINDEX|KOSEF|KBSTAR|HANARO|TIMEFOLIO|TREX|FOCUS|PLUS|SOL |ACE )/i;
+const ETF_WORD   = /레버리지|인버스|선물|스팩|ETF|리츠|인프라|부동산/;
+const isETF = name => ETF_PREFIX.test(name || '') || ETF_WORD.test(name || '');
 
 // ─── 유틸 ──────────────────────────────────────────────────────────────────
 
@@ -105,8 +109,9 @@ async function fetchAllListedStocks() {
     const name     = (block.match(/<corp_name>\s*(.*?)\s*<\/corp_name>/)   || [])[1]?.trim();
     const corpCode = (block.match(/<corp_code>\s*(\S+)\s*<\/corp_code>/)   || [])[1]?.trim();
     if (code && /^\d{6}$/.test(code)) {
-      // 스팩·특수목적법인 제외
+      // 스팩·특수목적법인·ETF·레버리지 제외
       if (name && SKIP_KEYWORDS.some(kw => name.includes(kw))) continue;
+      if (name && isETF(name)) continue;
       stocks.push({ code, name, corp_code: corpCode, market: '', sector: '' });
     }
   }
