@@ -81,6 +81,13 @@ async function fetchAllListedStocks() {
   if (!res.ok) throw new Error(`DART 응답 오류: ${res.status}`);
 
   const buffer = Buffer.from(await res.arrayBuffer());
+
+  // ZIP 파일 여부 확인 (ZIP 시그니처 PK = 0x50 0x4B)
+  if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
+    const preview = buffer.slice(0, 500).toString('utf-8');
+    throw new Error(`DART 응답이 ZIP이 아님 (API 키 오류?): ${preview}`);
+  }
+
   const zip = new AdmZip(buffer);
   const entry = zip.getEntry('CORPCODE.xml');
   if (!entry) throw new Error('CORPCODE.xml not found in ZIP');
@@ -127,7 +134,7 @@ async function fetchDailyCandles(token, code, mkCode) {
         Authorization: `Bearer ${token}`,
         appkey:    KIS_KEY,
         appsecret: KIS_SEC,
-        'tr_id':   'FHKST01010100',
+        'tr_id':   'FHKST01010400',
         custtype:  'P',
         'Content-Type': 'application/json',
       },
@@ -215,8 +222,6 @@ function analyze(stock, closes) {
 
 // ─── 단일 종목 처리 (KOSPI→KOSDAQ 순서로 자동 감지) ──────────────────────
 
-let _debugLogged = 0; // 처음 3개만 상세 로그
-
 async function processStock(token, stock) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
@@ -224,24 +229,18 @@ async function processStock(token, stock) {
     try {
       const raw = await fetchDailyCandles(token, stock.code, mkCode);
 
-      // 처음 3개 종목은 KIS 응답 전체 로그
-      if (_debugLogged < 3) {
-        _debugLogged++;
-        console.log(`[debug ${stock.code}/${mkCode}] rt_cd=${raw?.rt_cd} msg=${raw?.msg1} output2_len=${raw?.output2?.length}`);
-      }
+      // output 또는 output2 필드 모두 허용 (TR_ID에 따라 다름)
+      const rawOutput = raw?.output2 ?? raw?.output;
+      if (!rawOutput?.length) continue;
 
-      if (!raw?.output2?.length) continue;
-
-      const closes = raw.output2.slice().reverse().map(d => parseNum(d.stck_clpr));
+      // 최근 100일만 사용, 시간순 정렬
+      const closes = rawOutput.slice(0, 100).reverse().map(d => parseNum(d.stck_clpr));
       if (closes.length < 22) continue;
+      if (!closes[closes.length - 1]) continue; // 최근 종가 0이면 거래 없는 종목
 
       const market = mkCode === 'J' ? 'KOSPI' : 'KOSDAQ';
       return analyze({ ...stock, market }, closes);
     } catch (e) {
-      if (_debugLogged < 3) {
-        _debugLogged++;
-        console.log(`[debug ${stock.code}/${mkCode}] catch: ${e.message}`);
-      }
       continue;
     }
   }
