@@ -162,22 +162,38 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .sec-title { font-size: 14px; font-weight: 700; color: var(--text); }
 .sec-sub { font-size: 11px; color: var(--muted); }
 
-/* ── TOP10 탭 ── */
-.t10-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; margin-bottom: 10px; }
-.t10-tabs::-webkit-scrollbar { display: none; }
-.t10-tab {
-  flex-shrink: 0; padding: 6px 14px; border-radius: 99px;
-  font-size: 12px; font-weight: 600; cursor: pointer;
-  border: 1.5px solid var(--border); background: var(--card); color: var(--sub);
-  transition: all .15s; box-shadow: var(--shadow);
+/* ── TOP10 5줄 ── */
+.t10-row { margin-bottom: 14px; }
+.t10-row-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
 }
-.t10-tab:hover { border-color: var(--blue); color: var(--blue); }
-.t10-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(37,99,235,.25); }
+.t10-row-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.t10-row-more  { font-size: 11px; color: var(--muted); }
 
-/* ── Top10 가로 스크롤 ── */
-.top10-wrap { position: relative; }
-.top10-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-behavior: smooth; scrollbar-width: none; }
-.top10-scroll::-webkit-scrollbar { display: none; }
+/* ── 가로 스크롤 래퍼 (화살표 포함) ── */
+.top10-wrap {
+  position: relative;
+}
+.top10-wrap::after {
+  content: '';
+  position: absolute; top: 0; right: 0; bottom: 6px; width: 36px;
+  background: linear-gradient(to right, transparent, var(--bg));
+  pointer-events: none; border-radius: 0 14px 14px 0;
+}
+.top10-scroll {
+  display: flex; gap: 10px;
+  overflow-x: auto; overflow-y: visible;
+  padding-bottom: 6px; padding-right: 32px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.top10-scroll::-webkit-scrollbar { height: 4px; }
+.top10-scroll::-webkit-scrollbar-track { background: transparent; }
+.top10-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
 .top10-card {
   flex-shrink: 0; width: 136px;
   background: var(--card); border: 1.5px solid var(--border); border-radius: 14px;
@@ -288,26 +304,80 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <div class="result-cnt" id="result-cnt"></div>
     </div>
 
-    <!-- TOP10 탭 -->
-    <div class="sec-hdr" style="margin-bottom:8px;">
+    <!-- TOP10 5줄 -->
+    <div class="sec-hdr" style="margin-bottom:12px;margin-top:4px;">
       <div class="sec-title">⭐ TOP 10</div>
       <div class="sec-sub" id="top10-date"></div>
     </div>
-    <div class="t10-tabs">
-      <button class="t10-tab active" id="t10-buy"      onclick="switchTop10('buy')">💎 추천 매수</button>
-      <button class="t10-tab"        id="t10-score"    onclick="switchTop10('score')">📊 분석 상위</button>
-      <button class="t10-tab"        id="t10-frgnbuy"  onclick="switchTop10('frgnbuy')">🟢 외인 순매수</button>
-      <button class="t10-tab"        id="t10-frgnsell" onclick="switchTop10('frgnsell')">🔴 외인 순매도</button>
-      <button class="t10-tab"        id="t10-volume"   onclick="switchTop10('volume')">📦 거래량</button>
-    </div>
-    <div class="top10-wrap">
-      <div class="top10-scroll" id="top10-list">
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+
+    <div class="t10-row">
+      <div class="t10-row-hdr">
+        <span class="t10-row-label">💎 추천 매수</span>
+        <span class="t10-row-more">점수 ≥55 · MA5 매수권</span>
       </div>
+      <div class="top10-wrap"><div class="top10-scroll" id="t10-buy">
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+      </div></div>
+    </div>
+
+    <div class="t10-row">
+      <div class="t10-row-hdr">
+        <span class="t10-row-label">📊 분석 상위</span>
+        <span class="t10-row-more">퀀트 스코어 순</span>
+      </div>
+      <div class="top10-wrap"><div class="top10-scroll" id="t10-score">
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+      </div></div>
+    </div>
+
+    <div class="t10-row">
+      <div class="t10-row-hdr">
+        <span class="t10-row-label">🟢 외인 순매수</span>
+        <span class="t10-row-more">외국인이 가장 많이 산 종목</span>
+      </div>
+      <div class="top10-wrap"><div class="top10-scroll" id="t10-frgnbuy">
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+      </div></div>
+    </div>
+
+    <div class="t10-row">
+      <div class="t10-row-hdr">
+        <span class="t10-row-label">🔴 외인 순매도</span>
+        <span class="t10-row-more">외국인이 가장 많이 판 종목</span>
+      </div>
+      <div class="top10-wrap"><div class="top10-scroll" id="t10-frgnsell">
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+      </div></div>
+    </div>
+
+    <div class="t10-row">
+      <div class="t10-row-hdr">
+        <span class="t10-row-label">📦 거래량 상위</span>
+        <span class="t10-row-more">당일 거래량 순</span>
+      </div>
+      <div class="top10-wrap"><div class="top10-scroll" id="t10-volume">
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
+      </div></div>
     </div>
 
     <!-- 2026 테마 섹터 -->
@@ -560,37 +630,17 @@ function stockMatchesTheme(stock, themeKey) {
   return theme.keywords.some(kw => sector.includes(kw.toLowerCase()));
 }
 
-// ── TOP10 탭 데이터 저장소 ────────────────────────────
-let top10Data = { score: [], buy: [], frgnbuy: [], frgnsell: [], volume: [] };
-let curTop10Tab = 'buy';
-
-// ── TOP10 탭 전환 ─────────────────────────────────────
-function switchTop10(tab) {
-  curTop10Tab = tab;
-  ['buy','score','frgnbuy','frgnsell','volume'].forEach(k => {
-    document.getElementById('t10-' + k)?.classList.toggle('active', k === tab);
-  });
-  renderTop10Tab(tab);
-}
-
-function renderTop10Tab(tab) {
-  const stocks = top10Data[tab] || [];
-  const el = document.getElementById('top10-list');
-  if (!stocks.length) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px 4px;">데이터 없음</div>';
-    return;
-  }
+// ── TOP10 카드 HTML 생성 ──────────────────────────────
+function makeTop10Cards(stocks, tab) {
+  if (!stocks?.length) return '<div style="color:var(--muted);font-size:12px;padding:8px 4px;">데이터 없음</div>';
   const rankEmoji = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
   const rankCls   = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
-
-  el.innerHTML = stocks.map((s, i) => {
-    const up      = (s.chgRate || 0) >= 0;
-    const chgClr  = up ? '#dc2626' : '#2563eb';
-    const chgTxt  = (up ? '+' : '') + (s.chgRate || 0).toFixed(2) + '%';
-    const sc      = scoreColor(s.score || 0);
-
+  return stocks.map((s, i) => {
+    const up     = (s.chgRate || 0) >= 0;
+    const chgClr = up ? '#dc2626' : '#2563eb';
+    const chgTxt = (up ? '+' : '') + (s.chgRate || 0).toFixed(2) + '%';
+    const sc     = scoreColor(s.score || 0);
     let bigLine = '', subLine = '', tagHtml = '';
-
     if (tab === 'buy') {
       bigLine = `<div class="top10-big" style="color:${sc}">${s.score}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>`;
       tagHtml = `<div class="top10-tag" style="background:rgba(22,163,74,0.1);color:var(--green)">매수권 ✓</div>`;
@@ -612,7 +662,6 @@ function renderTop10Tab(tab) {
       bigLine = `<div class="top10-big" style="color:var(--blue)">${txt}</div>`;
       subLine = `<div class="top10-sub">거래량</div>`;
     }
-
     return `<div class="top10-card" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
       <div class="top10-rank ${rankCls(i)}">${rankEmoji(i)}</div>
       <div class="top10-name" title="${s.name}">${s.name}</div>
@@ -622,13 +671,13 @@ function renderTop10Tab(tab) {
   }).join('');
 }
 
+// ── TOP10 전체 5줄 렌더 ───────────────────────────────
 function renderTop10All(data, dateStr) {
-  top10Data.score    = data.top10Score    || data.top10 || [];
-  top10Data.buy      = data.top10Buy      || [];
-  top10Data.frgnbuy  = data.top10FrgnBuy  || [];
-  top10Data.frgnsell = data.top10FrgnSell || [];
-  top10Data.volume   = data.top10Volume   || [];
-  renderTop10Tab(curTop10Tab);
+  document.getElementById('t10-buy')     .innerHTML = makeTop10Cards(data.top10Buy      || [], 'buy');
+  document.getElementById('t10-score')   .innerHTML = makeTop10Cards(data.top10Score    || data.top10 || [], 'score');
+  document.getElementById('t10-frgnbuy') .innerHTML = makeTop10Cards(data.top10FrgnBuy  || [], 'frgnbuy');
+  document.getElementById('t10-frgnsell').innerHTML = makeTop10Cards(data.top10FrgnSell || [], 'frgnsell');
+  document.getElementById('t10-volume')  .innerHTML = makeTop10Cards(data.top10Volume   || [], 'volume');
   if (dateStr) document.getElementById('top10-date').textContent = dateStr + ' 기준';
 }
 
