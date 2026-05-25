@@ -281,9 +281,9 @@ export default async function handler(req, res) {
 
     if (!code) return res.status(200).json({ success:false, error:'종목을 찾을 수 없습니다. 종목코드(6자리)로 다시 시도해보세요.' });
 
-    // NAVER 가격 히스토리 (60일, 주된 데이터 소스)
+    // NAVER 가격 히스토리 (최대 5년치)
     const rawPrices = await timedFetch(
-      `https://m.stock.naver.com/api/stock/${code}/price?pageSize=60&page=1`,
+      `https://m.stock.naver.com/api/stock/${code}/price?pageSize=1300&page=1`,
       { headers:{ Referer:'https://m.stock.naver.com', 'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)' } }
     ).then(r=>r.json());
 

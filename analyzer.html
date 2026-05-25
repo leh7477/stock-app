@@ -328,7 +328,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 
     <!-- ④ 가격 차트 (full width, 하단) -->
     <div class="dl-card full-row" style="padding:16px 16px 12px;">
-      <div class="dl-title">📈 가격 차트 · RSI (60일)</div>
+      <div class="dl-title">📈 가격 차트 · RSI <span style="font-weight:400;color:var(--muted);font-size:10px;">슬라이더로 기간 조절 가능</span></div>
       <div class="chart-wrap">
         <div id="mainChart"></div>
         <div class="chart-divider"></div>
@@ -366,20 +366,27 @@ function renderCharts(data) {
   else mainChart.clear();
 
   const upColor='#16a34a', downColor='#dc2626';
+  // 기본 뷰: 최근 60일. 슬라이더로 전체 기간까지 드래그 가능
+  const total = dates.length;
+  const defaultStart = total > 60 ? Math.round((total - 60) / total * 100) : 0;
 
   mainChart.setOption({
     backgroundColor:'transparent',
     animation: false,
     grid:[
-      { left:0, right:8, top:12, bottom:80, containLabel:true },
-      { left:0, right:8, top:'72%', bottom:8, containLabel:true },
+      { left:0, right:8, top:12, bottom:90, containLabel:true },
+      { left:0, right:8, top:'72%', bottom:36, containLabel:true },
     ],
     dataZoom:[{
-      type:'inside', xAxisIndex:[0,1], start:0, end:100,
+      type:'inside', xAxisIndex:[0,1], start:defaultStart, end:100,
     },{
-      type:'slider', xAxisIndex:[0,1], bottom:4, height:18,
-      fillerColor:'rgba(37,99,235,0.12)', borderColor:'transparent',
+      type:'slider', xAxisIndex:[0,1], bottom:4, height:24,
+      fillerColor:'rgba(37,99,235,0.15)', borderColor:'rgba(0,0,0,0.08)',
+      handleStyle:{color:'#2563eb'},
+      moveHandleStyle:{color:'#2563eb'},
+      emphasis:{handleStyle:{color:'#1d4ed8'}},
       textStyle:{color:'#9ca3af',fontSize:10},
+      brushSelect: false,
     }],
     xAxis:[
       { type:'category', data:dates, gridIndex:0, axisLine:{lineStyle:{color:'rgba(0,0,0,0.07)'}}, axisTick:{show:false}, axisLabel:{show:false} },
@@ -444,8 +451,8 @@ function renderCharts(data) {
   rsiChart.setOption({
     backgroundColor:'transparent',
     animation:false,
-    grid:{ left:0, right:8, top:8, bottom:24, containLabel:true },
-    dataZoom:[{type:'inside',start:0,end:100},{type:'slider',bottom:4,height:14,fillerColor:'rgba(37,99,235,0.12)',borderColor:'transparent',textStyle:{fontSize:0}}],
+    grid:{ left:0, right:8, top:8, bottom:34, containLabel:true },
+    dataZoom:[{type:'inside',start:defaultStart,end:100},{type:'slider',bottom:4,height:24,fillerColor:'rgba(37,99,235,0.15)',borderColor:'rgba(0,0,0,0.08)',handleStyle:{color:'#2563eb'},textStyle:{color:'#9ca3af',fontSize:10},brushSelect:false}],
     xAxis:{ type:'category', data:dates, axisLine:{lineStyle:{color:'rgba(0,0,0,0.07)'}}, axisTick:{show:false}, axisLabel:{fontSize:9,color:'#9ca3af',formatter:v=>v.slice(5)} },
     yAxis:{ min:0, max:100, splitNumber:2, splitLine:{lineStyle:{color:'rgba(0,0,0,0.05)'}}, axisLabel:{fontSize:9,color:'#9ca3af'} },
     tooltip:{trigger:'axis',backgroundColor:'#ffffff',borderColor:'rgba(0,0,0,0.1)',textStyle:{color:'#111827',fontSize:11},formatter:p=>`RSI ${p[0]?.data?.toFixed(1)??'-'}`},
