@@ -89,11 +89,10 @@ export default async function handler(req, res) {
     // 분석 상위
     const top10Score = pureStocks.slice(0, 10);
 
-    // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간) → MA5 이격도 오름차순 (가장 근접한 순)
+    // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간) → 점수 내림차순
     const top10Buy = pureStocks
       .filter(s => s.ma5 && s.price && s.score >= 55
                 && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
-      .sort((a, b) => Math.abs(a.price - a.ma5) / a.ma5 - Math.abs(b.price - b.ma5) / b.ma5)
       .slice(0, 10);
 
     // 외인+기관 합산 순매수 상위 (5일 누적, 금액 기준)
