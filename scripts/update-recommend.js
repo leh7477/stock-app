@@ -123,6 +123,8 @@ async function fetchAllListedStocks() {
 
   const all = [...kospi, ...kosdaq];
   console.log(`[krx] KOSPI ${kospi.length}개 + KOSDAQ ${kosdaq.length}개 = 총 ${all.length}개`);
+  // 파싱 결과 샘플 출력 (코드·이름 확인용)
+  console.log('[krx] 파싱 샘플:', all.slice(0, 5).map(s => `${s.code}(${s.market}) ${s.name}`).join(', '));
   if (all.length < 1000) throw new Error(`KRX 종목 수 이상 (${all.length}개) — 응답 확인 필요`);
   return all;
 }
@@ -576,7 +578,10 @@ async function processStock(token, stock) {
       if (result) result.investorSupply = investorSupply;
       return result;
 
-    } catch (_) { continue; }
+    } catch (e) {
+      console.error(`[processStock] ${stock.code}(${stock.market}) 실패:`, e.message);
+      continue;
+    }
   }
   return null;
 }
