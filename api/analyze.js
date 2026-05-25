@@ -282,38 +282,29 @@ function calcScore(closes, volumes, boll) {
 
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
 // PBR 저평가(12) + PER 저평가(8) + 패닉셀링 감지(10)
+// PBR·PER: 구간 점프 없는 연속 공식 (경계선 불이익 제거)
 function calcKoreanScore(pbr, per, rsiLatest, closes) {
-  let ks = 0;
   const n   = closes.length - 1;
   const cur = closes[n];
 
-  // PBR 저평가 (12점)
-  if (pbr > 0) {
-    if      (pbr <= 0.5) ks += 12;
-    else if (pbr <= 0.8) ks += 10;
-    else if (pbr <= 1.0) ks += 7;
-    else if (pbr <= 1.5) ks += 3;
-  }
+  // PBR 저평가 (최대 12점) — 선형: PBR 0배=12점, 1.5배=0점
+  const pbrScore = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
 
-  // PER 저평가 (8점) — 적자(per <= 0)는 0점
-  if (per > 0) {
-    if      (per <=  8) ks += 8;
-    else if (per <= 12) ks += 6;
-    else if (per <= 18) ks += 4;
-    else if (per <= 25) ks += 2;
-  }
+  // PER 저평가 (최대 8점) — 선형: PER 0배=8점, 25배=0점 / 적자(≤0)는 0점
+  const perScore = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
 
-  // 패닉셀링 감지 (10점) — RSI 극저 + 최근 6개월 고점 대비 낙폭
+  // 패닉셀링 감지 (최대 10점) — RSI·낙폭 조합 조건 → 구간 방식 유지
   const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
   const drawdown   = recentHigh > 0 ? (recentHigh - cur) / recentHigh * 100 : 0;
+  let panicScore = 0;
   if (rsiLatest !== null && rsiLatest !== undefined) {
-    if      (rsiLatest < 25 && drawdown >= 30) ks += 10;
-    else if (rsiLatest < 35 && drawdown >= 20) ks += 7;
-    else if (rsiLatest < 35)                   ks += 4;
-    else if (rsiLatest < 40)                   ks += 2;
+    if      (rsiLatest < 25 && drawdown >= 30) panicScore = 10;
+    else if (rsiLatest < 35 && drawdown >= 20) panicScore = 7;
+    else if (rsiLatest < 35)                   panicScore = 4;
+    else if (rsiLatest < 40)                   panicScore = 2;
   }
 
-  return ks;
+  return Math.round(pbrScore + perScore + panicScore);
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -706,8 +697,8 @@ export default async function handler(req, res) {
       analysis,
       score,
       korScore: (() => {
-        const pbrS  = pbr2 > 0 ? (pbr2 <= 0.5 ? 12 : pbr2 <= 0.8 ? 10 : pbr2 <= 1.0 ? 7 : pbr2 <= 1.5 ? 3 : 0) : 0;
-        const perS  = per2 > 0 ? (per2 <= 8 ? 8 : per2 <= 12 ? 6 : per2 <= 18 ? 4 : per2 <= 25 ? 2 : 0) : 0;
+        const pbrS  = Math.round(pbr2 > 0 ? Math.max(0, 12 * (1.5 - pbr2) / 1.5) : 0);
+        const perS  = Math.round(per2 > 0 ? Math.max(0, 8  * (25  - per2)  / 25)  : 0);
         const panicS = korScore - pbrS - perS;
         const rsiNow = rsiArr[n];
         const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
