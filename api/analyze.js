@@ -313,66 +313,50 @@ export default async function handler(req, res) {
       name = basic.stockName || basic.name || code;
     }
 
-    // NAVER 일별 투자자 수급 (5일/20일 누적)
-    const navH = { Referer:'https://m.stock.naver.com', 'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)' };
+    // KIS 투자자별 일별 매매 (5일/20일 누적) — TR_ID: FHKUP03500100
     let investorSupply = null;
-    try {
-      const invRaw = await timedFetch(
-        `https://m.stock.naver.com/api/stock/${code}/investor?pageSize=22&page=1`,
-        { headers: navH }
-      ).then(r => r.json()).catch(() => null);
-
-      if (Array.isArray(invRaw) && invRaw.length >= 5) {
-        const rows = invRaw;  // 최신순 (index 0 = 가장 최근)
-        const s = rows[0];
-
-        // 필드명 자동 감지
-        const keys = Object.keys(s);
-        const fKey = keys.find(k => /(foreign|frgn)/i.test(k) && /(net|qty|buy|ntby|quantity)/i.test(k))
-                  || keys.find(k => /(foreign|frgn)/i.test(k) && !/(rate|pct|ratio)/i.test(k));
-        const iKey = keys.find(k => /(instit|organ|corp|insti)/i.test(k) && /(net|qty|buy|ntby|quantity)/i.test(k))
-                  || keys.find(k => /(instit|organ|corp|insti)/i.test(k) && !/(rate|pct|ratio)/i.test(k));
-        const pKey = keys.find(k => /(individu|personal|indv|retail)/i.test(k) && /(net|qty|buy|ntby|quantity)/i.test(k))
-                  || keys.find(k => /(individu|personal|indv|retail)/i.test(k) && !/(rate|pct|ratio)/i.test(k));
-
-        const sumKey = (arr, k) => k ? arr.reduce((acc, d) => acc + (parseFloat(d[k]) || 0), 0) : null;
-
-        const rows5  = rows.slice(0, 5);
-        const rows20 = rows.slice(0, 20);
-
-        investorSupply = {
-          d5: {
-            foreign:  sumKey(rows5, fKey),
-            inst:     sumKey(rows5, iKey),
-            personal: sumKey(rows5, pKey),
-            from: rows5[rows5.length - 1]?.localTradedAt,
-            to:   rows5[0]?.localTradedAt,
-          },
-          d20: {
-            foreign:  sumKey(rows20, fKey),
-            inst:     sumKey(rows20, iKey),
-            personal: sumKey(rows20, pKey),
-            from: rows20[rows20.length - 1]?.localTradedAt,
-            to:   rows20[0]?.localTradedAt,
-          },
-          _fields: { fKey, iKey, pKey, sample: s },  // 디버그용
-        };
-      }
-    } catch (_) {}
-
-    // KIS 실시간 수급 (장중 보조)
-    let investor = null;
     if (token) {
-      const kisHeaders = { Authorization:`Bearer ${token}`, appkey:process.env.KIS_APP_KEY, appsecret:process.env.KIS_APP_SECRET, 'Content-Type':'application/json' };
-      const inv = await timedFetch(
-        `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}`,
-        { headers:{ ...kisHeaders, 'tr_id':'FHKST01010900', custtype:'P' } }
-      ).then(r=>r.json()).catch(()=>null);
-      if (inv?.output) {
-        const f=parseInt(inv.output.frgn_ntby_qty||0), i=parseInt(inv.output.orgn_ntby_qty||0), p=parseInt(inv.output.indv_ntby_qty||0);
-        if (f!==0||i!==0||p!==0) investor = { foreignNet:f, instNet:i, personalNet:p };
-      }
+      try {
+        const kstNow  = new Date(Date.now() + 9 * 3600 * 1000);
+        const endStr  = kstNow.toISOString().slice(0, 10).replace(/-/g, '');
+        const startDt = new Date(kstNow.getTime() - 40 * 86400 * 1000);
+        const startStr = startDt.toISOString().slice(0, 10).replace(/-/g, '');
+        const kisInvH = {
+          Authorization: `Bearer ${token}`,
+          appkey: process.env.KIS_APP_KEY,
+          appsecret: process.env.KIS_APP_SECRET,
+          'Content-Type': 'application/json',
+          'tr_id': 'FHKUP03500100',
+          custtype: 'P',
+        };
+        let rows = [], debugResp = null;
+        for (const mkt of ['J', 'Q']) {
+          const resp = await timedFetch(
+            `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-trade-volume` +
+            `?FID_COND_MRKT_DIV_CODE=${mkt}&FID_INPUT_ISCD=${code}` +
+            `&FID_INPUT_DATE_1=${startStr}&FID_INPUT_DATE_2=${endStr}&FID_BLNG_CLS_CODE=0`,
+            { headers: kisInvH }
+          ).then(r => r.json()).catch(() => null);
+          debugResp = resp;
+          const candidate = resp?.output2 ?? resp?.output ?? [];
+          if (Array.isArray(candidate) && candidate.length >= 3) { rows = candidate; break; }
+        }
+        if (rows.length >= 5) {
+          const sorted = [...rows].filter(r => r.stck_bsop_date).sort((a, b) => b.stck_bsop_date.localeCompare(a.stck_bsop_date));
+          const rows5  = sorted.slice(0, 5);
+          const rows20 = sorted.slice(0, Math.min(20, sorted.length));
+          const sumF = (arr, f) => arr.reduce((s, d) => s + (parseInt(d[f] || 0)), 0);
+          const fmtD = d => d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
+          investorSupply = {
+            d5:  { foreign: sumF(rows5,'frgn_ntby_qty'),  inst: sumF(rows5,'orgn_ntby_qty'),  personal: sumF(rows5,'indv_ntby_qty'),  from: fmtD(rows5[rows5.length-1]?.stck_bsop_date),  to: fmtD(rows5[0]?.stck_bsop_date) },
+            d20: { foreign: sumF(rows20,'frgn_ntby_qty'), inst: sumF(rows20,'orgn_ntby_qty'), personal: sumF(rows20,'indv_ntby_qty'), from: fmtD(rows20[rows20.length-1]?.stck_bsop_date), to: fmtD(rows20[0]?.stck_bsop_date) },
+          };
+        } else {
+          investorSupply = { _debug: { rt_cd: debugResp?.rt_cd, msg: debugResp?.msg1, keys: debugResp ? Object.keys(debugResp) : [], rowCount: rows.length, sample: rows[0] ?? debugResp } };
+        }
+      } catch (e) { investorSupply = { _error: e.message }; }
     }
+    const investor = null;
 
     // DART 공시
     const dartKey = process.env.DART_API_KEY;
