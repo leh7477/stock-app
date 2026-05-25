@@ -129,7 +129,7 @@ function kisHeaders(token, trId) {
 async function fetchDailyCandles(token, code, mkCode) {
   const now     = new Date();
   const endDt   = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const startDt = new Date(now - 200 * 86400000).toISOString().slice(0, 10).replace(/-/g, ''); // 분석기와 동일한 ~100 거래일 확보
+  const startDt = new Date(now - 140 * 86400000).toISOString().slice(0, 10).replace(/-/g, ''); // analyze.js ago(140)과 동일
 
   const params = new URLSearchParams({
     fid_cond_mrkt_div_code: mkCode,
@@ -297,7 +297,7 @@ async function processStock(token, stock) {
       const rawOutput = raw?.output2 ?? raw?.output;
       if (!rawOutput?.length) continue;
 
-      const recent      = rawOutput.slice(0, 150);  // 최신순 상위 150개 (분석기와 동일한 거래일 수 확보)
+      const recent      = rawOutput.slice(0, 100);  // 최신순 상위 100개 — analyze.js와 동일 거래일 수
       const latestDay   = recent[0];                // 가장 최근 일봉
       const closes      = recent.slice().reverse().map(d => parseNum(d.stck_clpr));
 
