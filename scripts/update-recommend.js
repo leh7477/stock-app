@@ -90,7 +90,9 @@ async function fetchAllListedStocks() {
     const url = `https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13&marketType=${marketType}`;
     const res  = await timedFetch(url, { headers: KRX_HEADERS });
     if (!res.ok) throw new Error(`KRX ${marketName} 응답 오류: ${res.status}`);
-    const html = await res.text();
+    // KRX HTML은 EUC-KR 인코딩 → ArrayBuffer로 받아서 명시적 디코딩
+    const buf  = await res.arrayBuffer();
+    const html = new TextDecoder('euc-kr').decode(buf);
 
     const stocks = [];
     // <tr> 행 추출 (첫 행은 헤더 → 건너뜀)
