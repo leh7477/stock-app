@@ -548,7 +548,7 @@ function renderMAScore(maScore) {
   const el = document.getElementById('r-ma-score');
   if (!el || !maScore) return;
   const { arrangement = 0, deviation = 0, total = 0 } = maScore;
-  const c = total >= 32 ? '#22c55e' : total >= 20 ? '#3b82f6' : total >= 10 ? '#f59e0b' : '#9ca3af';
+  const c = scoreColor(Math.round(total / 40 * 100)); // 40점 만점 → 100점 환산
   const arrLbl = arrangement >= 20 ? '완벽 정배열' : arrangement >= 16 ? '3선 정배열' :
                  arrangement >= 13 ? '골든크로스' : arrangement >= 8 ? '중기 정배열' :
                  arrangement >= 4  ? '단기 우위'  : '역배열/혼조';
@@ -581,7 +581,8 @@ function renderKoreanScore(ks) {
   const el = document.getElementById('r-kor-score');
   if (!el || !ks) return;
   const { total = 0, pbr = 0, per = 0, pbrScore = 0, perScore = 0, panicScore = 0, techScore = 0 } = ks;
-  const c = total >= 22 ? '#22c55e' : total >= 14 ? '#3b82f6' : total >= 7 ? '#f59e0b' : '#9ca3af';
+  const c     = scoreColor(Math.round(total    / 30 * 100)); // 30점 만점 → 100점 환산
+  const techC = scoreColor(Math.round(techScore / 70 * 100)); // 70점 만점 → 100점 환산
 
   const pbrLbl = pbr <= 0    ? 'N/A'
                : pbr <= 0.5  ? `${pbr.toFixed(2)}배 — 심각한 저평가`
@@ -633,7 +634,7 @@ function renderKoreanScore(ks) {
       <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 30점</span></div>
     </div>
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
-      <span>기술지표 환산</span><span style="color:var(--text);font-weight:600">${techScore}점 / 70점</span>
+      <span>기술지표 환산</span><span style="color:${techC};font-weight:600">${techScore}점 / 70점</span>
     </div>`;
 }
 
