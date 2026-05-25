@@ -76,12 +76,39 @@ export default async function handler(req, res) {
 
     const totalFiltered = stocks.length;
 
-    // Top 10 (필터 무관, 전체 기준 상위 10개)
-    const top10 = (payload.stocks || []).slice(0, 10);
+    const all = payload.stocks || [];
+
+    // ── 5종류 Top10 (필터 무관, 전체 기준) ────────────────────────────────
+    // 분석 상위
+    const top10Score = all.slice(0, 10);
+
+    // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간)
+    const top10Buy = all
+      .filter(s => s.ma5 && s.price && s.score >= 55
+                && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
+      .slice(0, 10);
+
+    // 외인 순매수 상위
+    const top10FrgnBuy = all
+      .filter(s => (s.frgnBuyQty || 0) > 0)
+      .sort((a, b) => (b.frgnBuyQty || 0) - (a.frgnBuyQty || 0))
+      .slice(0, 10);
+
+    // 외인 순매도 상위 (가장 많이 판 종목)
+    const top10FrgnSell = all
+      .filter(s => (s.frgnBuyQty || 0) < 0)
+      .sort((a, b) => (a.frgnBuyQty || 0) - (b.frgnBuyQty || 0))
+      .slice(0, 10);
+
+    // 거래량 상위
+    const top10Volume = all
+      .filter(s => (s.volume || 0) > 0)
+      .sort((a, b) => (b.volume || 0) - (a.volume || 0))
+      .slice(0, 10);
 
     // 인기 섹터 집계 (전체 종목 기준)
     const sectorMap = {};
-    (payload.stocks || []).forEach(s => {
+    all.forEach(s => {
       if (!s.sector) return;
       if (!sectorMap[s.sector]) sectorMap[s.sector] = { name: s.sector, count: 0, scoreSum: 0 };
       sectorMap[s.sector].count++;
@@ -90,7 +117,7 @@ export default async function handler(req, res) {
     const sectors = Object.values(sectorMap)
       .map(s => ({ name: s.name, count: s.count, avgScore: Math.round(s.scoreSum / s.count) }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 12);
+      .slice(0, 30);  // 테마 매핑용으로 더 많이 전달
 
     // 페이지네이션
     stocks = stocks.slice(offset, offset + limit);
@@ -98,7 +125,12 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success:       true,
       stocks,
-      top10,
+      top10:         top10Score,   // 하위 호환성 유지
+      top10Score,
+      top10Buy,
+      top10FrgnBuy,
+      top10FrgnSell,
+      top10Volume,
       sectors,
       baseDate:      payload.baseDate,
       updatedAt:     payload.updatedAt,
