@@ -771,7 +771,8 @@ async function doSearch() {
 }
 
 // ── 자동완성 ──────────────────────────────────────────
-const SUGGESTS = [
+// 기본 목록 (API 로드 전 fallback)
+let SUGGESTS = [
   {n:'삼성전자',c:'005930'},{n:'SK하이닉스',c:'000660'},{n:'LG에너지솔루션',c:'373220'},
   {n:'삼성바이오로직스',c:'207940'},{n:'현대차',c:'005380'},{n:'셀트리온',c:'068270'},
   {n:'기아',c:'000270'},{n:'KB금융',c:'105560'},{n:'신한지주',c:'055550'},
@@ -784,6 +785,13 @@ const SUGGESTS = [
   {n:'고려아연',c:'010130'},{n:'두산에너빌리티',c:'034020'},{n:'한화에어로스페이스',c:'012450'},
   {n:'삼성전기',c:'009150'},{n:'삼성SDS',c:'018260'},
 ];
+
+// 전종목 이름 목록 비동기 로드 (/api/names = recommend_v2 기반)
+fetch('/api/names').then(r => r.json()).then(d => {
+  if (d.success && d.stocks?.length) {
+    SUGGESTS = d.stocks.map(s => ({ n: s.name, c: s.code }));
+  }
+}).catch(() => {});
 
 const qEl   = document.getElementById('q');
 const dropEl = document.getElementById('suggest-drop');

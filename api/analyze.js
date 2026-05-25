@@ -331,7 +331,11 @@ export default async function handler(req, res) {
 
     const pOut = priceRaw?.output;
     if (!pOut?.stck_prpr || pOut.stck_prpr === '0') throw new Error('현재가 조회 실패');
-    if (!name) name = pOut.hts_kor_isnm?.trim() || CODE_TO_NAME[code] || code;
+    if (!name) name = pOut.hts_kor_isnm?.trim()
+      || cd1?.output1?.hts_kor_isnm?.trim()
+      || cw1?.output1?.hts_kor_isnm?.trim()
+      || CODE_TO_NAME[code]
+      || code;
 
     const convRow = (d) => ({
       date:   `${d.stck_bsop_date.slice(0,4)}-${d.stck_bsop_date.slice(4,6)}-${d.stck_bsop_date.slice(6,8)}`,
