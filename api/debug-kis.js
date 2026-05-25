@@ -50,24 +50,30 @@ export default async function handler(req, res) {
       { headers: H('FHKST01010900') }
     ).then(r => r.json()).catch(e => ({ _error: e.message }));
 
+    // 일봉은 output (배열) 에 있음
+    const dailyRow  = Array.isArray(daily?.output)  ? daily.output[0]  : daily?.output;
+    // 투자자는 output (배열, 30일치) 에 있음
+    const invRow    = Array.isArray(investor?.output) ? investor.output[0] : investor?.output;
+    const invRow2   = investor?.output2?.[0] ?? null;
+
     const result = {
       code,
-      // ① 일봉 output2[0] 필드 목록 + 값
-      daily_output2_fields: daily?.output2?.[0]
-        ? Object.entries(daily.output2[0]).map(([k, v]) => `${k}: ${v}`)
-        : `output2 없음 (rt_cd=${daily?.rt_cd}, msg=${daily?.msg1})`,
-      daily_output2_count: daily?.output2?.length ?? 0,
+      // ① 일봉 output[0] 필드 목록 + 값
+      daily_output_fields: dailyRow
+        ? Object.entries(dailyRow).map(([k, v]) => `${k}: ${v}`)
+        : `없음 (rt_cd=${daily?.rt_cd}, msg=${daily?.msg1})`,
+      daily_output_count: Array.isArray(daily?.output) ? daily.output.length : (daily?.output ? 1 : 0),
 
-      // ② 투자자 output 필드 목록 + 값 (오늘 누적)
-      investor_output_fields: investor?.output
-        ? Object.entries(investor.output).map(([k, v]) => `${k}: ${v}`)
-        : `output 없음 (rt_cd=${investor?.rt_cd}, msg=${investor?.msg1})`,
+      // ② 투자자 output[0] 필드 목록 + 값 (가장 최근 1일)
+      investor_output0_fields: invRow
+        ? Object.entries(invRow).map(([k, v]) => `${k}: ${v}`)
+        : `없음 (rt_cd=${investor?.rt_cd}, msg=${investor?.msg1})`,
+      investor_output_count: Array.isArray(investor?.output) ? investor.output.length : 0,
 
-      // ② 투자자 output2 필드 (일별 히스토리가 있는지 확인)
-      investor_output2_fields: investor?.output2?.[0]
-        ? Object.entries(investor.output2[0]).map(([k, v]) => `${k}: ${v}`)
+      // ② 투자자 output2 필드 (혹시 있는 경우)
+      investor_output2_fields: invRow2
+        ? Object.entries(invRow2).map(([k, v]) => `${k}: ${v}`)
         : `output2 없음`,
-      investor_output2_count: investor?.output2?.length ?? 0,
     };
 
     return res.status(200).json(result);
