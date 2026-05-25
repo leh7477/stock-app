@@ -660,8 +660,12 @@ export default async function handler(req, res) {
     const supportNum    = Math.min(...recentCloses);
     const resistanceNum = Math.max(...recentCloses);
     // 국장 특화 점수 (항상 실시간 계산 — 분석기 상세 표시용)
-    const pbr2     = parseF(pOut.pbr || '0');
-    const per2     = parseF(pOut.per || '0');
+    // PER·PBR: KIS per/pbr 필드는 결산 기준가 기준이라 현재가와 괴리 발생
+    // → EPS·BPS를 현재가로 직접 나눠 실시간 PER·PBR 계산 (네이버 등 외부 사이트와 동일 방식)
+    const eps2     = parseF(pOut.eps || '0');
+    const bps2     = parseF(pOut.bps || '0');
+    const per2     = eps2 > 0 ? Math.round(latest.close / eps2 * 10) / 10 : parseF(pOut.per || '0');
+    const pbr2     = bps2 > 0 ? Math.round(latest.close / bps2 * 100) / 100 : parseF(pOut.pbr || '0');
     const techScore = calcScore(closes, volumes, boll);
     const korScore  = calcKoreanScore(pbr2, per2, rsiArr[n], closes);
     const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
