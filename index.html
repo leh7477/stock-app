@@ -739,6 +739,17 @@ async function loadData(append = false) {
   const data = await fetchJ(`/api/recommend?${params}`);
 
   if (data?.success) {
+    // baseDate가 바뀌면 localStorage 캐시 전체 초기화
+    const prevDate = localStorage.getItem('rec_baseDate');
+    if (data.baseDate && prevDate && prevDate !== data.baseDate) {
+      ['all','kospi','kosdaq'].forEach(m =>
+        ['all','ma5','ma20','ma60','golden'].forEach(f =>
+          ['','f'].forEach(g => localStorage.removeItem(`rec_${m}_${f}_${g}`))
+        )
+      );
+    }
+    if (data.baseDate) localStorage.setItem('rec_baseDate', data.baseDate);
+
     renderStocks(data, append);
     if (!append) {
       if (data.top10?.length)   renderTop10(data.top10, data.baseDate);

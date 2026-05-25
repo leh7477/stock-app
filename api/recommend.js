@@ -27,7 +27,7 @@ async function timedFetch(url, options = {}) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Cache-Control', 's-maxage=1800, stale-while-revalidate=900');
+  res.setHeader('Cache-Control', 'no-store');  // CDN 캐시 비활성화 — 클라이언트 localStorage로만 캐시
 
   const redisUrl   = process.env.KV_REST_API_URL;
   const redisToken = process.env.KV_REST_API_TOKEN;
