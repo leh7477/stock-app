@@ -565,13 +565,13 @@ function goStock(code) {
 
 // ── 전종목 이름 로드 ────────────────────────────────────
 async function loadStockNames() {
-  const cached = loadCache('names_v1');
+  const cached = loadCache('names_v2');
   if (cached?.length) { stockNames = cached; return; }
   try {
     const data = await fetchJ('/api/names');
     if (data.success && data.stocks?.length) {
       stockNames = data.stocks;
-      saveCache('names_v1', stockNames, NAMES_TTL);
+      saveCache('names_v2', stockNames, NAMES_TTL);
     }
   } catch {}
 }

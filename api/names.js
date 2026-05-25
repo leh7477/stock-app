@@ -18,8 +18,8 @@ async function timedFetch(url, options = {}) {
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  // 1시간 캐시 (종목 목록은 하루 1회 업데이트)
-  res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=1800');
+  // 5분 캐시 (CDN 오래된 실패 응답 방지)
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
 
   const redisUrl   = process.env.KV_REST_API_URL;
   const redisToken = process.env.KV_REST_API_TOKEN;
