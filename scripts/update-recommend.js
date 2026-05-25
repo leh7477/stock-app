@@ -292,6 +292,18 @@ async function processStock(token, stock) {
       const frgnRatio  = parseF(latestDay?.hts_frgn_ehrt);
       const frgnBuyQty = parseNum(latestDay?.frgn_ntby_qty);
 
+      // 5일/20일 투자자 수급 누적 (일봉 데이터 재활용)
+      const sumI    = (arr, f) => arr.reduce((s, d) => s + parseNum(d[f]), 0);
+      const fmtBsop = d => { const dt = d?.stck_bsop_date; return dt ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : ''; };
+      const inv5    = recent.slice(0, 5);
+      const inv20   = recent.slice(0, Math.min(20, recent.length));
+      const hasOrg  = latestDay?.orgn_ntby_qty !== undefined && latestDay?.orgn_ntby_qty !== '';
+      const hasIndv = latestDay?.indv_ntby_qty !== undefined && latestDay?.indv_ntby_qty !== '';
+      const investorSupply = {
+        d5:  { foreign: sumI(inv5,'frgn_ntby_qty'),  inst: hasOrg?sumI(inv5,'orgn_ntby_qty'):null,  personal: hasIndv?sumI(inv5,'indv_ntby_qty'):null,  from: fmtBsop(inv5[inv5.length-1]),  to: fmtBsop(inv5[0]) },
+        d20: { foreign: sumI(inv20,'frgn_ntby_qty'), inst: hasOrg?sumI(inv20,'orgn_ntby_qty'):null, personal: hasIndv?sumI(inv20,'indv_ntby_qty'):null, from: fmtBsop(inv20[inv20.length-1]), to: fmtBsop(inv20[0]) },
+      };
+
       // 2) 현재가 + 기본 정보 조회 (PER·PBR·EPS·시가총액·업종)
       let mktCap = 0, per = 0, pbr = 0, eps = 0, sector = '';
       try {
@@ -307,11 +319,13 @@ async function processStock(token, stock) {
       } catch (_) { /* 기본정보 실패 시 무시 */ }
 
       const market = mkCode === 'J' ? 'KOSPI' : 'KOSDAQ';
-      return analyze(
+      const result = analyze(
         { ...stock, market },
         closes,
         { volume, frgnRatio, frgnBuyQty, mktCap, per, pbr, eps, sector }
       );
+      if (result) result.investorSupply = investorSupply;
+      return result;
 
     } catch (_) { continue; }
   }
@@ -361,8 +375,15 @@ async function main() {
   const baseDate = kstNow.toISOString().slice(0, 10);
   const payload  = { stocks: results, baseDate, total: results.length, updatedAt: kstNow.toISOString() };
 
+  // recommend_v2: 종목 목록 (investorSupply 포함)
   await redisSet('recommend_v2', payload, 28 * 3600);
-  console.log(`      완료: ${results.length}개 종목 저장, 기준일 ${baseDate}`);
+
+  // investor_supply: 코드 → 수급 데이터 맵 (analyze API 전용, 빠른 단건 조회)
+  const invMap = {};
+  results.forEach(s => { if (s.investorSupply) invMap[s.code] = s.investorSupply; });
+  await redisSet('investor_supply', invMap, 28 * 3600);
+
+  console.log(`      완료: ${results.length}개 종목 저장, 수급 맵 ${Object.keys(invMap).length}개, 기준일 ${baseDate}`);
   console.log('\n=== 완료 ===\n');
 }
 

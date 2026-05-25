@@ -313,49 +313,20 @@ export default async function handler(req, res) {
       name = basic.stockName || basic.name || code;
     }
 
-    // KIS 투자자별 일별 매매 (5일/20일 누적) — TR_ID: FHKUP03500100
+    // 투자자 수급 (5일/20일 누적) — GitHub Actions 사전 계산 → Redis 읽기
     let investorSupply = null;
-    if (token) {
-      try {
-        const kstNow  = new Date(Date.now() + 9 * 3600 * 1000);
-        const endStr  = kstNow.toISOString().slice(0, 10).replace(/-/g, '');
-        const startDt = new Date(kstNow.getTime() - 40 * 86400 * 1000);
-        const startStr = startDt.toISOString().slice(0, 10).replace(/-/g, '');
-        const kisInvH = {
-          Authorization: `Bearer ${token}`,
-          appkey: process.env.KIS_APP_KEY,
-          appsecret: process.env.KIS_APP_SECRET,
-          'Content-Type': 'application/json',
-          'tr_id': 'FHKUP03500100',
-          custtype: 'P',
-        };
-        let rows = [], debugResp = null;
-        for (const mkt of ['J', 'Q']) {
-          const resp = await timedFetch(
-            `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-trade-volume` +
-            `?FID_COND_MRKT_DIV_CODE=${mkt}&FID_INPUT_ISCD=${code}` +
-            `&FID_INPUT_DATE_1=${startStr}&FID_INPUT_DATE_2=${endStr}&FID_BLNG_CLS_CODE=0`,
-            { headers: kisInvH }
-          ).then(r => r.json()).catch(() => null);
-          debugResp = resp;
-          const candidate = resp?.output2 ?? resp?.output ?? [];
-          if (Array.isArray(candidate) && candidate.length >= 3) { rows = candidate; break; }
-        }
-        if (rows.length >= 5) {
-          const sorted = [...rows].filter(r => r.stck_bsop_date).sort((a, b) => b.stck_bsop_date.localeCompare(a.stck_bsop_date));
-          const rows5  = sorted.slice(0, 5);
-          const rows20 = sorted.slice(0, Math.min(20, sorted.length));
-          const sumF = (arr, f) => arr.reduce((s, d) => s + (parseInt(d[f] || 0)), 0);
-          const fmtD = d => d ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : '';
-          investorSupply = {
-            d5:  { foreign: sumF(rows5,'frgn_ntby_qty'),  inst: sumF(rows5,'orgn_ntby_qty'),  personal: sumF(rows5,'indv_ntby_qty'),  from: fmtD(rows5[rows5.length-1]?.stck_bsop_date),  to: fmtD(rows5[0]?.stck_bsop_date) },
-            d20: { foreign: sumF(rows20,'frgn_ntby_qty'), inst: sumF(rows20,'orgn_ntby_qty'), personal: sumF(rows20,'indv_ntby_qty'), from: fmtD(rows20[rows20.length-1]?.stck_bsop_date), to: fmtD(rows20[0]?.stck_bsop_date) },
-          };
-        } else {
-          investorSupply = { _debug: { rt_cd: debugResp?.rt_cd, msg: debugResp?.msg1, keys: debugResp ? Object.keys(debugResp) : [], rowCount: rows.length, sample: rows[0] ?? debugResp } };
-        }
-      } catch (e) { investorSupply = { _error: e.message }; }
-    }
+    try {
+      const redisUrl   = process.env.KV_REST_API_URL;
+      const redisToken = process.env.KV_REST_API_TOKEN;
+      const invRaw = await timedFetch(`${redisUrl}/get/investor_supply`, {
+        headers: { Authorization: `Bearer ${redisToken}` },
+      }).then(r => r.json());
+      if (invRaw.result) {
+        const invMap = JSON.parse(invRaw.result);
+        investorSupply = invMap[code] || null;
+      }
+    } catch (_) {}
+
     const investor = null;
 
     // DART 공시
