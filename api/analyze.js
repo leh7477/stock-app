@@ -317,9 +317,12 @@ function calcKoreanScore(pbr, per, rsiLatest, closes) {
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
-  const grade = score >= 68 ? 'bull' : score >= 48 ? 'neutral' : 'bear';
+  // 7:3 스코어링 기준: 기술지표 최대 70점 + 국장특화 최대 30점
+  // 기술적으로 좋은 대형주(국장특화 0점)는 43~49점대가 정상 → neutral 임계값 하향
+  const grade = score >= 68 ? 'bull' : score >= 40 ? 'neutral' : 'bear';
   if (grade === 'bear') {
-    return { grade, label: '매수 비추천', reason: '이평선 하락 추세', color: '#ef4444' };
+    const bearReason = (ma5 && ma20 && ma5 < ma20) ? '이평선 하락 추세' : '종합 점수 미달 (지지선 확인 후 재진입)';
+    return { grade, label: '매수 비추천', reason: bearReason, color: '#ef4444' };
   }
   const ref     = grade === 'bull' ? (ma5 || cur) : (ma20 || cur);
   const buyLow  = Math.round(ref * 0.985);
