@@ -120,14 +120,14 @@ function calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
   const ma20 = ma20arr[n] || 0;
   const ma60 = ma60arr[n] || 0;
   const rsi  = rsiArr[n];
-  let score  = 20;
+  let score  = 47;
 
   if (ma5 && ma20 && ma60) {
-    if (ma5 > ma20 && ma20 > ma60)       score += 15;
-    else if (ma5 < ma20 && ma20 < ma60)  score -= 18;
+    if (ma5 > ma20 && ma20 > ma60)       score += 14;  // 정배열
+    else if (ma5 < ma20 && ma20 < ma60)  score -= 18;  // 역배열
   }
-  if (ma5)  score += cur > ma5  ? 8 : -5;
-  if (ma20) score += cur > ma20 ? 8 : -5;
+  if (ma5)  score += cur > ma5  ? 8 : -4;
+  if (ma20) score += cur > ma20 ? 8 : -4;
   if (ma60) score += cur > ma60 ? 5 : -3;
 
   if (n >= 1) {
@@ -143,7 +143,7 @@ function calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
     else if (rsi > 55) score += 3;
     else if (rsi < 45) score -= 3;
   }
-  return Math.max(5, Math.min(99, Math.round(score)));
+  return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {

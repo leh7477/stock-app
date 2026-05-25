@@ -222,23 +222,23 @@ function analyze(stock, closes, extra = {}) {
 
   const signals = [];
 
-  // ── 점수 계산 (analyze.js calcScore와 동일) ──
-  let score = 20;
+  // ── 점수 계산 (analyze.js calcScore와 동일, 최고=100 최악=0) ──
+  let score = 47;
 
-  // 이평선 배열 (±15 / -18)
+  // 이평선 배열
   if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) { score += 15; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
+    if      (ma5 > ma20 && ma20 > ma60) { score += 14; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
     else if (ma5 < ma20 && ma20 < ma60) { score -= 18; signals.push('역배열 — 하락 추세 지속 주의'); }
     else if (ma5 > ma20)                {              signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
     else if (ma20 > ma60)               {              signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
   }
 
-  // 현재가 vs 이평선 (상승 +8/+8/+5, 하락 -5/-5/-3)
-  if (ma5)  score += cur > ma5  ? 8 : -5;
-  if (ma20) score += cur > ma20 ? 8 : -5;
+  // 현재가 vs 이평선
+  if (ma5)  score += cur > ma5  ? 8 : -4;
+  if (ma20) score += cur > ma20 ? 8 : -4;
   if (ma60) score += cur > ma60 ? 5 : -3;
 
-  // 골든/데드크로스 (+10 / -10, 직전 1봉 기준)
+  // 골든/데드크로스
   if (n >= 1) {
     const pm5 = ma5a[n - 1] || 0, pm20 = ma20a[n - 1] || 0;
     if (pm5 && pm20 && ma5 && ma20) {
@@ -247,7 +247,7 @@ function analyze(stock, closes, extra = {}) {
     }
   }
 
-  // RSI 반영 (+8 / -8 / ±3)
+  // RSI
   if (rsi !== null) {
     if      (rsi < 30) score += 8;
     else if (rsi > 70) score -= 8;
@@ -255,7 +255,7 @@ function analyze(stock, closes, extra = {}) {
     else if (rsi < 45) score -= 3;
   }
 
-  score = Math.max(5, Math.min(99, Math.round(score)));
+  score = Math.max(0, Math.min(100, Math.round(score)));
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
