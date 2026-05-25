@@ -64,7 +64,7 @@ async function getKisInvestorData() {
   const output     = data?.output;
   const foreignNet  = parseInt(output?.frgn_ntby_qty || 0);
   const instNet     = parseInt(output?.orgn_ntby_qty  || 0);
-  const personalNet = parseInt(output?.indv_ntby_qty  || 0);
+  const personalNet = parseInt(output?.prsn_ntby_qty  || 0);
 
   if (foreignNet === 0 && instNet === 0 && personalNet === 0) {
     throw new Error('KIS 전부 0 (장 마감 후)');

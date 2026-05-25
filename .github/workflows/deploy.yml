@@ -3,7 +3,7 @@ name: Deploy to Oracle Cloud Instance
 on:
   push:
     branches:
-      - main  # main 브랜치에 코드가 push(저장)되면 자동으로 이 배포 작업이 켜집니다.
+      - main  # main 브랜치에 push되면 자동 배포
 
 jobs:
   deploy:
@@ -13,17 +13,73 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 1단계: 우리가 GitHub Secrets에 저장한 5개의 열쇠를 가지고 오라클 로그인하기
-      - name: Configure Oracle Cloud Infrastructure CLI
-        uses: oracle-actions/configure-oci-cli@v1.3.0
-        with:
-          user: ${{ secrets.OCI_USER_OCID }}
-          tenancy: ${{ secrets.OCI_TENANCY_OCID }}
-          fingerprint: ${{ secrets.OCI_FINGERPRINT }}
-          region: ${{ secrets.OCI_REGION }}
-          api_key: ${{ secrets.OCI_PRIVATE_KEY }}
-
-      # 2단계: 로그인이 정상적으로 잘 되었는지 오라클 서버에 명령어 날려보기 (접속 테스트)
-      - name: Test OCI CLI Connection
+      # 1단계: SSH 키 설정
+      - name: Setup SSH Key
         run: |
-          oci iam region list --output table
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.ORACLE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      # 2단계: Oracle VM에 nginx 없으면 자동 설치
+      - name: Install nginx (if not present)
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.ORACLE_HOST }} \
+            "which nginx || (sudo apt-get update -qq && sudo apt-get install -y nginx)"
+
+      # 3단계: 프론트엔드 파일 Oracle VM에 복사
+      - name: Deploy frontend files
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            --include="*.html" \
+            --include="*.css" \
+            --include="*.js" \
+            --exclude="node_modules/" \
+            --exclude=".git/" \
+            --exclude="api/" \
+            --exclude="scripts/" \
+            --exclude=".github/" \
+            ./ ubuntu@${{ secrets.ORACLE_HOST }}:/tmp/stock-deploy/
+
+      # 4단계: 파일을 nginx 서빙 디렉토리로 이동 + nginx 리로드
+      - name: Apply files and reload nginx
+        run: |
+          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.ORACLE_HOST }} << 'EOF'
+            sudo mkdir -p /var/www/stock-app
+            sudo cp -r /tmp/stock-deploy/* /var/www/stock-app/
+            sudo chown -R www-data:www-data /var/www/stock-app
+
+            # nginx 설정 (처음 한 번만 적용)
+            if [ ! -f /etc/nginx/sites-enabled/stock-app ]; then
+              sudo tee /etc/nginx/sites-available/stock-app > /dev/null << 'NGINX'
+          server {
+              listen 80;
+              server_name _;
+              root /var/www/stock-app;
+              index index.html;
+
+              # API 요청은 Vercel로 프록시
+              location /api/ {
+                  proxy_pass https://stock-app-cyan-six.vercel.app/api/;
+                  proxy_set_header Host stock-app-cyan-six.vercel.app;
+              }
+
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+          }
+          NGINX
+              sudo ln -sf /etc/nginx/sites-available/stock-app /etc/nginx/sites-enabled/
+              sudo rm -f /etc/nginx/sites-enabled/default
+            fi
+
+            sudo nginx -t && sudo systemctl reload nginx
+            echo "배포 완료!"
+          EOF
+
+      # 5단계: 배포 결과 확인
+      - name: Verify deployment
+        run: |
+          echo "배포된 URL: http://${{ secrets.ORACLE_HOST }}"
+          curl -s -o /dev/null -w "HTTP 상태코드: %{http_code}\n" http://${{ secrets.ORACLE_HOST }} || echo "VM 방화벽 설정 필요 (포트 80 열기)"

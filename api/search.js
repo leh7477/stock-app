@@ -208,7 +208,7 @@ export default async function handler(req, res) {
         marketCap: (parseInt(o?.hts_avls || 0)/100000000).toFixed(0) + '억',
         foreignNet: foreignNet.toLocaleString(),
         instNet: parseInt(inv?.orgn_ntby_qty || 0).toLocaleString(),
-        personalNet: parseInt(inv?.indv_ntby_qty || 0).toLocaleString(),
+        personalNet: parseInt(inv?.prsn_ntby_qty || 0).toLocaleString(),
         analysis
       }
     });
