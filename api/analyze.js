@@ -20,6 +20,21 @@ const STOCK_MAP = {
   '삼성전기':'009150','삼성sds':'018260',
 };
 
+// 종목코드 → 공식 한글명 (KIS API가 이름을 못 돌려줄 때 fallback)
+const CODE_TO_NAME = {
+  '005930':'삼성전자','000660':'SK하이닉스','373220':'LG에너지솔루션',
+  '207940':'삼성바이오로직스','005380':'현대차','068270':'셀트리온',
+  '000270':'기아','105560':'KB금융','055550':'신한지주','086790':'하나금융지주',
+  '005490':'POSCO홀딩스','035720':'카카오','035420':'NAVER',
+  '051910':'LG화학','096770':'SK이노베이션','012330':'현대모비스',
+  '028260':'삼성물산','066570':'LG전자','017670':'SK텔레콤',
+  '030200':'KT','032640':'LG유플러스','015760':'한국전력',
+  '259960':'크래프톤','036570':'엔씨소프트','323410':'카카오뱅크',
+  '377300':'카카오페이','004020':'현대제철','010130':'고려아연',
+  '034020':'두산에너빌리티','012450':'한화에어로스페이스',
+  '009150':'삼성전기','018260':'삼성SDS',
+};
+
 async function timedFetch(url, options = {}) {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
@@ -316,7 +331,7 @@ export default async function handler(req, res) {
 
     const pOut = priceRaw?.output;
     if (!pOut?.stck_prpr || pOut.stck_prpr === '0') throw new Error('현재가 조회 실패');
-    if (!name) name = pOut.hts_kor_isnm || code;
+    if (!name) name = pOut.hts_kor_isnm?.trim() || CODE_TO_NAME[code] || code;
 
     const convRow = (d) => ({
       date:   `${d.stck_bsop_date.slice(0,4)}-${d.stck_bsop_date.slice(4,6)}-${d.stck_bsop_date.slice(6,8)}`,
