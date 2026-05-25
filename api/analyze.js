@@ -700,16 +700,21 @@ export default async function handler(req, res) {
       indicators: { ma5:wMA5, ma20:wMA20, ma60:wMA60, rsi:wRSI, bollUpper:wBoll.upper, bollMid:wBoll.mid, bollLower:wBoll.lower },
       analysis,
       score,
-      korScore: {
-        total:     korScore,
-        pbr:       pbr2,
-        per:       per2,
-        pbrScore:  pbr2 > 0 ? (pbr2 <= 0.5 ? 12 : pbr2 <= 0.8 ? 10 : pbr2 <= 1.0 ? 7 : pbr2 <= 1.5 ? 3 : 0) : 0,
-        perScore:  per2 > 0 ? (per2 <= 8 ? 8 : per2 <= 12 ? 6 : per2 <= 18 ? 4 : per2 <= 25 ? 2 : 0) : 0,
-        panicScore: korScore - (pbr2 > 0 ? (pbr2 <= 0.5 ? 12 : pbr2 <= 0.8 ? 10 : pbr2 <= 1.0 ? 7 : pbr2 <= 1.5 ? 3 : 0) : 0)
-                             - (per2 > 0 ? (per2 <= 8 ? 8 : per2 <= 12 ? 6 : per2 <= 18 ? 4 : per2 <= 25 ? 2 : 0) : 0),
-        techScore: Math.round(techScore * 0.7),
-      },
+      korScore: (() => {
+        const pbrS  = pbr2 > 0 ? (pbr2 <= 0.5 ? 12 : pbr2 <= 0.8 ? 10 : pbr2 <= 1.0 ? 7 : pbr2 <= 1.5 ? 3 : 0) : 0;
+        const perS  = per2 > 0 ? (per2 <= 8 ? 8 : per2 <= 12 ? 6 : per2 <= 18 ? 4 : per2 <= 25 ? 2 : 0) : 0;
+        const panicS = korScore - pbrS - perS;
+        const rsiNow = rsiArr[n];
+        const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
+        const drawdownPct = recentHigh > 0 ? Math.round((recentHigh - closes[n]) / recentHigh * 100 * 10) / 10 : 0;
+        return {
+          total: korScore, pbr: pbr2, per: per2,
+          pbrScore: pbrS, perScore: perS, panicScore: panicS,
+          techScore: Math.round(techScore * 0.7),
+          rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
+          drawdown: drawdownPct,
+        };
+      })(),
       maScore,
       recommend,
       checklist,

@@ -580,9 +580,8 @@ function renderMAScore(maScore) {
 function renderKoreanScore(ks) {
   const el = document.getElementById('r-kor-score');
   if (!el || !ks) return;
-  const { total = 0, pbr = 0, per = 0, pbrScore = 0, perScore = 0, panicScore = 0, techScore = 0 } = ks;
-  const c     = scoreColor(Math.round(total    / 30 * 100)); // 30점 만점 → 100점 환산
-  const techC = scoreColor(Math.round(techScore / 70 * 100)); // 70점 만점 → 100점 환산
+  const { total = 0, pbr = 0, per = 0, pbrScore = 0, perScore = 0, panicScore = 0, techScore = 0, rsi = null, drawdown = 0 } = ks;
+  const c = scoreColor(Math.round(total / 30 * 100)); // 30점 만점 → 100점 환산 (전체 카드 색 통일)
 
   const pbrLbl = pbr <= 0    ? 'N/A'
                : pbr <= 0.5  ? `${pbr.toFixed(2)}배 — 심각한 저평가`
@@ -598,11 +597,13 @@ function renderKoreanScore(ks) {
                : per <= 25   ? `${per.toFixed(1)}배 — 약간 고평가`
                :               `${per.toFixed(1)}배 — 고평가`;
 
-  const panicLbl = panicScore >= 10 ? '극도 패닉셀링 감지'
-                 : panicScore >= 7  ? '강한 투매 구간'
-                 : panicScore >= 4  ? '과매도 구간'
-                 : panicScore >= 2  ? '약세 구간'
-                 :                   '해당 없음';
+  const rsiTxt  = rsi !== null ? `RSI ${rsi}` : 'RSI -';
+  const ddTxt   = `고점대비 -${drawdown}%`;
+  const panicLbl = panicScore >= 10 ? `극도 패닉셀링 감지 (${rsiTxt} · ${ddTxt})`
+                 : panicScore >= 7  ? `강한 투매 구간 (${rsiTxt} · ${ddTxt})`
+                 : panicScore >= 4  ? `과매도 구간 (${rsiTxt} · ${ddTxt})`
+                 : panicScore >= 2  ? `약세 구간 (${rsiTxt} · ${ddTxt})`
+                 :                   `해당 없음 (${rsiTxt} · ${ddTxt})`;
 
   el.innerHTML = `
     <div class="ma-score-row">
@@ -634,7 +635,7 @@ function renderKoreanScore(ks) {
       <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 30점</span></div>
     </div>
     <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
-      <span>기술지표 환산</span><span style="color:${techC};font-weight:600">${techScore}점 / 70점</span>
+      <span>기술지표 환산</span><span style="color:${c};font-weight:600">${techScore}점 / 70점</span>
     </div>`;
 }
 
