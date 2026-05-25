@@ -634,8 +634,9 @@ function renderKoreanScore(ks) {
       <div class="ma-score-total-label">국장 특화 합계</div>
       <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 30점</span></div>
     </div>
-    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
-      <span>기술지표 환산</span><span style="color:${c};font-weight:600">${techScore}점 / 70점</span>
+    <div class="ma-score-total">
+      <div class="ma-score-total-label">기술지표 환산</div>
+      <div class="ma-score-total-val" style="color:${c}">${techScore}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 70점</span></div>
     </div>`;
 }
 
