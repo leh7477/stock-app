@@ -27,10 +27,17 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .header h1{font-size:16px;font-weight:600;}
 
 /* ── 검색 ── */
-.search-row{padding:12px 0;display:flex;gap:8px;}
-.search-row input{flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
-.search-row input:focus{border-color:var(--blue);background:#fff;}
-.search-row button{background:var(--blue);border:none;border-radius:10px;padding:10px 22px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.search-row{padding:12px 0;display:flex;gap:8px;align-items:flex-start;}
+.search-input-wrap{flex:1;position:relative;}
+.search-input-wrap input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
+.search-input-wrap input:focus{border-color:var(--blue);background:#fff;}
+.search-input-wrap.open input{border-radius:10px 10px 0 0;border-bottom-color:transparent;}
+.search-row button{background:var(--blue);border:none;border-radius:10px;padding:10px 22px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;}
+.suggest-drop{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--blue);border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 16px rgba(0,0,0,0.1);z-index:200;overflow:hidden;}
+.suggest-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;transition:background .1s;}
+.suggest-item:hover,.suggest-item.active{background:var(--blue-bg);}
+.suggest-name{font-weight:600;flex:1;}
+.suggest-code{font-size:11px;color:var(--muted);}
 
 /* ── 종목 헤더 (wide) ── */
 .stock-header-wide{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:16px 0 0;}
@@ -181,7 +188,10 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   </div>
 
   <div class="search-row">
-    <input id="q" type="text" placeholder="종목명 또는 코드 (예: 삼성전자, 005930)" />
+    <div class="search-input-wrap" id="search-wrap">
+      <input id="q" type="text" placeholder="종목명 또는 코드 (예: 삼성전자, 005930)" autocomplete="off" />
+      <div class="suggest-drop" id="suggest-drop"></div>
+    </div>
     <button onclick="doSearch()">분석</button>
   </div>
 
@@ -760,7 +770,82 @@ async function doSearch() {
   }
 }
 
-document.getElementById('q').addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); });
+// ── 자동완성 ──────────────────────────────────────────
+const SUGGESTS = [
+  {n:'삼성전자',c:'005930'},{n:'SK하이닉스',c:'000660'},{n:'LG에너지솔루션',c:'373220'},
+  {n:'삼성바이오로직스',c:'207940'},{n:'현대차',c:'005380'},{n:'셀트리온',c:'068270'},
+  {n:'기아',c:'000270'},{n:'KB금융',c:'105560'},{n:'신한지주',c:'055550'},
+  {n:'하나금융지주',c:'086790'},{n:'POSCO홀딩스',c:'005490'},{n:'카카오',c:'035720'},
+  {n:'NAVER',c:'035420'},{n:'LG화학',c:'051910'},{n:'SK이노베이션',c:'096770'},
+  {n:'현대모비스',c:'012330'},{n:'삼성물산',c:'028260'},{n:'LG전자',c:'066570'},
+  {n:'SK텔레콤',c:'017670'},{n:'KT',c:'030200'},{n:'LG유플러스',c:'032640'},
+  {n:'한국전력',c:'015760'},{n:'크래프톤',c:'259960'},{n:'엔씨소프트',c:'036570'},
+  {n:'카카오뱅크',c:'323410'},{n:'카카오페이',c:'377300'},{n:'현대제철',c:'004020'},
+  {n:'고려아연',c:'010130'},{n:'두산에너빌리티',c:'034020'},{n:'한화에어로스페이스',c:'012450'},
+  {n:'삼성전기',c:'009150'},{n:'삼성SDS',c:'018260'},
+];
+
+const qEl   = document.getElementById('q');
+const dropEl = document.getElementById('suggest-drop');
+const wrapEl = document.getElementById('search-wrap');
+let activeIdx = -1;
+
+function openDrop(items) {
+  if (!items.length) { closeDrop(); return; }
+  activeIdx = -1;
+  dropEl.innerHTML = items.map((s, i) =>
+    `<div class="suggest-item" data-idx="${i}" onmousedown="pickSuggest('${s.n}')">
+       <span class="suggest-name">${s.n}</span>
+       <span class="suggest-code">${s.c}</span>
+     </div>`
+  ).join('');
+  dropEl.style.display = 'block';
+  wrapEl.classList.add('open');
+}
+
+function closeDrop() {
+  dropEl.style.display = 'none';
+  wrapEl.classList.remove('open');
+  activeIdx = -1;
+}
+
+function pickSuggest(name) {
+  qEl.value = name;
+  closeDrop();
+  doSearch();
+}
+
+function filterSuggests(q) {
+  if (!q) return [];
+  const lo = q.toLowerCase();
+  return SUGGESTS.filter(s => s.n.toLowerCase().includes(lo) || s.c.startsWith(q)).slice(0, 7);
+}
+
+qEl.addEventListener('input', () => openDrop(filterSuggests(qEl.value.trim())));
+
+qEl.addEventListener('keydown', e => {
+  const items = dropEl.querySelectorAll('.suggest-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    activeIdx = Math.min(activeIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    activeIdx = Math.max(activeIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+  } else if (e.key === 'Enter') {
+    if (activeIdx >= 0 && items[activeIdx]) {
+      pickSuggest(items[activeIdx].querySelector('.suggest-name').textContent);
+    } else {
+      closeDrop(); doSearch();
+    }
+  } else if (e.key === 'Escape') {
+    closeDrop();
+  }
+});
+
+document.addEventListener('click', e => { if (!wrapEl.contains(e.target)) closeDrop(); });
+
 window.addEventListener('resize', ()=>{ mainChart?.resize(); rsiChart?.resize(); });
 
 // URL 파라미터로 바로 검색
