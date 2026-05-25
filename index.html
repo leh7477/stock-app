@@ -157,6 +157,44 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 }
 .disclaimer { font-size: 10px; color: var(--muted); text-align: center; padding: 14px 0 18px; line-height: 1.6; border-top: 1px solid var(--border); margin-top: 20px; }
 
+/* ── 섹션 헤더 ── */
+.sec-hdr { display: flex; align-items: center; justify-content: space-between; margin: 18px 0 10px; }
+.sec-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.sec-sub { font-size: 11px; color: var(--muted); }
+
+/* ── Top 10 가로 스크롤 ── */
+.top10-scroll { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+.top10-scroll::-webkit-scrollbar { display: none; }
+.top10-card {
+  flex-shrink: 0; width: 130px;
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 14px;
+  padding: 13px 12px; cursor: pointer; box-shadow: var(--shadow);
+  transition: border-color .15s, box-shadow .15s;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.top10-card:hover { border-color: var(--blue); box-shadow: 0 2px 12px rgba(37,99,235,.1); }
+.top10-rank { font-size: 11px; font-weight: 700; color: var(--muted); }
+.top10-rank.gold   { color: #d97706; }
+.top10-rank.silver { color: #6b7280; }
+.top10-rank.bronze { color: #92400e; }
+.top10-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top10-score { font-size: 22px; font-weight: 700; line-height: 1; }
+.top10-chg { font-size: 11px; font-weight: 600; }
+
+/* ── 인기 섹터 ── */
+.sector-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.sector-chip {
+  background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
+  padding: 8px 14px; cursor: pointer; box-shadow: var(--shadow); transition: all .15s;
+  display: flex; align-items: center; gap: 8px;
+}
+.sector-chip:hover { border-color: var(--blue); background: var(--blue-bg); }
+.sector-chip.active { border-color: var(--blue); background: var(--blue); }
+.sector-chip.active .sc-name,
+.sector-chip.active .sc-cnt { color: #fff; }
+.sc-name { font-size: 12px; font-weight: 600; color: var(--text); }
+.sc-cnt  { font-size: 11px; color: var(--muted); }
+
 /* ── 검색 드롭다운 ── */
 .search-box { position: relative; }
 .search-dropdown {
@@ -251,8 +289,27 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <button class="fbtn green"  id="s-frgn" onclick="setFrgn(true)">외인 순매수 ▲</button>
     </div>
 
+    <!-- Top 10 -->
+    <div class="sec-hdr">
+      <div class="sec-title">📊 분석 상위 Top 10</div>
+      <div class="sec-sub" id="top10-date"></div>
+    </div>
+    <div class="top10-scroll" id="top10-list">
+      <div class="skeleton" style="width:130px;height:100px;border-radius:14px;flex-shrink:0;"></div>
+      <div class="skeleton" style="width:130px;height:100px;border-radius:14px;flex-shrink:0;"></div>
+      <div class="skeleton" style="width:130px;height:100px;border-radius:14px;flex-shrink:0;"></div>
+      <div class="skeleton" style="width:130px;height:100px;border-radius:14px;flex-shrink:0;"></div>
+      <div class="skeleton" style="width:130px;height:100px;border-radius:14px;flex-shrink:0;"></div>
+    </div>
+
+    <!-- 인기 섹터 -->
+    <div class="sec-hdr" style="margin-top:16px;">
+      <div class="sec-title">🏭 인기 섹터</div>
+    </div>
+    <div class="sector-grid" id="sector-grid"></div>
+
     <!-- 빠른 종목 -->
-    <div class="quick-wrap">
+    <div class="quick-wrap" style="margin-top:16px;">
       <div class="quick-label">빠른 분석</div>
       <div class="quick-list">
         <span class="qtag" onclick="qs('삼성전자')">삼성전자</span>
@@ -453,6 +510,68 @@ function scoreColor(sc) {
   return sc >= 75 ? '#16a34a' : sc >= 55 ? '#2563eb' : sc >= 40 ? '#d97706' : '#9ca3af';
 }
 
+// ── Top 10 렌더 ───────────────────────────────────────
+function renderTop10(stocks, dateStr) {
+  const el = document.getElementById('top10-list');
+  if (!stocks?.length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">데이터 없음</div>'; return; }
+  const rankCls = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+  const rankEmoji = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+  el.innerHTML = stocks.map((s, i) => {
+    const sc = scoreColor(s.score);
+    const up = s.chgRate >= 0;
+    const chgClr = up ? '#dc2626' : '#2563eb';
+    const chgTxt = (up ? '+' : '') + s.chgRate.toFixed(2) + '%';
+    return `<div class="top10-card" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
+      <div class="top10-rank ${rankCls(i)}">${rankEmoji(i)}</div>
+      <div class="top10-name" title="${s.name}">${s.name}</div>
+      <div class="top10-score" style="color:${sc}">${s.score}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>
+      <div class="top10-chg" style="color:${chgClr}">${chgTxt}</div>
+    </div>`;
+  }).join('');
+  if (dateStr) document.getElementById('top10-date').textContent = dateStr + ' 기준';
+}
+
+// ── 인기 섹터 렌더 ────────────────────────────────────
+let curSector = '';
+function renderSectors(sectors) {
+  const el = document.getElementById('sector-grid');
+  if (!sectors?.length) { el.innerHTML = ''; return; }
+  el.innerHTML = sectors.map(s => {
+    const color = s.avgScore >= 70 ? 'var(--green)' : s.avgScore >= 55 ? 'var(--blue)' : 'var(--muted)';
+    return `<div class="sector-chip" id="sc-${encodeURIComponent(s.name)}" onclick="setSector('${s.name}')">
+      <span class="sc-name">${s.name}</span>
+      <span class="sc-cnt" style="color:${color}">${s.count}</span>
+    </div>`;
+  }).join('');
+}
+function setSector(name) {
+  if (curSector === name) {
+    curSector = '';
+  } else {
+    curSector = name;
+  }
+  // 모든 칩 비활성화 후 선택 칩 활성화
+  document.querySelectorAll('.sector-chip').forEach(el => el.classList.remove('active'));
+  if (curSector) {
+    const chip = document.getElementById('sc-' + encodeURIComponent(curSector));
+    if (chip) chip.classList.add('active');
+  }
+  curOffset = 0;
+  renderFilteredStocks();
+}
+function renderFilteredStocks() {
+  const filtered = allStocks.filter(s => {
+    if (curSector && s.sector !== curSector) return false;
+    return true;
+  });
+  const listEl = document.getElementById('stock-list');
+  if (!filtered.length) {
+    listEl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:24px;font-size:13px;">해당 섹터 종목 없음</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(cardHTML).join('');
+}
+
 // MA 신호 배지
 function maBadge(sig, label) {
   const cls = { up: 'up', down: 'down', neutral: 'neutral' }[sig] || 'neutral';
@@ -604,6 +723,8 @@ async function loadData(append = false) {
     const cached = loadCache(cacheKey);
     if (cached) {
       renderStocks(cached, false);
+      if (cached.top10?.length)  renderTop10(cached.top10, cached.baseDate);
+      if (cached.sectors?.length) renderSectors(cached.sectors);
     }
   }
 
@@ -619,6 +740,10 @@ async function loadData(append = false) {
 
   if (data?.success) {
     renderStocks(data, append);
+    if (!append) {
+      if (data.top10?.length)   renderTop10(data.top10, data.baseDate);
+      if (data.sectors?.length) renderSectors(data.sectors);
+    }
     // 첫 페이지만 캐시 저장
     if (curOffset === 0) {
       const cacheKey = `rec_${curMarket}_${curFilter}_${curFrgn ? 'f' : ''}`;

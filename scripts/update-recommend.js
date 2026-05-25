@@ -196,42 +196,42 @@ function analyze(stock, closes, extra = {}) {
   const ma5p  = closes.length > 6  ? calcMA(closes.slice(0, -3), 5)  : null;
   const ma20p = closes.length > 30 ? calcMA(closes.slice(0, -7), 20) : null;
 
-  let score = 40;
+  let score = 30; // 기본 30점 (낮춰서 99점 남발 방지)
   const signals = [];
 
-  // ── 이평선 배열 (최대 ±25) ──
+  // ── 이평선 배열 (최대 ±20) ──
   if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) { score += 25; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
-    else if (ma5 < ma20 && ma20 < ma60) { score -= 25; signals.push('역배열 — 하락 추세 지속 주의'); }
-    else if (ma5 > ma20)                { score += 10; signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
-    else if (ma20 > ma60)               { score += 5;  signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
+    if      (ma5 > ma20 && ma20 > ma60) { score += 20; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
+    else if (ma5 < ma20 && ma20 < ma60) { score -= 20; signals.push('역배열 — 하락 추세 지속 주의'); }
+    else if (ma5 > ma20)                { score += 8;  signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
+    else if (ma20 > ma60)               { score += 4;  signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
   }
 
-  // ── 현재가 vs 이평선 (+17) ──
-  if (ma5  && cur > ma5)  score += 5;
-  if (ma20 && cur > ma20) score += 8;
+  // ── 현재가 vs 이평선 (+14) ──
+  if (ma5  && cur > ma5)  score += 4;
+  if (ma20 && cur > ma20) score += 6;
   if (ma60 && cur > ma60) score += 4;
 
-  // ── 이평선 방향 (+9) ──
-  if (ma5  && ma5p  && ma5  > ma5p)  score += 4;
-  if (ma20 && ma20p && ma20 > ma20p) { score += 5; signals.push('20일선 상승 중'); }
+  // ── 이평선 방향 (+7) ──
+  if (ma5  && ma5p  && ma5  > ma5p)  score += 3;
+  if (ma20 && ma20p && ma20 > ma20p) { score += 4; signals.push('20일선 상승 중'); }
 
-  // ── 골든/데드크로스 (+12 / -18) ──
+  // ── 골든/데드크로스 (+9 / -15) ──
   const ma5a  = calcMAArr(closes, 5);
   const ma20a = calcMAArr(closes, 20);
   let cross = false;
   for (let i = Math.max(1, n - 4); i <= n && !cross; i++) {
     if (ma5a[i] && ma20a[i] && ma5a[i-1] && ma20a[i-1]) {
-      if      (ma5a[i] > ma20a[i] && ma5a[i-1] <= ma20a[i-1]) { score += 12; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); cross = true; }
-      else if (ma5a[i] < ma20a[i] && ma5a[i-1] >= ma20a[i-1]) { score -= 18; signals.unshift('데드크로스 발생 — 단기 주의 신호');  cross = true; }
+      if      (ma5a[i] > ma20a[i] && ma5a[i-1] <= ma20a[i-1]) { score += 9; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); cross = true; }
+      else if (ma5a[i] < ma20a[i] && ma5a[i-1] >= ma20a[i-1]) { score -= 15; signals.unshift('데드크로스 발생 — 단기 주의 신호');  cross = true; }
     }
   }
 
-  // ── 5일 수익률 (±10) ──
+  // ── 5일 수익률 (±7) ──
   const chg5 = closes.length >= 6 ? (cur - closes[n - 5]) / closes[n - 5] * 100 : 0;
-  score += Math.max(-10, Math.min(10, Math.round(chg5)));
+  score += Math.max(-7, Math.min(7, Math.round(chg5)));
 
-  // ── 거래량·외인 수급 보너스 (최대 +7) ──
+  // ── 거래량·외인 수급 보너스 (최대 +6) ──
   const { volume = 0, frgnBuyQty = 0 } = extra;
   if (volume > 100000)  score += 2;
   if (volume > 1000000) score += 2;

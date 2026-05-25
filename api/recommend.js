@@ -76,16 +76,34 @@ export default async function handler(req, res) {
 
     const totalFiltered = stocks.length;
 
+    // Top 10 (필터 무관, 전체 기준 상위 10개)
+    const top10 = (payload.stocks || []).slice(0, 10);
+
+    // 인기 섹터 집계 (전체 종목 기준)
+    const sectorMap = {};
+    (payload.stocks || []).forEach(s => {
+      if (!s.sector) return;
+      if (!sectorMap[s.sector]) sectorMap[s.sector] = { name: s.sector, count: 0, scoreSum: 0 };
+      sectorMap[s.sector].count++;
+      sectorMap[s.sector].scoreSum += s.score;
+    });
+    const sectors = Object.values(sectorMap)
+      .map(s => ({ name: s.name, count: s.count, avgScore: Math.round(s.scoreSum / s.count) }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+
     // 페이지네이션
     stocks = stocks.slice(offset, offset + limit);
 
     return res.status(200).json({
       success:       true,
       stocks,
+      top10,
+      sectors,
       baseDate:      payload.baseDate,
       updatedAt:     payload.updatedAt,
-      total:         totalFiltered,   // 필터 후 전체 수
-      totalAll,                       // 분석된 전체 종목 수
+      total:         totalFiltered,
+      totalAll,
       offset,
       limit,
       source:        'cache',
