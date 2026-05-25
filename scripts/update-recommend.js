@@ -274,57 +274,83 @@ function calcScore(closes, volumes) {
   const pm5   = (n > 0 ? ma5a[n - 1]  : 0) || 0;
   const pm20  = (n > 0 ? ma20a[n - 1] : 0) || 0;
 
-  // 1a. 이평선 배열 (20점)
+  // 1a. 이평선 배열 (20점) — 5단계
   if (ma5 && ma20 && ma60 && ma120 && ma5 > ma20 && ma20 > ma60 && ma60 > ma120)
-    score += 20;
+    score += 20; // 완벽 정배열 5>20>60>120
+  else if (ma5 && ma20 && ma60 && ma5 > ma20 && ma20 > ma60)
+    score += 16; // 3선 정배열 5>20>60
   else if (pm5 && pm20 && ma5 && ma20 && pm5 <= pm20 && ma5 > ma20)
-    score += 15;
+    score += 13; // 골든크로스
+  else if (ma20 && ma60 && ma20 > ma60)
+    score += 8;  // 중기 정배열 20>60
   else if (ma5 && ma20 && ma5 > ma20)
-    score += 5;
+    score += 4;  // 단기 우위
 
-  // 1b. MA20 이격도 (20점)
+  // 1b. MA20 이격도 (20점) — 5단계
   if (ma20) {
     const d = cur / ma20 * 100;
-    if      (d >= 100 && d <= 108) score += 20;
-    else if (d >  108 && d <= 115) score += 10;
-    else if (d >=  95 && d <  100) score += 10;
+    if      (d >= 101 && d <= 106)                             score += 20; // 이상적 상승권
+    else if ((d >= 100 && d <  101) || (d > 106 && d <= 109)) score += 16; // 안정 상승
+    else if ((d >=  95 && d < 100)  || (d > 109 && d <= 112)) score += 10; // 소폭 이탈/과열
+    else if ((d >=  92 && d <  95)  || (d > 112 && d <= 116)) score += 5;  // 중간 이탈/과열
+    // 92% 미만 or 116% 초과: 0점
   }
 
   // 2. 모멘텀 (30점)
-  // 2a. RSI (15점)
+  // 2a. RSI (15점) — 6단계
   const rsiArr = calcRSI(closes);
   const rsi = rsiArr[n];
   if (rsi !== null) {
-    if      (rsi >= 55 && rsi < 70) score += 15;
-    else if (rsi >= 45 && rsi < 55) score += 8;
-    else if (rsi >= 70)             score += 3;
+    if      (rsi >= 58 && rsi <  68) score += 15; // 최적 상승
+    else if (rsi >= 52 && rsi <  58) score += 10; // 강세
+    else if (rsi >= 68 && rsi <  73) score += 10; // 과매수 초입
+    else if (rsi >= 47 && rsi <  52) score += 6;  // 중립
+    else if (rsi >= 73)              score += 3;  // 과매수
+    else if (rsi >= 40 && rsi <  47) score += 2;  // 약세
+    // RSI < 40: 0점
   }
 
-  // 2b. MACD (15점)
+  // 2b. MACD (15점) — 5단계
   const macd = calcMACDFull(closes);
   if (macd) {
-    if      (macd.hist > 0 && macd.prevHist !== null && macd.hist > macd.prevHist) score += 15;
-    else if (macd.hist > 0)                                                         score += 10;
-    else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0 && macd.hist > macd.prevHist) score += 8;
+    if      (macd.hist > 0 && macd.prevHist !== null && macd.hist > macd.prevHist)
+      score += 15; // 양수 확장 (양전환 포함)
+    else if (macd.hist > 0 && macd.prevHist !== null && macd.prevHist > 0 && macd.hist > macd.prevHist * 0.7)
+      score += 10; // 양수 미미 축소 (70% 이상 유지)
+    else if (macd.hist > 0)
+      score += 7;  // 양수 강한 축소
+    else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0
+          && macd.hist > macd.prevHist && macd.hist > macd.prevHist * 0.5)
+      score += 5;  // 음수 강하게 수축
+    else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0 && macd.hist > macd.prevHist)
+      score += 3;  // 음수 수축
+    // 음수 확장: 0점
   }
 
   // 3. 거래량 수급 (30점)
   if (volumes && volumes.length > 5) {
-    // 3a. 거래량 5일 평균 대비 (15점)
+    // 3a. 거래량 5일 평균 대비 (15점) — 6단계
     const past5 = volumes.slice(Math.max(0, n - 5), n);
     const avg5  = past5.length ? past5.reduce((a, b) => a + b, 0) / past5.length : 0;
     if (avg5 > 0) {
       const ratio = volumes[n] / avg5;
-      if      (ratio >= 2.0) score += 15;
-      else if (ratio >= 1.0) score += 10;
+      if      (ratio >= 3.0) score += 15; // 폭발적
+      else if (ratio >= 2.0) score += 12; // 세력 개입
+      else if (ratio >= 1.5) score += 9;  // 강한 관심
+      else if (ratio >= 1.0) score += 6;  // 평균 이상
+      else if (ratio >= 0.7) score += 3;  // 소폭 미달
+      // 70% 미만: 0점
     }
 
-    // 3b. OBV 최고치 (15점)
+    // 3b. OBV 60일 최고치 대비 (15점) — 5단계
     const obv    = calcOBVArr(closes, volumes);
     const window = obv.slice(Math.max(0, n - 60), n + 1);
     const obvMax = Math.max(...window);
-    if      (obv[n] >= obvMax * 0.98) score += 15;
-    else if (obv[n] >= obvMax * 0.80) score += 8;
+    if      (obv[n] >= obvMax * 0.98) score += 15; // 신고치 갱신
+    else if (obv[n] >= obvMax * 0.90) score += 11; // 최고치 근접
+    else if (obv[n] >= obvMax * 0.80) score += 7;  // 접근
+    else if (obv[n] >= obvMax * 0.65) score += 4;  // 중간
+    // 65% 미만: 0점
   }
 
   // 볼린저 스퀴즈 레이어 (±10점)
@@ -335,12 +361,12 @@ function calcScore(closes, volumes) {
     const minW = Math.min(...histW);
     if (curW <= minW * 1.1 && volumes && volumes.length > 5) {
       const vol5 = volumes.slice(Math.max(0, n - 5), n).reduce((a, b) => a + b, 0) / 5;
-      // Bollinger upper/lower 근사: mean ± std*2
+      // analyze.js calcBollinger와 동일: Math.round() 적용하여 반올림 일치
       const s20  = closes.slice(Math.max(0, n - 19), n + 1);
       const mean = s20.reduce((a, b) => a + b, 0) / s20.length;
       const std  = Math.sqrt(s20.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / s20.length);
-      const bollUpper = mean + std * 2;
-      const bollLower = mean - std * 2;
+      const bollUpper = Math.round(mean + std * 2);
+      const bollLower = Math.round(mean - std * 2);
       if (cur > bollUpper && vol5 > 0 && volumes[n] > vol5 * 2) score += 10;
       else if (cur < bollLower)                                   score -= 10;
     }
@@ -412,8 +438,9 @@ function analyze(stock, closes, volumes, extra = {}) {
     signals:     signals.slice(0, 2),
     // 수급·기본 정보
     volume:      extra.volume      || 0,
+    avgVol5:     extra.avgVol5     || 0,   // 5일 평균 거래량
     frgnRatio:   extra.frgnRatio   || 0,   // 외인 보유율 (%)
-    frgnBuyQty:  extra.frgnBuyQty  || 0,   // 외인 순매수 수량
+    frgnBuyQty:  extra.frgnBuyQty  || 0,   // 외인 순매수 수량 (당일)
     mktCap:      extra.mktCap      || 0,   // 시가총액 (억원)
     per:         extra.per         || 0,
     pbr:         extra.pbr         || 0,
@@ -433,7 +460,8 @@ async function processStock(token, stock) {
       const rawOutput = raw?.output2 ?? raw?.output;
       if (!rawOutput?.length) continue;
 
-      const recent      = rawOutput.slice(0, 150);  // 최신순 상위 150개 — MA120 계산에 충분한 거래일 수
+      // analyze.js와 동일: 종가 0인 행 제거 (거래정지·휴장일 오류 방지)
+      const recent      = rawOutput.filter(d => parseNum(d.stck_clpr) > 0).slice(0, 150);  // 최신순 상위 150개 — MA120 계산에 충분한 거래일 수
       const latestDay   = recent[0];                // 가장 최근 일봉
       const reversed    = recent.slice().reverse();
       const closes      = reversed.map(d => parseNum(d.stck_clpr));
@@ -446,6 +474,12 @@ async function processStock(token, stock) {
       const volume     = parseNum(latestDay?.acml_vol);
       const frgnRatio  = parseF(latestDay?.hts_frgn_ehrt);
       const frgnBuyQty = parseNum(latestDay?.frgn_ntby_qty);
+      // 5일 평균 거래량 (거래대금 정렬용)
+      const vLast  = volumes.length - 1;
+      const avgVol5 = Math.round(
+        volumes.slice(Math.max(0, vLast - 4), vLast + 1).reduce((a, b) => a + b, 0) /
+        Math.min(5, vLast + 1)
+      );
 
       // 5일/20일 투자자 수급 (FHKST01010900 → output 배열 30일치)
       let investorSupply = null;
@@ -488,7 +522,7 @@ async function processStock(token, stock) {
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, mktCap, per, pbr, eps, sector }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector }
       );
       if (result) result.investorSupply = investorSupply;
       return result;

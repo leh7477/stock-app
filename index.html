@@ -340,8 +340,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
     <div class="t10-row">
       <div class="t10-row-hdr">
-        <span class="t10-row-label">🟢 외인 순매수</span>
-        <span class="t10-row-more">외국인이 가장 많이 산 종목</span>
+        <span class="t10-row-label">🟢 외인+기관 순매수</span>
+        <span class="t10-row-more">5일 외인·기관 합산 순매수 금액 순</span>
       </div>
       <div class="top10-wrap"><div class="top10-scroll" id="t10-frgnbuy">
         <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
@@ -354,8 +354,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
     <div class="t10-row">
       <div class="t10-row-hdr">
-        <span class="t10-row-label">🔴 외인 순매도</span>
-        <span class="t10-row-more">외국인이 가장 많이 판 종목</span>
+        <span class="t10-row-label">🔴 외인+기관 순매도</span>
+        <span class="t10-row-more">5일 외인·기관 합산 순매도 금액 순</span>
       </div>
       <div class="top10-wrap"><div class="top10-scroll" id="t10-frgnsell">
         <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
@@ -607,27 +607,66 @@ function scoreColor(sc) {
 }
 
 // ── 2026 테마 정의 ────────────────────────────────────
+// keywords: KIS API 업종명(sector) 매칭
+// nameKeywords: 종목명(name) 매칭 — 업종 분류가 불완전한 종목 보완
 const THEMES_2026 = [
-  { key: 'ai',      emoji: '🤖', name: 'AI·반도체',    keywords: ['반도체', '전자', 'IT', '정보기술', '시스템반도체', '디스플레이'] },
-  { key: 'defense', emoji: '🚀', name: '방산·우주항공', keywords: ['방위', '항공', '우주', '방산'] },
-  { key: 'energy',  emoji: '⚡', name: '원전·에너지',   keywords: ['에너지', '발전', '전력', '원자력', '핵연료'] },
-  { key: 'bio',     emoji: '💊', name: '바이오·헬스',   keywords: ['의약', '바이오', '의료', '헬스', '제약'] },
-  { key: 'robot',   emoji: '🦾', name: '로봇·자동화',   keywords: ['기계', '전기장비', '자동화', '로봇', '산업용'] },
-  { key: 'battery', emoji: '🔋', name: '2차전지·소재',  keywords: ['화학', '배터리', '2차전지', 'ESS'] },
-  { key: 'game',    emoji: '🎮', name: '게임·콘텐츠',   keywords: ['게임', '소프트웨어', '엔터테인먼트', '미디어', '방송', '콘텐츠'] },
-  { key: 'finance', emoji: '💰', name: '금융·핀테크',   keywords: ['금융', '은행', '보험', '증권', '지주'] },
-  { key: 'ship',    emoji: '🚢', name: '조선·해운',     keywords: ['조선', '해운', '선박'] },
-  { key: 'build',   emoji: '🏗️', name: '건설·인프라',  keywords: ['건설', '시멘트', '건자재'] },
-  { key: 'steel',   emoji: '🔩', name: '소재·철강',     keywords: ['철강', '비철', '금속', '광업'] },
-  { key: 'consumer',emoji: '🛍️', name: '소비재·유통',  keywords: ['소매', '유통', '식품', '음료', '의류', '패션', '화장품', '생활용품'] },
+  { key: 'ai', emoji: '🤖', name: 'AI·반도체',
+    keywords: ['반도체', '전기/전자', '전자부품', '디스플레이', '정보기술', '소프트웨어', 'IT서비스', '컴퓨터', '통신장비', '인터넷', '데이터처리', '클라우드', 'IT'],
+    nameKeywords: ['반도체', '하이닉스', '삼성전자', 'AI', '인공지능', '웨이퍼', '파운드리', 'PCB', 'HBM', 'NAVER', '네이버', '카카오', 'KT', '텔레콤', 'LG전자', '삼성전기', '삼성SDS', 'LG이노텍', 'OLED', '디스플레이', '칩스', '패키징', '기판', 'MLCC', '모듈', '센서', '라이다'] },
+
+  { key: 'defense', emoji: '🚀', name: '방산·우주항공',
+    keywords: ['방위', '항공우주', '방산', '항공기부품', '우주', '군수'],
+    nameKeywords: ['에어로스페이스', '항공우주', '방산', '방위', '넥스원', '로템', '한화시스템', '빅텍', '퍼스텍', '한국항공', 'KAI', '우주항공', '풍산', '한화에어로', '스페이스'] },
+
+  { key: 'energy', emoji: '⚡', name: '원전·에너지',
+    keywords: ['에너지', '발전', '전력', '원자력', '핵연료', '유틸리티', '가스', '신재생에너지', '전기공급'],
+    nameKeywords: ['한전', '한국전력', '에너빌리티', '한전기술', '한전KPS', '원자력', '두산에너빌', '일진파워', 'KEPCO', '비에이치아이', '우진', '에너지', '태양광', '풍력', '솔라', '수소', 'SMR'] },
+
+  { key: 'bio', emoji: '💊', name: '바이오·헬스',
+    keywords: ['의약품', '바이오', '의료기기', '의료서비스', '헬스케어', '제약', '건강기능식품', '동물의약품', '임상'],
+    nameKeywords: ['바이오', '제약', '의약', '헬스', '메디', '팜', '테라', '진단', '유전자', '항암', '백신', '셀트리온', '유한양행', '한미약품', '동아에스티', '녹십자', '종근당', '보령', '대웅', '일양', '한독', '삼성바이오', '에스티팜', '차바이오', '지놈', '온코', '툴젠'] },
+
+  { key: 'robot', emoji: '🦾', name: '로봇·자동화',
+    keywords: ['기계', '전기장비', '자동화', '산업용기계', '정밀기계', '특수산업용기계', '일반산업기계'],
+    nameKeywords: ['로봇', '자동화', '스마트팩토리', '머신', '비전', '두산로보틱스', '레인보우', '하이로닉', '유도', 'FA', '티로보틱스', '에스피지', '로보스타', '뉴로메카', '협동로봇', '드론'] },
+
+  { key: 'battery', emoji: '🔋', name: '2차전지·소재',
+    keywords: ['화학', '배터리', '2차전지', 'ESS', '정밀화학', '무기화학', '석유화학'],
+    nameKeywords: ['배터리', '2차전지', 'ESS', '에너지솔루션', '양극재', '음극재', '전해질', '분리막', 'LG에너지', 'SK이노베이션', '삼성SDI', '포스코퓨처엠', '에코프로', '엘앤에프', '엔켐', '천보', '솔브레인', '동화기업', '나노신소재', '새빗켐'] },
+
+  { key: 'game', emoji: '🎮', name: '게임·콘텐츠',
+    keywords: ['게임', '소프트웨어', '엔터테인먼트', '미디어', '방송', '콘텐츠', '영화', '음악', '광고'],
+    nameKeywords: ['게임', '엔터', '미디어', '콘텐츠', '스튜디오', '픽처스', '엔씨소프트', '크래프톤', '넥슨', '넷마블', '카카오게임', '펄어비스', 'SM', 'JYP', 'YG', 'HYBE', '하이브', '위버스', '웹툰', '방탄', '드라마', '애니메이션'] },
+
+  { key: 'finance', emoji: '💰', name: '금융·핀테크',
+    keywords: ['금융', '은행', '보험', '증권', '지주회사', '여신전문', '카드', '저축은행', '캐피탈', '자산운용', '신탁', '리스', '신용'],
+    nameKeywords: ['금융지주', '금융그룹', '은행', '증권', '보험', '카드', '캐피탈', '저축', '자산운용', '신한', 'KB', '하나금융', '우리금융', 'NH', 'IBK', '기업은행', '수협', '농협', '미래에셋', '키움', '삼성증권', '한국투자', '메리츠', 'DB손보', '삼성화재', '현대해상', '카카오뱅크', '카카오페이', '케이뱅크', '토스', '페이', '핀테크'] },
+
+  { key: 'ship', emoji: '🚢', name: '조선·해운',
+    keywords: ['조선', '해운', '선박', '항만', '해상운송'],
+    nameKeywords: ['조선', '중공업', '해운', '선박', 'HMM', '팬오션', '대한해운', '한국조선', '현대중공업', '삼성중공업', '대우조선', 'HD한국조선', 'HD현대중공업', '엔진', '해양플랜트'] },
+
+  { key: 'build', emoji: '🏗️', name: '건설·인프라',
+    keywords: ['건설', '시멘트', '건자재', '부동산개발', '엔지니어링', '환경'],
+    nameKeywords: ['건설', '시멘트', '건자재', '레미콘', '엔지니어링', '삼성물산', '현대건설', 'GS건설', '대우건설', 'HDC', '롯데건설', 'SK에코플랜트', '포스코건설', '한화건설', '쌍용건설', '인프라', '플랜트'] },
+
+  { key: 'steel', emoji: '🔩', name: '소재·철강',
+    keywords: ['철강', '비철금속', '금속', '광업', '제련', '알루미늄', '구리', '니켈'],
+    nameKeywords: ['철강', '스틸', '메탈', 'POSCO', '포스코', '고려아연', '현대제철', '세아', '동국제강', '강판', '합금', '비철', '제련', '아연', '동', '영풍'] },
+
+  { key: 'consumer', emoji: '🛍️', name: '소비재·유통',
+    keywords: ['소매', '유통', '식품', '음료', '의류', '패션', '화장품', '생활용품', '백화점', '대형마트', '편의점', '외식', '호텔', '여행'],
+    nameKeywords: ['식품', '음료', '주류', '패션', '의류', '화장품', '코스메틱', '뷰티', '유통', '쇼핑', '마트', '백화점', '편의점', '롯데', '신세계', 'CJ제일', '오리온', '농심', '빙그레', '아모레퍼시픽', 'LG생활건강', '이마트', 'GS리테일'] },
 ];
 
-// 종목의 raw sector가 테마에 해당하는지 확인
+// 종목의 sector(업종명) 또는 name(종목명) 이 테마 키워드에 해당하는지 확인
 function stockMatchesTheme(stock, themeKey) {
   const theme = THEMES_2026.find(t => t.key === themeKey);
   if (!theme) return false;
   const sector = (stock.sector || '').toLowerCase();
-  return theme.keywords.some(kw => sector.includes(kw.toLowerCase()));
+  const name   = (stock.name   || '').toLowerCase();
+  return theme.keywords.some(kw => sector.includes(kw.toLowerCase()))
+      || (theme.nameKeywords || []).some(kw => name.includes(kw.toLowerCase()));
 }
 
 // ── TOP10 카드 HTML 생성 ──────────────────────────────
@@ -647,20 +686,22 @@ function makeTop10Cards(stocks, tab) {
     } else if (tab === 'score') {
       bigLine = `<div class="top10-big" style="color:${sc}">${s.score}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>`;
     } else if (tab === 'frgnbuy') {
-      const qty = s.frgnBuyQty || 0;
-      const txt = qty >= 10000 ? '+' + (qty/10000).toFixed(1) + '만' : '+' + qty.toLocaleString();
-      bigLine = `<div class="top10-big" style="color:var(--red)">${txt}</div>`;
-      subLine = `<div class="top10-sub">외인 순매수</div>`;
+      const fmtAmt = v => { const a = Math.abs(v); return a >= 1e12 ? (v/1e12).toFixed(1)+'조' : a >= 1e8 ? Math.round(v/1e8).toLocaleString()+'억' : Math.round(v/1e4).toLocaleString()+'만'; };
+      const net5 = ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
+      const amt5 = net5 * (s.price || 0);
+      bigLine = `<div class="top10-big" style="color:var(--red)">+${fmtAmt(amt5)}</div>`;
+      subLine = `<div class="top10-sub">5일 외인+기관</div>`;
     } else if (tab === 'frgnsell') {
-      const qty = Math.abs(s.frgnBuyQty || 0);
-      const txt = qty >= 10000 ? '-' + (qty/10000).toFixed(1) + '만' : '-' + qty.toLocaleString();
-      bigLine = `<div class="top10-big" style="color:var(--blue)">${txt}</div>`;
-      subLine = `<div class="top10-sub">외인 순매도</div>`;
+      const fmtAmt = v => { const a = Math.abs(v); return a >= 1e12 ? (v/1e12).toFixed(1)+'조' : a >= 1e8 ? Math.round(v/1e8).toLocaleString()+'억' : Math.round(v/1e4).toLocaleString()+'만'; };
+      const net5 = ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
+      const amt5 = Math.abs(net5 * (s.price || 0));
+      bigLine = `<div class="top10-big" style="color:var(--blue)">-${fmtAmt(amt5)}</div>`;
+      subLine = `<div class="top10-sub">5일 외인+기관</div>`;
     } else if (tab === 'volume') {
-      const v = s.volume || 0;
-      const txt = v >= 100000000 ? (v/100000000).toFixed(1)+'억' : v >= 10000 ? Math.round(v/10000).toLocaleString()+'만' : v.toLocaleString();
-      bigLine = `<div class="top10-big" style="color:var(--blue)">${txt}</div>`;
-      subLine = `<div class="top10-sub">거래량</div>`;
+      const fmtAmt = v => { const a = Math.abs(v); return a >= 1e12 ? (v/1e12).toFixed(1)+'조' : a >= 1e8 ? Math.round(v/1e8).toLocaleString()+'억' : Math.round(v/1e4).toLocaleString()+'만'; };
+      const avgAmt = (s.avgVol5 || s.volume || 0) * (s.price || 0);
+      bigLine = `<div class="top10-big" style="color:var(--blue)">${fmtAmt(avgAmt)}</div>`;
+      subLine = `<div class="top10-sub">5일 평균 거래대금</div>`;
     }
     return `<div class="top10-card" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
       <div class="top10-rank ${rankCls(i)}">${rankEmoji(i)}</div>

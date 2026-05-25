@@ -89,28 +89,30 @@ export default async function handler(req, res) {
     // 분석 상위
     const top10Score = pureStocks.slice(0, 10);
 
-    // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간)
+    // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간) → MA5 이격도 오름차순 (가장 근접한 순)
     const top10Buy = pureStocks
       .filter(s => s.ma5 && s.price && s.score >= 55
                 && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
+      .sort((a, b) => Math.abs(a.price - a.ma5) / a.ma5 - Math.abs(b.price - b.ma5) / b.ma5)
       .slice(0, 10);
 
-    // 외인 순매수 상위
+    // 외인+기관 합산 순매수 상위 (5일 누적, 금액 기준)
+    const d5NetBuy = s => ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
     const top10FrgnBuy = pureStocks
-      .filter(s => (s.frgnBuyQty || 0) > 0)
-      .sort((a, b) => (b.frgnBuyQty || 0) - (a.frgnBuyQty || 0))
+      .filter(s => d5NetBuy(s) > 0)
+      .sort((a, b) => (d5NetBuy(b) * (b.price || 0)) - (d5NetBuy(a) * (a.price || 0)))
       .slice(0, 10);
 
-    // 외인 순매도 상위 (가장 많이 판 종목)
+    // 외인+기관 합산 순매도 상위 (5일 누적, 금액 기준, 절댓값 큰 순)
     const top10FrgnSell = pureStocks
-      .filter(s => (s.frgnBuyQty || 0) < 0)
-      .sort((a, b) => (a.frgnBuyQty || 0) - (b.frgnBuyQty || 0))
+      .filter(s => d5NetBuy(s) < 0)
+      .sort((a, b) => (d5NetBuy(a) * (a.price || 0)) - (d5NetBuy(b) * (b.price || 0)))
       .slice(0, 10);
 
-    // 거래량 상위
+    // 거래량 상위 (5일 평균 거래대금 기준)
     const top10Volume = pureStocks
-      .filter(s => (s.volume || 0) > 0)
-      .sort((a, b) => (b.volume || 0) - (a.volume || 0))
+      .filter(s => (s.avgVol5 || s.volume || 0) > 0)
+      .sort((a, b) => ((b.avgVol5 || b.volume || 0) * (b.price || 0)) - ((a.avgVol5 || a.volume || 0) * (a.price || 0)))
       .slice(0, 10);
 
     // 인기 섹터 집계 (전체 종목 기준)
