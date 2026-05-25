@@ -542,6 +542,8 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
+    // stock_scores (소형 맵, 워크플로우 후 생성) 우선 → 없으면 recommend_v2 에서 직접 조회
+    // → recommend_v2 는 이미 Redis 에 존재하므로 워크플로우 재실행 없이 즉시 동기화
     let storedScore = null;
     try {
       const scRaw = await timedFetch(`${_redisUrl}/get/stock_scores`, {
@@ -552,6 +554,19 @@ export default async function handler(req, res) {
         if (scMap[code] !== undefined) storedScore = scMap[code];
       }
     } catch (_) {}
+
+    if (storedScore === null) {
+      try {
+        const rv2Raw = await timedFetch(`${_redisUrl}/get/recommend_v2`, {
+          headers: { Authorization: `Bearer ${_redisToken}` },
+        }).then(r => r.json());
+        if (rv2Raw.result) {
+          const rv2 = JSON.parse(rv2Raw.result);
+          const found = (rv2.stocks || []).find(s => s.code === code);
+          if (found?.score !== undefined) storedScore = found.score;
+        }
+      } catch (_) {}
+    }
 
     const investor = null;
 
