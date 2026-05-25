@@ -563,13 +563,9 @@ async function processStock(token, stock) {
         const o = info?.output;
         if (o) {
           mktCap = parseNum(o.hts_avls);
-          eps    = parseF(o.eps || '0');
-          // PER·PBR: KIS per/pbr 필드는 결산 기준가 기준이라 현재가와 괴리 발생
-          // → EPS·BPS를 현재가로 직접 나눠 실시간 PER·PBR 계산 (네이버 등 외부 사이트와 동일 방식)
-          const bps2   = parseF(o.bps || '0');
-          const curPrc = closes[closes.length - 1] || 0;
-          per    = eps > 0 && curPrc > 0 ? Math.round(curPrc / eps * 10) / 10 : parseF(o.per || '0');
-          pbr    = bps2 > 0 && curPrc > 0 ? Math.round(curPrc / bps2 * 100) / 100 : parseF(o.pbr || '0');
+          per    = parseF(o.per  || '0');
+          pbr    = parseF(o.pbr  || '0');
+          eps    = parseF(o.eps  || '0');
           sector = (o.bstp_kor_isnm || o.bstp_kor_isn_nm || '').trim();
         }
       } catch (_) { /* 기본정보 실패 시 무시 */ }
