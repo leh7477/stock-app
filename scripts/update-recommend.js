@@ -129,7 +129,7 @@ function kisHeaders(token, trId) {
 async function fetchDailyCandles(token, code, mkCode) {
   const now     = new Date();
   const endDt   = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const startDt = new Date(now - 140 * 86400000).toISOString().slice(0, 10).replace(/-/g, ''); // analyze.js ago(140)과 동일
+  const startDt = new Date(now - 240 * 86400000).toISOString().slice(0, 10).replace(/-/g, ''); // analyze.js ago(240)과 동일 (MA120 확보)
 
   const params = new URLSearchParams({
     fid_cond_mrkt_div_code: mkCode,
@@ -194,6 +194,159 @@ function calcRSI(closes, period = 14) {
   return rsi;
 }
 
+// ─── EMA / MACD / OBV / Bollinger (analyze.js와 동일) ─────────────────────
+
+function calcEMA(arr, period) {
+  const k = 2 / (period + 1);
+  const out = new Array(arr.length).fill(null);
+  if (arr.length < period) return out;
+  out[period - 1] = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < arr.length; i++) out[i] = arr[i] * k + out[i - 1] * (1 - k);
+  return out;
+}
+
+function calcMACDFull(closes) {
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macdLine = closes.map((_, i) =>
+    ema12[i] !== null && ema26[i] !== null ? ema12[i] - ema26[i] : null
+  );
+  const start = macdLine.findIndex(v => v !== null);
+  if (start < 0) return null;
+  const signal = new Array(closes.length).fill(null);
+  const k = 2 / 10;
+  let cnt = 0, seed = 0;
+  for (let i = start; i < closes.length; i++) {
+    if (macdLine[i] === null) continue;
+    cnt++;
+    seed += macdLine[i];
+    if (cnt === 9) { signal[i] = seed / 9; }
+    else if (cnt > 9) { signal[i] = macdLine[i] * k + signal[i - 1] * (1 - k); }
+  }
+  const n = closes.length - 1;
+  if (macdLine[n] === null || signal[n] === null) return null;
+  const hist = macdLine[n] - signal[n];
+  const prevHist = n > 0 && macdLine[n - 1] !== null && signal[n - 1] !== null
+    ? macdLine[n - 1] - signal[n - 1] : null;
+  return { hist, prevHist };
+}
+
+function calcOBVArr(closes, volumes) {
+  const obv = new Array(closes.length).fill(0);
+  for (let i = 1; i < closes.length; i++) {
+    const v = volumes[i] || 0;
+    if      (closes[i] > closes[i - 1]) obv[i] = obv[i - 1] + v;
+    else if (closes[i] < closes[i - 1]) obv[i] = obv[i - 1] - v;
+    else                                 obv[i] = obv[i - 1];
+  }
+  return obv;
+}
+
+function calcBollingerWidths(closes, period = 20) {
+  return closes.map((_, i) => {
+    if (i < period - 1) return null;
+    const s    = closes.slice(i - period + 1, i + 1);
+    const mean = s.reduce((a, b) => a + b, 0) / period;
+    const std  = Math.sqrt(s.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / period);
+    return mean > 0 ? (std * 2 * 2) / mean : null; // band width ratio
+  });
+}
+
+// ─── 통합 스코어 (analyze.js calcScore와 완전 동일) ───────────────────────
+
+function calcScore(closes, volumes) {
+  const n = closes.length - 1;
+  const cur = closes[n];
+  if (n < 21 || !cur) return 0;
+  let score = 0;
+
+  // 1. 추세 구조 (40점)
+  const ma5a   = calcMAArr(closes, 5);
+  const ma20a  = calcMAArr(closes, 20);
+  const ma60a  = calcMAArr(closes, Math.min(60,  n + 1));
+  const ma120a = calcMAArr(closes, Math.min(120, n + 1));
+  const ma5   = ma5a[n]   || 0;
+  const ma20  = ma20a[n]  || 0;
+  const ma60  = ma60a[n]  || 0;
+  const ma120 = ma120a[n] || 0;
+  const pm5   = (n > 0 ? ma5a[n - 1]  : 0) || 0;
+  const pm20  = (n > 0 ? ma20a[n - 1] : 0) || 0;
+
+  // 1a. 이평선 배열 (20점)
+  if (ma5 && ma20 && ma60 && ma120 && ma5 > ma20 && ma20 > ma60 && ma60 > ma120)
+    score += 20;
+  else if (pm5 && pm20 && ma5 && ma20 && pm5 <= pm20 && ma5 > ma20)
+    score += 15;
+  else if (ma5 && ma20 && ma5 > ma20)
+    score += 5;
+
+  // 1b. MA20 이격도 (20점)
+  if (ma20) {
+    const d = cur / ma20 * 100;
+    if      (d >= 100 && d <= 108) score += 20;
+    else if (d >  108 && d <= 115) score += 10;
+    else if (d >=  95 && d <  100) score += 10;
+  }
+
+  // 2. 모멘텀 (30점)
+  // 2a. RSI (15점)
+  const rsiArr = calcRSI(closes);
+  const rsi = rsiArr[n];
+  if (rsi !== null) {
+    if      (rsi >= 55 && rsi < 70) score += 15;
+    else if (rsi >= 45 && rsi < 55) score += 8;
+    else if (rsi >= 70)             score += 3;
+  }
+
+  // 2b. MACD (15점)
+  const macd = calcMACDFull(closes);
+  if (macd) {
+    if      (macd.hist > 0 && macd.prevHist !== null && macd.hist > macd.prevHist) score += 15;
+    else if (macd.hist > 0)                                                         score += 10;
+    else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0 && macd.hist > macd.prevHist) score += 8;
+  }
+
+  // 3. 거래량 수급 (30점)
+  if (volumes && volumes.length > 5) {
+    // 3a. 거래량 5일 평균 대비 (15점)
+    const past5 = volumes.slice(Math.max(0, n - 5), n);
+    const avg5  = past5.length ? past5.reduce((a, b) => a + b, 0) / past5.length : 0;
+    if (avg5 > 0) {
+      const ratio = volumes[n] / avg5;
+      if      (ratio >= 2.0) score += 15;
+      else if (ratio >= 1.0) score += 10;
+    }
+
+    // 3b. OBV 최고치 (15점)
+    const obv    = calcOBVArr(closes, volumes);
+    const window = obv.slice(Math.max(0, n - 60), n + 1);
+    const obvMax = Math.max(...window);
+    if      (obv[n] >= obvMax * 0.98) score += 15;
+    else if (obv[n] >= obvMax * 0.80) score += 8;
+  }
+
+  // 볼린저 스퀴즈 레이어 (±10점)
+  const widths = calcBollingerWidths(closes);
+  const curW   = widths[n];
+  const histW  = widths.slice(Math.max(0, n - 120), n).filter(x => x !== null);
+  if (curW !== null && histW.length >= 20) {
+    const minW = Math.min(...histW);
+    if (curW <= minW * 1.1 && volumes && volumes.length > 5) {
+      const vol5 = volumes.slice(Math.max(0, n - 5), n).reduce((a, b) => a + b, 0) / 5;
+      // Bollinger upper/lower 근사: mean ± std*2
+      const s20  = closes.slice(Math.max(0, n - 19), n + 1);
+      const mean = s20.reduce((a, b) => a + b, 0) / s20.length;
+      const std  = Math.sqrt(s20.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / s20.length);
+      const bollUpper = mean + std * 2;
+      const bollLower = mean - std * 2;
+      if (cur > bollUpper && vol5 > 0 && volumes[n] > vol5 * 2) score += 10;
+      else if (cur < bollLower)                                   score -= 10;
+    }
+  }
+
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
 function maSignal(price, ma) {
   if (!ma || !price) return 'neutral';
   const r = (price - ma) / ma * 100;
@@ -204,58 +357,39 @@ function maSignal(price, ma) {
 
 // ─── 스코어링 & 분석 ───────────────────────────────────────────────────────
 
-function analyze(stock, closes, extra = {}) {
+function analyze(stock, closes, volumes, extra = {}) {
   if (closes.length < 22) return null;
   const n = closes.length - 1, cur = closes[n];
   if (!cur) return null;
 
-  // ── MA 배열 계산 ──
+  // ── MA 배열 계산 (signals용) ──
   const ma5a  = calcMAArr(closes, 5);
   const ma20a = calcMAArr(closes, 20);
   const ma60a = calcMAArr(closes, Math.min(60, closes.length));
-  const rsiArr = calcRSI(closes);
 
   const ma5  = ma5a[n]  || 0;
   const ma20 = ma20a[n] || 0;
   const ma60 = ma60a[n] || 0;
-  const rsi  = rsiArr[n];
 
   const signals = [];
 
-  // ── 점수 계산 (analyze.js calcScore와 동일, 최고=100 최악=0) ──
-  let score = 47;
-
-  // 이평선 배열
+  // ── 신호 텍스트 생성 ──
   if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) { score += 14; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
-    else if (ma5 < ma20 && ma20 < ma60) { score -= 18; signals.push('역배열 — 하락 추세 지속 주의'); }
-    else if (ma5 > ma20)                {              signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
-    else if (ma20 > ma60)               {              signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
+    if      (ma5 > ma20 && ma20 > ma60) signals.push('정배열 — 단기·중기·장기 모두 우상향');
+    else if (ma5 < ma20 && ma20 < ma60) signals.push('역배열 — 하락 추세 지속 주의');
+    else if (ma5 > ma20)                signals.push('단기 이평선 상향 — 중기 회복 진행 중');
+    else if (ma20 > ma60)               signals.push('중기 이평선 상향 — 장기 추세 전환 시도');
   }
-
-  // 현재가 vs 이평선
-  if (ma5)  score += cur > ma5  ? 8 : -4;
-  if (ma20) score += cur > ma20 ? 8 : -4;
-  if (ma60) score += cur > ma60 ? 5 : -3;
-
-  // 골든/데드크로스
   if (n >= 1) {
     const pm5 = ma5a[n - 1] || 0, pm20 = ma20a[n - 1] || 0;
     if (pm5 && pm20 && ma5 && ma20) {
-      if (pm5 <= pm20 && ma5 > ma20) { score += 10; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); }
-      if (pm5 >= pm20 && ma5 < ma20) { score -= 10; signals.unshift('데드크로스 발생 — 단기 주의 신호'); }
+      if (pm5 <= pm20 && ma5 > ma20) signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓');
+      if (pm5 >= pm20 && ma5 < ma20) signals.unshift('데드크로스 발생 — 단기 주의 신호');
     }
   }
 
-  // RSI
-  if (rsi !== null) {
-    if      (rsi < 30) score += 8;
-    else if (rsi > 70) score -= 8;
-    else if (rsi > 55) score += 3;
-    else if (rsi < 45) score -= 3;
-  }
-
-  score = Math.max(0, Math.min(100, Math.round(score)));
+  // ── 통합 퀀트 스코어 (analyze.js calcScore와 완전 동일) ──
+  const score = calcScore(closes, volumes);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
@@ -297,9 +431,11 @@ async function processStock(token, stock) {
       const rawOutput = raw?.output2 ?? raw?.output;
       if (!rawOutput?.length) continue;
 
-      const recent      = rawOutput.slice(0, 100);  // 최신순 상위 100개 — analyze.js와 동일 거래일 수
+      const recent      = rawOutput.slice(0, 150);  // 최신순 상위 150개 — MA120 계산에 충분한 거래일 수
       const latestDay   = recent[0];                // 가장 최근 일봉
-      const closes      = recent.slice().reverse().map(d => parseNum(d.stck_clpr));
+      const reversed    = recent.slice().reverse();
+      const closes      = reversed.map(d => parseNum(d.stck_clpr));
+      const volumes     = reversed.map(d => parseNum(d.acml_vol));
 
       if (closes.length < 22) continue;
       if (!closes[closes.length - 1]) continue;     // 최근 종가 0 → 거래 없음
@@ -349,6 +485,7 @@ async function processStock(token, stock) {
       const result = analyze(
         { ...stock, market },
         closes,
+        volumes,
         { volume, frgnRatio, frgnBuyQty, mktCap, per, pbr, eps, sector }
       );
       if (result) result.investorSupply = investorSupply;

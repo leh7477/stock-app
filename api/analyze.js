@@ -113,36 +113,151 @@ function calcBollinger(closes, period = 20, mult = 2) {
   return { upper, mid, lower };
 }
 
-function calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
-  const n   = closes.length - 1;
-  const cur = closes[n];
-  const ma5  = ma5arr[n]  || 0;
-  const ma20 = ma20arr[n] || 0;
-  const ma60 = ma60arr[n] || 0;
-  const rsi  = rsiArr[n];
-  let score  = 47;
+// ── EMA / MACD / OBV ──────────────────────────────────────────────────────
+function calcEMA(arr, period) {
+  const k = 2 / (period + 1);
+  const out = new Array(arr.length).fill(null);
+  if (arr.length < period) return out;
+  out[period - 1] = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < arr.length; i++) out[i] = arr[i] * k + out[i-1] * (1-k);
+  return out;
+}
 
-  if (ma5 && ma20 && ma60) {
-    if (ma5 > ma20 && ma20 > ma60)       score += 14;  // 정배열
-    else if (ma5 < ma20 && ma20 < ma60)  score -= 18;  // 역배열
+function calcMACDFull(closes) {
+  const ema12 = calcEMA(closes, 12);
+  const ema26 = calcEMA(closes, 26);
+  const macdLine = closes.map((_, i) =>
+    ema12[i] !== null && ema26[i] !== null ? ema12[i] - ema26[i] : null
+  );
+  const start = macdLine.findIndex(v => v !== null);
+  if (start < 0) return null;
+  const signal = new Array(closes.length).fill(null);
+  const k = 2 / 10;
+  let cnt = 0, seed = 0;
+  for (let i = start; i < closes.length; i++) {
+    if (macdLine[i] === null) continue;
+    cnt++;
+    seed += macdLine[i];
+    if (cnt === 9) { signal[i] = seed / 9; }
+    else if (cnt > 9) { signal[i] = macdLine[i] * k + signal[i-1] * (1-k); }
   }
-  if (ma5)  score += cur > ma5  ? 8 : -4;
-  if (ma20) score += cur > ma20 ? 8 : -4;
-  if (ma60) score += cur > ma60 ? 5 : -3;
+  const n = closes.length - 1;
+  if (macdLine[n] === null || signal[n] === null) return null;
+  const hist = macdLine[n] - signal[n];
+  const prevHist = n > 0 && macdLine[n-1] !== null && signal[n-1] !== null
+    ? macdLine[n-1] - signal[n-1] : null;
+  return { hist, prevHist };
+}
 
-  if (n >= 1) {
-    const pm5 = ma5arr[n-1] || 0, pm20 = ma20arr[n-1] || 0;
-    if (pm5 && pm20 && ma5 && ma20) {
-      if (pm5 <= pm20 && ma5 > ma20) score += 10;  // 골든크로스
-      if (pm5 >= pm20 && ma5 < ma20) score -= 10;  // 데드크로스
+function calcOBVArr(closes, volumes) {
+  const obv = new Array(closes.length).fill(0);
+  for (let i = 1; i < closes.length; i++) {
+    const v = volumes[i] || 0;
+    if      (closes[i] > closes[i-1]) obv[i] = obv[i-1] + v;
+    else if (closes[i] < closes[i-1]) obv[i] = obv[i-1] - v;
+    else                               obv[i] = obv[i-1];
+  }
+  return obv;
+}
+
+// ── 점수 계산 (최고 100점 / 최악 0점) ───────────────────────────────────────
+// 추세(40) + 모멘텀(30) + 수급(30) + 볼린저스퀴즈 보너스/패널티(±10)
+function calcScore(closes, volumes, boll) {
+  const n = closes.length - 1;
+  const cur = closes[n];
+  if (n < 21 || !cur) return 0;
+  let score = 0;
+
+  // ── 1. 추세 구조 (40점) ─────────────────────────────────────────────────
+  const ma5a   = calcMA(closes, 5);
+  const ma20a  = calcMA(closes, 20);
+  const ma60a  = calcMA(closes, Math.min(60,  n+1));
+  const ma120a = calcMA(closes, Math.min(120, n+1));
+  const ma5   = ma5a[n]   || 0;
+  const ma20  = ma20a[n]  || 0;
+  const ma60  = ma60a[n]  || 0;
+  const ma120 = ma120a[n] || 0;
+  const pm5   = (n > 0 ? ma5a[n-1]  : 0) || 0;
+  const pm20  = (n > 0 ? ma20a[n-1] : 0) || 0;
+
+  // 1a. 이평선 배열 (20점)
+  if (ma5 && ma20 && ma60 && ma120 && ma5 > ma20 && ma20 > ma60 && ma60 > ma120)
+    score += 20; // 완벽 정배열 5>20>60>120
+  else if (pm5 && pm20 && ma5 && ma20 && pm5 <= pm20 && ma5 > ma20)
+    score += 15; // 골든크로스 설정
+  else if (ma5 && ma20 && ma5 > ma20)
+    score += 5;  // 혼조 / 단기 우위
+  // 역배열: 0점
+
+  // 1b. MA20 이격도 (20점)
+  if (ma20) {
+    const d = cur / ma20 * 100;
+    if      (d >= 100 && d <= 108) score += 20; // 안정적 상승
+    else if (d >  108 && d <= 115) score += 10; // 단기 과열
+    else if (d >=  95 && d <  100) score += 10; // 소폭 이탈
+    // 95% 미만 또는 115% 초과: 0점
+  }
+
+  // ── 2. 모멘텀 (30점) ────────────────────────────────────────────────────
+  // 2a. RSI (15점)
+  const rsiArr = calcRSI(closes);
+  const rsi = rsiArr[n];
+  if (rsi !== null) {
+    if      (rsi >= 55 && rsi < 70) score += 15; // 강력한 추세 확산
+    else if (rsi >= 45 && rsi < 55) score += 8;  // 균형 구간
+    else if (rsi >= 70)             score += 3;  // 과매수 (고점 경계)
+    // RSI < 30 (추세 붕괴): 0점
+  }
+
+  // 2b. MACD (15점)
+  const macd = calcMACDFull(closes);
+  if (macd) {
+    if      (macd.hist > 0 && macd.prevHist !== null && macd.hist > macd.prevHist) score += 15; // 양전환+확장
+    else if (macd.hist > 0)                                                         score += 10; // 양수 유지
+    else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0 && macd.hist > macd.prevHist) score += 8; // 음수 축소
+    // 음수 확장: 0점
+  }
+
+  // ── 3. 거래량 수급 (30점) ───────────────────────────────────────────────
+  if (volumes && volumes.length > 5) {
+    // 3a. 거래량 5일 평균 대비 (15점)
+    const past5 = volumes.slice(Math.max(0, n-5), n);
+    const avg5  = past5.length ? past5.reduce((a,b)=>a+b,0) / past5.length : 0;
+    if (avg5 > 0) {
+      const ratio = volumes[n] / avg5;
+      if      (ratio >= 2.0) score += 15; // 세력 개입 신호
+      else if (ratio >= 1.0) score += 10; // 평균 이상
+      // 평균 미만: 0점
+    }
+
+    // 3b. OBV 최고치 (15점)
+    const obv     = calcOBVArr(closes, volumes);
+    const window  = obv.slice(Math.max(0, n-60), n+1);
+    const obvMax  = Math.max(...window);
+    if      (obv[n] >= obvMax * 0.98) score += 15; // OBV 최고치 갱신
+    else if (obv[n] >= obvMax * 0.80) score += 8;  // 매물대 접근
+    // OBV 하락: 0점
+  }
+
+  // ── 볼린저 스퀴즈 레이어 (±10점) ────────────────────────────────────────
+  if (boll?.upper && volumes?.length > 5) {
+    const widths = boll.upper.map((u, i) =>
+      u && boll.lower[i] && boll.mid[i] ? (u - boll.lower[i]) / boll.mid[i] : null
+    );
+    const curW  = widths[n];
+    const histW = widths.slice(Math.max(0, n-120), n).filter(x => x !== null);
+    if (curW !== null && histW.length >= 20) {
+      const minW = Math.min(...histW);
+      if (curW <= minW * 1.1) { // 스퀴즈 상태
+        const vol5 = volumes.slice(Math.max(0, n-5), n).reduce((a,b)=>a+b,0) / 5;
+        if (boll.upper[n] && cur > boll.upper[n] && vol5 > 0 && volumes[n] > vol5 * 2)
+          score += 10; // 스퀴즈 상방 대량 돌파
+        else if (boll.lower[n] && cur < boll.lower[n])
+          score -= 10; // 스퀴즈 하방 붕괴
+      }
     }
   }
-  if (rsi !== null) {
-    if      (rsi < 30) score += 8;
-    else if (rsi > 70) score -= 8;
-    else if (rsi > 55) score += 3;
-    else if (rsi < 45) score -= 3;
-  }
+
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
@@ -337,7 +452,7 @@ export default async function handler(req, res) {
         `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}`,
         { headers: kisHdr('FHKST01010100') }
       ).then(r => r.json()).catch(() => null),
-      timedFetch(dailyUrl(fmtD(ago(140)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(dailyUrl(fmtD(ago(240)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
@@ -378,7 +493,8 @@ export default async function handler(req, res) {
     if (history.length === 0) throw new Error('차트 데이터 없음');
 
     // 분석은 일봉 기준으로 계산
-    const closes = dailyHistory.map(d => d.close);
+    const closes  = dailyHistory.map(d => d.close);
+    const volumes = dailyHistory.map(d => d.volume);
     // 차트 지표는 주봉 기준 (chart xAxis와 데이터 수 일치)
     const weeklyCloses = history.map(d => d.close);
     const isDown = ['4', '5'].includes(pOut.prdy_vrss_sign);
@@ -453,7 +569,7 @@ export default async function handler(req, res) {
     const recentCloses  = closes.slice(-20);
     const supportNum    = Math.min(...recentCloses);
     const resistanceNum = Math.max(...recentCloses);
-    const score     = calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr);
+    const score     = calcScore(closes, volumes, boll);
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
     const checklist = buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr);
 
