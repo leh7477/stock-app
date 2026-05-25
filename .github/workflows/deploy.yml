@@ -19,19 +19,19 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.ORACLE_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.ORACLE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -H ${{ secrets.ORACLE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
       # 2단계: Oracle VM에 nginx 없으면 자동 설치
       - name: Install nginx (if not present)
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.ORACLE_HOST }} \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.ORACLE_HOST }} \
             "which nginx || (sudo apt-get update -qq && sudo apt-get install -y nginx)"
 
       # 3단계: 프론트엔드 파일 Oracle VM에 복사
       - name: Deploy frontend files
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             --include="*.html" \
             --include="*.css" \
             --include="*.js" \
@@ -45,7 +45,7 @@ jobs:
       # 4단계: 파일을 nginx 서빙 디렉토리로 이동 + nginx 리로드
       - name: Apply files and reload nginx
         run: |
-          ssh -i ~/.ssh/deploy_key ubuntu@${{ secrets.ORACLE_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ubuntu@${{ secrets.ORACLE_HOST }} << 'EOF'
             sudo mkdir -p /var/www/stock-app
             sudo cp -r /tmp/stock-deploy/* /var/www/stock-app/
             sudo chown -R www-data:www-data /var/www/stock-app
