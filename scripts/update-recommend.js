@@ -314,7 +314,7 @@ async function processStock(token, stock) {
       try {
         const invRaw = await timedFetch(
           `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor` +
-          `?fid_cond_mrkt_div_code=${mkCode}&fid_input_iscd=${code}`,
+          `?fid_cond_mrkt_div_code=${mkCode}&fid_input_iscd=${stock.code}`,
           { headers: kisHeaders(token, 'FHKST01010900') }
         ).then(r => r.json()).catch(() => null);
 
