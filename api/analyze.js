@@ -300,11 +300,15 @@ export default async function handler(req, res) {
     const chartUrl  = (d1, d2) =>
       `${chartBase}?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${d1}&FID_INPUT_DATE_2=${d2}&FID_PERIOD_DIV_CODE=W&FID_ORG_ADJ_PRC=0`;
 
-    const [priceRaw, cw1, cw2, cw3] = await Promise.all([
+    const dailyUrl = (d1, d2) =>
+      `${chartBase}?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}&FID_INPUT_DATE_1=${d1}&FID_INPUT_DATE_2=${d2}&FID_PERIOD_DIV_CODE=D&FID_ORG_ADJ_PRC=0`;
+
+    const [priceRaw, cd1, cw1, cw2, cw3] = await Promise.all([
       timedFetch(
         `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}`,
         { headers: kisHdr('FHKST01010100') }
       ).then(r => r.json()).catch(() => null),
+      timedFetch(dailyUrl(fmtD(ago(140)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
@@ -322,11 +326,15 @@ export default async function handler(req, res) {
       close:  parseNum(d.stck_clpr),
       volume: parseNum(d.acml_vol),
     });
+    // 일봉: 분석 지표 계산용 (MA/RSI/지지저항 등)
+    const dailyRows = (cd1?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
+    const dailyHistory = dailyRows.slice().reverse().map(convRow);
+    if (dailyHistory.length === 0) throw new Error('일봉 데이터 없음');
+
+    // 주봉: 차트 표시용 (5년)
     const rows1 = (cw1?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
     const rows2 = (cw2?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
     const rows3 = (cw3?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
-
-    // KIS는 최신이 앞 → 각 구간별로 역순 후 날짜순 정렬 + 중복 제거
     const history = [
       ...rows3.slice().reverse().map(convRow),
       ...rows2.slice().reverse().map(convRow),
@@ -336,7 +344,8 @@ export default async function handler(req, res) {
       .filter((d, i, arr) => i === 0 || d.date !== arr[i-1].date);
     if (history.length === 0) throw new Error('차트 데이터 없음');
 
-    const closes = history.map(d => d.close);
+    // 분석은 일봉 기준으로 계산
+    const closes = dailyHistory.map(d => d.close);
     const isDown = ['4', '5'].includes(pOut.prdy_vrss_sign);
     const latest = {
       close:  parseNum(pOut.stck_prpr),
