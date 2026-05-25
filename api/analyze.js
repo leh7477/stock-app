@@ -313,7 +313,54 @@ export default async function handler(req, res) {
       name = basic.stockName || basic.name || code;
     }
 
-    // KIS 투자자 수급 (장중만 유효)
+    // NAVER 일별 투자자 수급 (5일/20일 누적)
+    const navH = { Referer:'https://m.stock.naver.com', 'User-Agent':'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)' };
+    let investorSupply = null;
+    try {
+      const invRaw = await timedFetch(
+        `https://m.stock.naver.com/api/stock/${code}/investor?pageSize=22&page=1`,
+        { headers: navH }
+      ).then(r => r.json()).catch(() => null);
+
+      if (Array.isArray(invRaw) && invRaw.length >= 5) {
+        const rows = invRaw;  // 최신순 (index 0 = 가장 최근)
+        const s = rows[0];
+
+        // 필드명 자동 감지
+        const keys = Object.keys(s);
+        const fKey = keys.find(k => /(foreign|frgn)/i.test(k) && /(net|qty|buy|ntby|quantity)/i.test(k))
+                  || keys.find(k => /(foreign|frgn)/i.test(k) && !/(rate|pct|ratio)/i.test(k));
+        const iKey = keys.find(k => /(instit|organ|corp|insti)/i.test(k) && /(net|qty|buy|ntby|quantity)/i.test(k))
+                  || keys.find(k => /(instit|organ|corp|insti)/i.test(k) && !/(rate|pct|ratio)/i.test(k));
+        const pKey = keys.find(k => /(individu|personal|indv|retail)/i.test(k) && /(net|qty|buy|ntby|quantity)/i.test(k))
+                  || keys.find(k => /(individu|personal|indv|retail)/i.test(k) && !/(rate|pct|ratio)/i.test(k));
+
+        const sumKey = (arr, k) => k ? arr.reduce((acc, d) => acc + (parseFloat(d[k]) || 0), 0) : null;
+
+        const rows5  = rows.slice(0, 5);
+        const rows20 = rows.slice(0, 20);
+
+        investorSupply = {
+          d5: {
+            foreign:  sumKey(rows5, fKey),
+            inst:     sumKey(rows5, iKey),
+            personal: sumKey(rows5, pKey),
+            from: rows5[rows5.length - 1]?.localTradedAt,
+            to:   rows5[0]?.localTradedAt,
+          },
+          d20: {
+            foreign:  sumKey(rows20, fKey),
+            inst:     sumKey(rows20, iKey),
+            personal: sumKey(rows20, pKey),
+            from: rows20[rows20.length - 1]?.localTradedAt,
+            to:   rows20[0]?.localTradedAt,
+          },
+          _fields: { fKey, iKey, pKey, sample: s },  // 디버그용
+        };
+      }
+    } catch (_) {}
+
+    // KIS 실시간 수급 (장중 보조)
     let investor = null;
     if (token) {
       const kisHeaders = { Authorization:`Bearer ${token}`, appkey:process.env.KIS_APP_KEY, appsecret:process.env.KIS_APP_SECRET, 'Content-Type':'application/json' };
@@ -373,6 +420,7 @@ export default async function handler(req, res) {
       score,
       recommend,
       checklist,
+      investorSupply,
       investor,
       disclosures,
     });

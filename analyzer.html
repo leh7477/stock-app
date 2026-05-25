@@ -105,11 +105,21 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .sr-val{font-size:15px;font-weight:700;}
 .sr-gap{font-size:10px;margin-top:2px;color:var(--muted);}
 
-/* ── 수급 ── */
-.supply-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.supply-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;}
-.supply-label{font-size:10px;color:var(--muted);margin-bottom:5px;}
-.supply-val{font-size:13px;font-weight:600;}
+/* ── 투자자 수급 (5일/20일) ── */
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.inv-period-box{display:flex;flex-direction:column;gap:8px;}
+.inv-period-header{font-size:11px;font-weight:700;color:var(--text);padding-bottom:6px;border-bottom:1.5px solid var(--border);}
+.inv-period-date{font-size:10px;color:var(--muted);margin-top:-4px;margin-bottom:2px;}
+.inv-row{display:flex;align-items:center;gap:8px;}
+.inv-name{font-size:12px;font-weight:600;width:40px;flex-shrink:0;}
+.inv-bar-wrap{flex:1;}
+.inv-bar-track{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;}
+.inv-bar-fill{height:100%;border-radius:99px;transition:width .5s ease;}
+.inv-bar-fill.green{background:var(--green);}
+.inv-bar-fill.red{background:var(--red);}
+.inv-vol{font-size:11px;font-weight:600;white-space:nowrap;min-width:64px;text-align:right;}
+.inv-sep{width:1px;background:var(--border);}
+.inv-nodata{font-size:12px;color:var(--muted);text-align:center;padding:16px 0;}
 
 /* ── 공시 ── */
 .dart-list{display:flex;flex-direction:column;gap:8px;}
@@ -301,14 +311,10 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
           </div>
         </div>
 
-        <!-- 투자자 수급 -->
+        <!-- 투자자 수급 (5일/20일 누적) -->
         <div class="dl-card">
-          <div class="dl-title">투자자 수급 <span id="r-investor-src" style="font-weight:400;text-transform:none;letter-spacing:0;"></span></div>
-          <div class="supply-grid">
-            <div class="supply-card"><div class="supply-label">개인</div><div class="supply-val" id="r-personal">-</div></div>
-            <div class="supply-card"><div class="supply-label">외국인</div><div class="supply-val" id="r-foreign">-</div></div>
-            <div class="supply-card"><div class="supply-label">기관</div><div class="supply-val" id="r-inst">-</div></div>
-          </div>
+          <div class="dl-title">투자자 수급 누적</div>
+          <div id="r-investor-supply"><div class="inv-nodata">불러오는 중…</div></div>
         </div>
 
       </div><!-- /우측 -->
@@ -509,6 +515,57 @@ function renderStrategy(rec) {
     <div class="strategy-note">※ 이동평균선 기반 기계적 기준선이며, 실제 매매 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
 }
 
+function renderInvestorSupply(supply) {
+  const el = document.getElementById('r-investor-supply');
+  if (!supply) { el.innerHTML = '<div class="inv-nodata">수급 데이터를 가져오지 못했습니다</div>'; return; }
+
+  const investors = [
+    { key: 'foreign',  label: '외국인' },
+    { key: 'inst',     label: '기관' },
+    { key: 'personal', label: '개인' },
+  ];
+
+  const fmtVol = (v) => {
+    if (v === null || v === undefined) return '-';
+    const abs = Math.abs(v);
+    const str = abs >= 100000000 ? (abs / 100000000).toFixed(1) + '억주'
+              : abs >= 10000     ? (abs / 10000).toFixed(1) + '만주'
+              : abs.toLocaleString() + '주';
+    return (v >= 0 ? '+' : '-') + str;
+  };
+
+  const fmtDate = (d) => d ? d.slice(5).replace('-', '/') : '';
+
+  const buildPeriod = (data, label) => {
+    if (!data) return `<div class="inv-nodata">데이터 없음</div>`;
+    const maxAbs = Math.max(...investors.map(i => Math.abs(data[i.key] || 0)));
+    const rows = investors.map(inv => {
+      const v = data[inv.key];
+      if (v === null || v === undefined) return '';
+      const isPos = v >= 0;
+      const cls   = isPos ? 'green' : 'red';
+      const pct   = maxAbs > 0 ? Math.round(Math.abs(v) / maxAbs * 100) : 0;
+      return `<div class="inv-row">
+        <div class="inv-name">${inv.label}</div>
+        <div class="inv-bar-wrap">
+          <div class="inv-bar-track"><div class="inv-bar-fill ${cls}" style="width:${pct}%"></div></div>
+        </div>
+        <div class="inv-vol ${cls}">${fmtVol(v)}</div>
+      </div>`;
+    }).join('');
+    const dateStr = data.from && data.to ? `${fmtDate(data.from)} ~ ${fmtDate(data.to)}` : '';
+    return `<div class="inv-period-header">${label}</div>
+            ${dateStr ? `<div class="inv-period-date">${dateStr}</div>` : ''}
+            ${rows}`;
+  };
+
+  el.innerHTML = `<div class="inv-grid">
+    <div class="inv-period-box">${buildPeriod(supply.d5,  '5일 누적')}</div>
+    <div class="inv-sep"></div>
+    <div class="inv-period-box">${buildPeriod(supply.d20, '20일 누적')}</div>
+  </div>`;
+}
+
 function renderChecklist(checklist) {
   const el = document.getElementById('r-checklist');
   const icons = { ok: '✅', warn: '⚠️', fail: '❌' };
@@ -568,19 +625,7 @@ function renderResult(data) {
   document.getElementById('r-rgap').textContent = `현재가 대비 +${analysis.resistanceGap}%`;
   document.getElementById('r-sgap').textContent = `현재가 대비 -${analysis.supportGap}%`;
 
-  // 수급
-  const invSrc = document.getElementById('r-investor-src');
-  if (investor) {
-    invSrc.textContent = '(장중 실시간)';
-    const fmtQ = v => (v>0?'+':'')+Math.abs(v).toLocaleString()+'주';
-    const colorCls = v => v>=0?'green':'red';
-    document.getElementById('r-personal').innerHTML = `<span class="${colorCls(investor.personalNet)}">${fmtQ(investor.personalNet)}</span>`;
-    document.getElementById('r-foreign').innerHTML  = `<span class="${colorCls(investor.foreignNet)}">${fmtQ(investor.foreignNet)}</span>`;
-    document.getElementById('r-inst').innerHTML     = `<span class="${colorCls(investor.instNet)}">${fmtQ(investor.instNet)}</span>`;
-  } else {
-    invSrc.textContent = '(장중에만 조회 가능)';
-    ['r-personal','r-foreign','r-inst'].forEach(id=>{ document.getElementById(id).innerHTML='<span class="muted">--</span>'; });
-  }
+  // 기존 실시간 수급 (더 이상 카드 없으므로 생략)
 
   // DART 공시
   const dartEl = document.getElementById('r-dart');
@@ -597,10 +642,11 @@ function renderResult(data) {
       </a>`).join('');
   }
 
-  // 점수 + 전략 + 체크리스트
+  // 점수 + 전략 + 체크리스트 + 수급
   renderScore(data.score ?? 50);
   renderStrategy(data.recommend);
   renderChecklist(data.checklist);
+  renderInvestorSupply(data.investorSupply);
 
   renderCharts(data);
   show('result');
