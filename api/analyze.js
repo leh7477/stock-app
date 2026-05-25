@@ -732,20 +732,31 @@ export default async function handler(req, res) {
       korScore: (() => {
         const pbrS     = Math.round(pbr2 > 0 ? Math.max(0, 12 * (1.5 - pbr2) / 1.5) : 0);
         const perS     = Math.round(per2 > 0 ? Math.max(0, 8  * (25  - per2)  / 25)  : 0);
-        const growthS  = calcGrowthBonus(sector2, ma5arr[n] || 0, ma20arr[n] || 0, ma60arr[n] || 0);
+        // 성장 가점 상세: 모멘텀/섹터 분리 계산 (UI 역산 오차 방지)
+        const _ma5n = ma5arr[n] || 0, _ma20n = ma20arr[n] || 0, _ma60n = ma60arr[n] || 0;
+        const _isGrowthSec = GROWTH_SECTOR_KW.some(k => sector2.includes(k));
+        let _momScore = 0;
+        if (_ma5n && _ma20n && _ma60n) {
+          if      (_ma5n > _ma20n && _ma20n > _ma60n) _momScore = 6;
+          else if (_ma5n > _ma60n)                     _momScore = 3;
+          else if (_ma5n > _ma20n)                     _momScore = 2;
+        }
+        const _secBonus = _isGrowthSec ? 2 : 0;
+        const growthS   = Math.min(8, _momScore + _secBonus);
         const perFinalS = Math.max(perS, growthS);
         const panicS   = Math.max(0, korScore - pbrS - perFinalS);
         const rsiNow   = rsiArr[n];
         const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
         const drawdownPct = recentHigh > 0 ? Math.round((recentHigh - closes[n]) / recentHigh * 100 * 10) / 10 : 0;
-        const tag = getStockTag(pbr2, per2, sector2, ma5arr[n] || 0, ma20arr[n] || 0, ma60arr[n] || 0);
+        const tag = getStockTag(pbr2, per2, sector2, _ma5n, _ma20n, _ma60n);
         const growthComment = (tag === 'growth' && per2 > 50)
           ? `이 종목은 [🔥 국장 주도 성장주] 태그에 해당하여, 현재 PER(${per2.toFixed(1)}배)로는 비싸 보이지만 이평선 정배열·성장 섹터 모멘텀을 반영한 [미래성장 가점 ${growthS}점]을 부여하여 국장특화 점수를 방어했습니다.`
           : null;
         return {
           total: korScore, pbr: pbr2, per: per2,
           pbrScore: pbrS, perScore: perS,
-          growthScore: growthS, perFinal: perFinalS, panicScore: panicS,
+          growthScore: growthS, growthMom: _momScore, growthSector: _secBonus,
+          perFinal: perFinalS, panicScore: panicS,
           techScore: Math.round(techScore * 0.7),
           rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
           drawdown: drawdownPct,

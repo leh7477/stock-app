@@ -294,6 +294,12 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
           <div id="r-kor-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
+        <!-- 미래성장 가점 (항상 표시) -->
+        <div class="dl-card">
+          <div class="dl-title">🌱 미래성장 가점 <span style="font-size:10px;font-weight:400;color:var(--muted)">모멘텀·섹터 기반 PEG 근사</span></div>
+          <div id="r-growth-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
+        </div>
+
         <!-- 이평선 점수 -->
         <div class="dl-card">
           <div class="dl-title">이평선 점수</div>
@@ -582,13 +588,13 @@ function renderKoreanScore(ks) {
   if (!el || !ks) return;
   const {
     total = 0, pbr = 0, per = 0,
-    pbrScore = 0, perScore = 0, growthScore = 0, perFinal = 0, panicScore = 0,
+    pbrScore = 0, perFinal = 0, panicScore = 0,
     techScore = 0, rsi = null, drawdown = 0,
-    tag = 'neutral', growthComment = null,
+    tag = 'neutral',
   } = ks;
   const c = scoreColor(Math.round(total / 30 * 100));
 
-  // ── 종목 성격 태그 ──────────────────────────────────────────────
+  // 종목 성격 태그 뱃지 (카드 상단)
   const tagMeta = {
     value:   { emoji: '🍏', label: '안정 가치주',      bg: 'rgba(34,197,94,0.10)',  color: '#16a34a' },
     growth:  { emoji: '🔥', label: '국장 주도 성장주', bg: 'rgba(239,68,68,0.10)',  color: '#dc2626' },
@@ -608,7 +614,6 @@ function renderKoreanScore(ks) {
       </div>
     </div>`;
 
-  // ── PBR 라벨 ─────────────────────────────────────────────────────
   const pbrLbl = pbr <= 0   ? 'N/A'
                : pbr <= 0.5 ? `${pbr.toFixed(2)}배 — 심각한 저평가`
                : pbr <= 0.8 ? `${pbr.toFixed(2)}배 — 강한 저평가`
@@ -616,22 +621,13 @@ function renderKoreanScore(ks) {
                : pbr <= 1.5 ? `${pbr.toFixed(2)}배 — 약간 저평가`
                :              `${pbr.toFixed(2)}배 — 적정/고평가`;
 
-  // ── PER 라벨 & 성장 가점 행 분기 ────────────────────────────────
-  const isGrowthWins = growthScore > perScore;  // 성장 가점이 PER 점수를 앞선 경우
-  const perLbl = per <= 0  ? '적자 기업 (감점 없음)'
-               : per <= 8  ? `${per.toFixed(1)}배 — 극도 저평가`
-               : per <= 12 ? `${per.toFixed(1)}배 — 저평가`
-               : per <= 18 ? `${per.toFixed(1)}배 — 적정`
-               : per <= 25 ? `${per.toFixed(1)}배 — 약간 고평가`
-               :             `${per.toFixed(1)}배 — 고평가${isGrowthWins ? ' (미래성장 가점으로 방어)' : ''}`;
-
-  // 성장 가점 세부 설명
-  const growthLbl = growthScore >= 8 ? `정배열 + 성장섹터 — 최대 성장 모멘텀 (${growthScore}점)`
-                  : growthScore >= 6 ? `완전 정배열 — 강한 상승 추세 (${growthScore}점)`
-                  : growthScore >= 4 ? `중·장기 지지 + 성장섹터 (${growthScore}점)`
-                  : growthScore >= 3 ? `중기 지지선 상승 (${growthScore}점)`
-                  : growthScore >= 2 ? `단기 반등 또는 섹터 프리미엄 (${growthScore}점)`
-                  :                   `모멘텀 약세 — 가점 없음 (0점)`;
+  // PER/성장 슬롯: 최종 적용 점수만 표시 (상세 내역은 미래성장 카드에서 확인)
+  const perSlotLbl = per <= 0  ? '적자 기업'
+                   : per <= 8  ? `PER ${per.toFixed(1)}배 — 극도 저평가`
+                   : per <= 12 ? `PER ${per.toFixed(1)}배 — 저평가`
+                   : per <= 18 ? `PER ${per.toFixed(1)}배 — 적정`
+                   : per <= 25 ? `PER ${per.toFixed(1)}배 — 약간 고평가`
+                   :             `PER ${per.toFixed(1)}배 — 고평가`;
 
   const rsiTxt = rsi !== null ? `RSI ${rsi}` : 'RSI -';
   const ddTxt  = `고점대비 -${drawdown}%`;
@@ -640,42 +636,6 @@ function renderKoreanScore(ks) {
                  : panicScore >= 4  ? `과매도 구간 (${rsiTxt} · ${ddTxt})`
                  : panicScore >= 2  ? `약세 구간 (${rsiTxt} · ${ddTxt})`
                  :                   `해당 없음 (${rsiTxt} · ${ddTxt})`;
-
-  // ── PER / 미래성장 행 구성 ────────────────────────────────────────
-  // 성장주(가점>PER)일 때: PER 행은 회색(0점 표시) + 미래성장 가점 행 추가
-  // 가치주(PER>=가점)일 때: PER 행만 표시
-  const perRows = isGrowthWins ? `
-    <div class="ma-score-row">
-      <div class="ma-score-label" style="color:var(--muted)">PER</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${perLbl}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${perScore/8*100}%;background:var(--muted);opacity:0.4"></div></div>
-      </div>
-      <div class="ma-score-val" style="color:var(--muted)">${perScore}<span style="font-size:10px;font-weight:400">/8</span></div>
-    </div>
-    <div class="ma-score-row">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.2;color:#f59e0b;">미래<br>성장</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${growthLbl}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${growthScore/8*100}%;background:#f59e0b"></div></div>
-      </div>
-      <div class="ma-score-val" style="color:#f59e0b">${growthScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
-    </div>` : `
-    <div class="ma-score-row">
-      <div class="ma-score-label">PER</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${perLbl}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${perFinal/8*100}%;background:${c}"></div></div>
-      </div>
-      <div class="ma-score-val" style="color:${c}">${perFinal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
-    </div>`;
-
-  // ── 성장주 전용 해설 코멘트 ──────────────────────────────────────
-  const commentHtml = growthComment ? `
-    <div style="margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
-      <div style="font-size:10px;font-weight:600;color:#f59e0b;margin-bottom:4px;">💡 성장주 분석 코멘트</div>
-      <div style="font-size:11px;color:var(--sub);line-height:1.6;">${growthComment}</div>
-    </div>` : '';
 
   el.innerHTML = `
     ${tagHtml}
@@ -687,7 +647,14 @@ function renderKoreanScore(ks) {
       </div>
       <div class="ma-score-val" style="color:${c}">${pbrScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/12</span></div>
     </div>
-    ${perRows}
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">PER/<br>성장</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${perSlotLbl} <span style="color:var(--blue);font-size:9px;">↓ 미래성장 카드 참고</span></div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${perFinal/8*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${perFinal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
+    </div>
     <div class="ma-score-row">
       <div class="ma-score-label">패닉셀링</div>
       <div class="ma-score-bar-wrap">
@@ -703,7 +670,68 @@ function renderKoreanScore(ks) {
     <div class="ma-score-total">
       <div class="ma-score-total-label">기술지표 환산</div>
       <div class="ma-score-total-val" style="color:${c}">${techScore}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 70점</span></div>
+    </div>`;
+}
+
+// ── 미래성장 가점 전용 카드 (모든 종목에 항상 표시) ─────────────────────
+function renderGrowthScore(ks) {
+  const el = document.getElementById('r-growth-score');
+  if (!el || !ks) return;
+  const {
+    per = 0, perScore = 0,
+    growthScore = 0, growthMom = 0, growthSector = 0,
+    perFinal = 0, tag = 'neutral', growthComment = null,
+  } = ks;
+
+  const isApplied = growthScore > perScore;   // 성장 가점이 실제로 PER 대신 적용된 경우
+  const gc = isApplied ? '#f59e0b' : 'var(--muted)';
+
+  const momScore    = growthMom;
+  const sectorBonus = growthSector;
+
+  const momLbl = momScore >= 6 ? '완전 정배열 (MA5>MA20>MA60)'
+               : momScore >= 3 ? '중기 상승 지지 (MA5>MA60)'
+               : momScore >= 2 ? '단기 반등 (MA5>MA20)'
+               :                 '이평선 역배열 또는 혼조';
+  const secLbl = sectorBonus > 0 ? '성장 섹터 해당 (반도체·바이오·2차전지 등)'
+                                  : '일반 섹터 (해당 없음)';
+
+  const statusBadge = isApplied
+    ? `<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✅ PER 대신 적용 중</span>`
+    : `<span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">ℹ️ PER 점수 사용 중 (${perScore}점 ≥ ${growthScore}점)</span>`;
+
+  const perRef = per > 0
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배 기준 점수: <b>${perScore}</b>점 / 미래성장 가점: <b>${growthScore}</b>점 → <b style="color:${gc}">${perFinal}점</b> 적용</div>`
+    : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 미래성장 가점 <b style="color:${gc}">${growthScore}점</b> 적용</div>`;
+
+  const commentHtml = growthComment ? `
+    <div style="margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
+      <div style="font-size:10px;font-weight:700;color:#f59e0b;margin-bottom:4px;">💡 성장주 분석 코멘트</div>
+      <div style="font-size:11px;color:var(--sub);line-height:1.6;">${growthComment}</div>
+    </div>` : '';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:22px;font-weight:800;color:${gc};">${growthScore}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 8점</span></div>
+      ${statusBadge}
     </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">정배열<br>모멘텀</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${momLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${momScore/6*100}%;background:${gc}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${gc}">${momScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/6</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">섹터<br>프리미엄</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${secLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${sectorBonus/2*100}%;background:${gc}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${gc}">${sectorBonus}<span style="font-size:10px;font-weight:400;color:var(--muted)">/2</span></div>
+    </div>
+    ${perRef}
     ${commentHtml}`;
 }
 
@@ -885,12 +913,7 @@ function renderResult(data) {
   renderScore(data.score ?? 50);
   renderMAScore(data.maScore);
   renderKoreanScore(data.korScore);
-  // 카드 타이틀 옆 태그 뱃지 업데이트
-  const _tagBadge = document.getElementById('r-stock-tag-badge');
-  if (_tagBadge && data.korScore?.tag) {
-    const _tMap = { value: '🍏 안정 가치주', growth: '🔥 국장 주도 성장주', neutral: '' };
-    _tagBadge.textContent = _tMap[data.korScore.tag] || '';
-  }
+  renderGrowthScore(data.korScore);
   renderStrategy(data.recommend);
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);
