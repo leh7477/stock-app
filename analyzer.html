@@ -279,7 +279,7 @@ let mainChart, rsiChart;
 
 function show(state) {
   ['idle','loading','result','error'].forEach(s => {
-    document.getElementById('state-'+s).style.display = s===state ? '' : 'none';
+    document.getElementById('state-'+s).style.display = s === state ? 'block' : 'none';
   });
 }
 
