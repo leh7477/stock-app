@@ -120,7 +120,7 @@ function calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
   const ma20 = ma20arr[n] || 0;
   const ma60 = ma60arr[n] || 0;
   const rsi  = rsiArr[n];
-  let score  = 50;
+  let score  = 20;
 
   if (ma5 && ma20 && ma60) {
     if (ma5 > ma20 && ma20 > ma60)       score += 15;

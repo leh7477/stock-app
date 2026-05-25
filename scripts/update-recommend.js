@@ -223,7 +223,7 @@ function analyze(stock, closes, extra = {}) {
   const signals = [];
 
   // ── 점수 계산 (analyze.js calcScore와 동일) ──
-  let score = 50;
+  let score = 20;
 
   // 이평선 배열 (±15 / -18)
   if (ma5 && ma20 && ma60) {
