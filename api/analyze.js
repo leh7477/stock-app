@@ -68,9 +68,8 @@ async function getKisToken() {
   return token;
 }
 
-function parseNum(s) {
-  return parseInt(String(s||'0').replace(/,/g,''))||0;
-}
+function parseNum(s) { return parseInt(String(s||'0').replace(/,/g,''))||0; }
+function parseF(s)   { return parseFloat(String(s||'0').replace(/,/g,''))||0; }
 
 function calcMA(arr, n) {
   return arr.map((_, i) => {
@@ -279,6 +278,42 @@ function calcScore(closes, volumes, boll) {
   }
 
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
+// PBR 저평가(12) + PER 저평가(8) + 패닉셀링 감지(10)
+function calcKoreanScore(pbr, per, rsiLatest, closes) {
+  let ks = 0;
+  const n   = closes.length - 1;
+  const cur = closes[n];
+
+  // PBR 저평가 (12점)
+  if (pbr > 0) {
+    if      (pbr <= 0.5) ks += 12;
+    else if (pbr <= 0.8) ks += 10;
+    else if (pbr <= 1.0) ks += 7;
+    else if (pbr <= 1.5) ks += 3;
+  }
+
+  // PER 저평가 (8점) — 적자(per <= 0)는 0점
+  if (per > 0) {
+    if      (per <=  8) ks += 8;
+    else if (per <= 12) ks += 6;
+    else if (per <= 18) ks += 4;
+    else if (per <= 25) ks += 2;
+  }
+
+  // 패닉셀링 감지 (10점) — RSI 극저 + 최근 6개월 고점 대비 낙폭
+  const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
+  const drawdown   = recentHigh > 0 ? (recentHigh - cur) / recentHigh * 100 : 0;
+  if (rsiLatest !== null && rsiLatest !== undefined) {
+    if      (rsiLatest < 25 && drawdown >= 30) ks += 10;
+    else if (rsiLatest < 35 && drawdown >= 20) ks += 7;
+    else if (rsiLatest < 35)                   ks += 4;
+    else if (rsiLatest < 40)                   ks += 2;
+  }
+
+  return ks;
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -617,8 +652,14 @@ export default async function handler(req, res) {
     const recentCloses  = closes.slice(-20);
     const supportNum    = Math.min(...recentCloses);
     const resistanceNum = Math.max(...recentCloses);
+    // 국장 특화 점수 (항상 실시간 계산 — 분석기 상세 표시용)
+    const pbr2     = parseF(pOut.pbr || '0');
+    const per2     = parseF(pOut.per || '0');
+    const techScore = calcScore(closes, volumes, boll);
+    const korScore  = calcKoreanScore(pbr2, per2, rsiArr[n], closes);
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
-    const score     = storedScore !== null ? storedScore : calcScore(closes, volumes, boll);
+    const score     = storedScore !== null ? storedScore : liveScore;
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
 
     // 이평선 세부 점수 (배열 20점 + MA20 이격도 20점 = 최대 40점)
@@ -652,6 +693,16 @@ export default async function handler(req, res) {
       indicators: { ma5:wMA5, ma20:wMA20, ma60:wMA60, rsi:wRSI, bollUpper:wBoll.upper, bollMid:wBoll.mid, bollLower:wBoll.lower },
       analysis,
       score,
+      korScore: {
+        total:     korScore,
+        pbr:       pbr2,
+        per:       per2,
+        pbrScore:  pbr2 > 0 ? (pbr2 <= 0.5 ? 12 : pbr2 <= 0.8 ? 10 : pbr2 <= 1.0 ? 7 : pbr2 <= 1.5 ? 3 : 0) : 0,
+        perScore:  per2 > 0 ? (per2 <= 8 ? 8 : per2 <= 12 ? 6 : per2 <= 18 ? 4 : per2 <= 25 ? 2 : 0) : 0,
+        panicScore: korScore - (pbr2 > 0 ? (pbr2 <= 0.5 ? 12 : pbr2 <= 0.8 ? 10 : pbr2 <= 1.0 ? 7 : pbr2 <= 1.5 ? 3 : 0) : 0)
+                             - (per2 > 0 ? (per2 <= 8 ? 8 : per2 <= 12 ? 6 : per2 <= 18 ? 4 : per2 <= 25 ? 2 : 0) : 0),
+        techScore: Math.round(techScore * 0.7),
+      },
       maScore,
       recommend,
       checklist,

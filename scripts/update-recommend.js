@@ -375,6 +375,45 @@ function calcScore(closes, volumes) {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
+// ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
+// PBR 저평가(12) + PER 저평가(8) + 패닉셀링 감지(10)
+function calcKoreanScore(pbr, per, rsiLatest, closes) {
+  let ks = 0;
+  const n   = closes.length - 1;
+  const cur = closes[n];
+
+  // PBR 저평가 (12점) — 장부가 이하일수록 코리아 디스카운트 가점
+  if (pbr > 0) {
+    if      (pbr <= 0.5) ks += 12; // 심각한 저평가
+    else if (pbr <= 0.8) ks += 10; // 강한 저평가
+    else if (pbr <= 1.0) ks += 7;  // 장부가 이하
+    else if (pbr <= 1.5) ks += 3;  // 약간 저평가
+    // pbr > 1.5: 0점
+  }
+
+  // PER 저평가 (8점) — 적자(per <= 0)는 판단 불가 → 0점
+  if (per > 0) {
+    if      (per <=  8) ks += 8; // 극도 저평가
+    else if (per <= 12) ks += 6; // 저평가
+    else if (per <= 18) ks += 4; // 적정
+    else if (per <= 25) ks += 2; // 약간 고평가
+    // per > 25: 0점
+  }
+
+  // 패닉셀링 감지 (10점) — RSI 극저 + 최근 6개월 고점 대비 낙폭
+  // "개인 공포 vs 냉철한 데이터 괴리" 포착
+  const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
+  const drawdown   = recentHigh > 0 ? (recentHigh - cur) / recentHigh * 100 : 0;
+  if (rsiLatest !== null && rsiLatest !== undefined) {
+    if      (rsiLatest < 25 && drawdown >= 30) ks += 10; // 극도 패닉셀링
+    else if (rsiLatest < 35 && drawdown >= 20) ks += 7;  // 강한 투매 구간
+    else if (rsiLatest < 35)                   ks += 4;  // 과매도
+    else if (rsiLatest < 40)                   ks += 2;  // 약세
+  }
+
+  return ks;
+}
+
 function maSignal(price, ma) {
   if (!ma || !price) return 'neutral';
   const r = (price - ma) / ma * 100;
@@ -416,8 +455,11 @@ function analyze(stock, closes, volumes, extra = {}) {
     }
   }
 
-  // ── 통합 퀀트 스코어 (analyze.js calcScore와 완전 동일) ──
-  const score = calcScore(closes, volumes);
+  // ── 통합 퀀트 스코어: 기술지표 70% + 국장 특화 30점 ──
+  const rsiArr2  = calcRSI(closes);
+  const techScore = calcScore(closes, volumes);
+  const korScore  = calcKoreanScore(extra.pbr || 0, extra.per || 0, rsiArr2[n], closes);
+  const score     = Math.min(100, Math.round(techScore * 0.7) + korScore);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';

@@ -283,7 +283,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
               <div class="score-bar-outer">
                 <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
               </div>
-              <div class="score-subdesc">추세·모멘텀·수급·볼린저 종합 (0~100점)</div>
+              <div class="score-subdesc">기술지표(70) + 국장특화(30) 종합 (0~100점)</div>
             </div>
           </div>
         </div>
@@ -292,6 +292,12 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
         <div class="dl-card">
           <div class="dl-title">이평선 점수</div>
           <div id="r-ma-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
+        </div>
+
+        <!-- 국장 특화 점수 -->
+        <div class="dl-card">
+          <div class="dl-title">🇰🇷 국장 특화 점수</div>
+          <div id="r-kor-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
         <!-- 매매 전략 -->
@@ -571,6 +577,66 @@ function renderMAScore(maScore) {
     </div>`;
 }
 
+function renderKoreanScore(ks) {
+  const el = document.getElementById('r-kor-score');
+  if (!el || !ks) return;
+  const { total = 0, pbr = 0, per = 0, pbrScore = 0, perScore = 0, panicScore = 0, techScore = 0 } = ks;
+  const c = total >= 22 ? '#22c55e' : total >= 14 ? '#3b82f6' : total >= 7 ? '#f59e0b' : '#9ca3af';
+
+  const pbrLbl = pbr <= 0    ? 'N/A'
+               : pbr <= 0.5  ? `${pbr.toFixed(2)}배 — 심각한 저평가`
+               : pbr <= 0.8  ? `${pbr.toFixed(2)}배 — 강한 저평가`
+               : pbr <= 1.0  ? `${pbr.toFixed(2)}배 — 장부가 이하`
+               : pbr <= 1.5  ? `${pbr.toFixed(2)}배 — 약간 저평가`
+               :               `${pbr.toFixed(2)}배 — 적정/고평가`;
+
+  const perLbl = per <= 0    ? '적자 (N/A)'
+               : per <= 8    ? `${per.toFixed(1)}배 — 극도 저평가`
+               : per <= 12   ? `${per.toFixed(1)}배 — 저평가`
+               : per <= 18   ? `${per.toFixed(1)}배 — 적정`
+               : per <= 25   ? `${per.toFixed(1)}배 — 약간 고평가`
+               :               `${per.toFixed(1)}배 — 고평가`;
+
+  const panicLbl = panicScore >= 10 ? '극도 패닉셀링 감지'
+                 : panicScore >= 7  ? '강한 투매 구간'
+                 : panicScore >= 4  ? '과매도 구간'
+                 : panicScore >= 2  ? '약세 구간'
+                 :                   '해당 없음';
+
+  el.innerHTML = `
+    <div class="ma-score-row">
+      <div class="ma-score-label">PBR</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${pbrLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${pbrScore/12*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${pbrScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/12</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label">PER</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${perLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${perScore/8*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${perScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label">패닉셀링</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${panicLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${panicScore/10*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${panicScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/10</span></div>
+    </div>
+    <div class="ma-score-total">
+      <div class="ma-score-total-label">국장 특화 합계</div>
+      <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 30점</span></div>
+    </div>
+    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--muted)">
+      <span>기술지표 환산</span><span style="color:var(--text);font-weight:600">${techScore}점 / 70점</span>
+    </div>`;
+}
+
 function renderStrategy(rec) {
   const el = document.getElementById('r-strategy');
   if (!rec || rec.grade === 'bear') {
@@ -748,6 +814,7 @@ function renderResult(data) {
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
   renderMAScore(data.maScore);
+  renderKoreanScore(data.korScore);
   renderStrategy(data.recommend);
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);
