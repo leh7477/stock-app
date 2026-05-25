@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         date:    invRow.stck_bsop_date,
         foreign: invRow.frgn_ntby_qty,
         inst:    invRow.orgn_ntby_qty,
-        personal:invRow.indv_ntby_qty,
+        personal:invRow.prsn_ntby_qty,
       } : null,
     };
 

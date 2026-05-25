@@ -308,8 +308,8 @@ async function processStock(token, stock) {
           const rows5  = rows.slice(0, 5);
           const rows20 = rows.slice(0, Math.min(20, rows.length));
           investorSupply = {
-            d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'indv_ntby_qty'),  from: fmtBsop(rows5[rows5.length-1]),  to: fmtBsop(rows5[0]) },
-            d20: { foreign: sumN(rows20,'frgn_ntby_qty'), inst: sumN(rows20,'orgn_ntby_qty'), personal: sumN(rows20,'indv_ntby_qty'), from: fmtBsop(rows20[rows20.length-1]), to: fmtBsop(rows20[0]) },
+            d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'prsn_ntby_qty'),  from: fmtBsop(rows5[rows5.length-1]),  to: fmtBsop(rows5[0]) },
+            d20: { foreign: sumN(rows20,'frgn_ntby_qty'), inst: sumN(rows20,'orgn_ntby_qty'), personal: sumN(rows20,'prsn_ntby_qty'), from: fmtBsop(rows20[rows20.length-1]), to: fmtBsop(rows20[0]) },
           };
         }
       } catch (_) {}
