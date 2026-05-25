@@ -752,8 +752,16 @@ function renderAIOpinion(data) {
 }
 
 async function doSearch(queryOverride) {
-  const q = queryOverride || document.getElementById('q').value.trim();
+  let q = queryOverride || document.getElementById('q').value.trim();
   if (!q) return;
+
+  // 6자리 코드가 아닌 경우 → SUGGESTS에서 코드 변환 (이름 직접 입력 대응)
+  if (!/^\d{6}$/.test(q)) {
+    const lo = q.toLowerCase();
+    const found = SUGGESTS.find(s => s.n.toLowerCase() === lo || s.c === q);
+    if (found) q = found.c;
+  }
+
   show('loading');
   try {
     const res = await fetch(`/api/analyze?query=${encodeURIComponent(q)}`);
