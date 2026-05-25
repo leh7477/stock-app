@@ -50,30 +50,31 @@ export default async function handler(req, res) {
       { headers: H('FHKST01010900') }
     ).then(r => r.json()).catch(e => ({ _error: e.message }));
 
-    // 일봉은 output (배열) 에 있음
-    const dailyRow  = Array.isArray(daily?.output)  ? daily.output[0]  : daily?.output;
-    // 투자자는 output (배열, 30일치) 에 있음
-    const invRow    = Array.isArray(investor?.output) ? investor.output[0] : investor?.output;
-    const invRow2   = investor?.output2?.[0] ?? null;
+    // 일봉: output or output2
+    const dailyArr = daily?.output2 ?? daily?.output ?? [];
+    const dailyRow = Array.isArray(dailyArr) ? dailyArr[0] : dailyArr;
+
+    // 투자자: output = 배열 30일치
+    const invArr = Array.isArray(investor?.output) ? investor.output : [];
+    const invRow = invArr[0] ?? null;
 
     const result = {
       code,
-      // ① 일봉 output[0] 필드 목록 + 값
-      daily_output_fields: dailyRow
-        ? Object.entries(dailyRow).map(([k, v]) => `${k}: ${v}`)
-        : `없음 (rt_cd=${daily?.rt_cd}, msg=${daily?.msg1})`,
-      daily_output_count: Array.isArray(daily?.output) ? daily.output.length : (daily?.output ? 1 : 0),
+      // ① 일봉 [0] 필드
+      daily_row0: dailyRow ?? `없음 (rt_cd=${daily?.rt_cd})`,
+      daily_count: Array.isArray(dailyArr) ? dailyArr.length : 0,
 
-      // ② 투자자 output[0] 필드 목록 + 값 (가장 최근 1일)
-      investor_output0_fields: invRow
-        ? Object.entries(invRow).map(([k, v]) => `${k}: ${v}`)
-        : `없음 (rt_cd=${investor?.rt_cd}, msg=${investor?.msg1})`,
-      investor_output_count: Array.isArray(investor?.output) ? investor.output.length : 0,
+      // ② 투자자 output[0] 필드 (가장 최근 영업일)
+      investor_row0: invRow ?? `없음 (rt_cd=${investor?.rt_cd}, msg=${investor?.msg1})`,
+      investor_count: invArr.length,
 
-      // ② 투자자 output2 필드 (혹시 있는 경우)
-      investor_output2_fields: invRow2
-        ? Object.entries(invRow2).map(([k, v]) => `${k}: ${v}`)
-        : `output2 없음`,
+      // 핵심 필드 요약
+      investor_key_fields: invRow ? {
+        date:    invRow.stck_bsop_date,
+        foreign: invRow.frgn_ntby_qty,
+        inst:    invRow.orgn_ntby_qty,
+        personal:invRow.indv_ntby_qty,
+      } : null,
     };
 
     return res.status(200).json(result);

@@ -16,7 +16,7 @@ const KIS_KEY   = process.env.KIS_APP_KEY;
 const KIS_SEC   = process.env.KIS_APP_SECRET;
 const DART_KEY  = process.env.DART_API_KEY;
 
-const BATCH_SIZE  = 8;     // 종목당 API 2회 → 8개 병렬 = 약 16 calls/sec
+const BATCH_SIZE  = 6;     // 종목당 API 3회 → 6개 병렬 = 약 18 calls/sec (KIS 한도 20/sec)
 const BATCH_DELAY = 1200;
 const TIMEOUT_MS  = 10000;
 
@@ -292,17 +292,27 @@ async function processStock(token, stock) {
       const frgnRatio  = parseF(latestDay?.hts_frgn_ehrt);
       const frgnBuyQty = parseNum(latestDay?.frgn_ntby_qty);
 
-      // 5일/20일 투자자 수급 누적 (일봉 데이터 재활용)
-      const sumI    = (arr, f) => arr.reduce((s, d) => s + parseNum(d[f]), 0);
-      const fmtBsop = d => { const dt = d?.stck_bsop_date; return dt ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : ''; };
-      const inv5    = recent.slice(0, 5);
-      const inv20   = recent.slice(0, Math.min(20, recent.length));
-      const hasOrg  = latestDay?.orgn_ntby_qty !== undefined && latestDay?.orgn_ntby_qty !== '';
-      const hasIndv = latestDay?.indv_ntby_qty !== undefined && latestDay?.indv_ntby_qty !== '';
-      const investorSupply = {
-        d5:  { foreign: sumI(inv5,'frgn_ntby_qty'),  inst: hasOrg?sumI(inv5,'orgn_ntby_qty'):null,  personal: hasIndv?sumI(inv5,'indv_ntby_qty'):null,  from: fmtBsop(inv5[inv5.length-1]),  to: fmtBsop(inv5[0]) },
-        d20: { foreign: sumI(inv20,'frgn_ntby_qty'), inst: hasOrg?sumI(inv20,'orgn_ntby_qty'):null, personal: hasIndv?sumI(inv20,'indv_ntby_qty'):null, from: fmtBsop(inv20[inv20.length-1]), to: fmtBsop(inv20[0]) },
-      };
+      // 5일/20일 투자자 수급 (FHKST01010900 → output 배열 30일치)
+      let investorSupply = null;
+      try {
+        const invRaw = await timedFetch(
+          `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor` +
+          `?fid_cond_mrkt_div_code=${mkCode}&fid_input_iscd=${code}`,
+          { headers: kisHeaders(token, 'FHKST01010900') }
+        ).then(r => r.json()).catch(() => null);
+
+        const rows = Array.isArray(invRaw?.output) ? invRaw.output : [];
+        if (rows.length >= 5) {
+          const sumN   = (arr, f) => arr.reduce((s, d) => s + parseNum(d[f] || '0'), 0);
+          const fmtBsop = d => { const dt = d?.stck_bsop_date; return dt ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : ''; };
+          const rows5  = rows.slice(0, 5);
+          const rows20 = rows.slice(0, Math.min(20, rows.length));
+          investorSupply = {
+            d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'indv_ntby_qty'),  from: fmtBsop(rows5[rows5.length-1]),  to: fmtBsop(rows5[0]) },
+            d20: { foreign: sumN(rows20,'frgn_ntby_qty'), inst: sumN(rows20,'orgn_ntby_qty'), personal: sumN(rows20,'indv_ntby_qty'), from: fmtBsop(rows20[rows20.length-1]), to: fmtBsop(rows20[0]) },
+          };
+        }
+      } catch (_) {}
 
       // 2) 현재가 + 기본 정보 조회 (PER·PBR·EPS·시가총액·업종)
       let mktCap = 0, per = 0, pbr = 0, eps = 0, sector = '';
