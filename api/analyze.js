@@ -326,8 +326,14 @@ export default async function handler(req, res) {
     const rows2 = (cw2?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
     const rows3 = (cw3?.output2 || []).filter(d => parseNum(d.stck_clpr) > 0);
 
-    // KIS는 최신이 앞 → 역순 정렬 후 합치기
-    const history = [...rows3, ...rows2, ...rows1].reverse().map(convRow);
+    // KIS는 최신이 앞 → 각 구간별로 역순 후 날짜순 정렬 + 중복 제거
+    const history = [
+      ...rows3.slice().reverse().map(convRow),
+      ...rows2.slice().reverse().map(convRow),
+      ...rows1.slice().reverse().map(convRow),
+    ]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .filter((d, i, arr) => i === 0 || d.date !== arr[i-1].date);
     if (history.length === 0) throw new Error('차트 데이터 없음');
 
     const closes = history.map(d => d.close);
