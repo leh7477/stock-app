@@ -294,6 +294,20 @@ export default async function handler(req, res) {
       if (sr?.output?.shtn_pdno) { code=sr.output.shtn_pdno; name=sr.output.prdt_abrv_name||''; }
     }
 
+    // DART 회사명 검색 fallback (KIS 코드 검색 실패 시)
+    if (!code) {
+      const dartKey = process.env.DART_API_KEY;
+      if (dartKey) {
+        const dart = await timedFetch(
+          `https://opendart.fss.or.kr/api/company.json?crtfc_key=${dartKey}&corp_name=${encodeURIComponent(query)}`
+        ).then(r => r.json()).catch(() => null);
+        if (dart?.status === '000' && dart?.stock_code?.trim()) {
+          code = dart.stock_code.trim().padStart(6, '0');
+          name = dart.corp_name || query;
+        }
+      }
+    }
+
     if (!code) return res.status(200).json({ success:false, error:'종목을 찾을 수 없습니다. 종목코드(6자리)로 다시 시도해보세요.' });
 
     // KIS 4개 병렬 호출: 현재가 + 주봉 5년 차트 (3개 구간)
