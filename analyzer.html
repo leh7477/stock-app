@@ -19,107 +19,63 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
-.app{max-width:430px;margin:0 auto;padding-bottom:32px;}
+.app{max-width:900px;margin:0 auto;padding:0 16px 40px;}
 
-.header{padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+/* ── 헤더 ── */
+.header{padding:14px 0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin:0 -16px;padding-left:16px;padding-right:16px;}
 .back-btn{width:32px;height:32px;border-radius:50%;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;text-decoration:none;flex-shrink:0;}
 .header h1{font-size:16px;font-weight:600;}
 
-.search-row{padding:12px 16px;display:flex;gap:8px;}
+/* ── 검색 ── */
+.search-row{padding:12px 0;display:flex;gap:8px;}
 .search-row input{flex:1;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
 .search-row input:focus{border-color:var(--blue);background:#fff;}
-.search-row button{background:var(--blue);border:none;border-radius:10px;padding:10px 18px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.search-row button{background:var(--blue);border:none;border-radius:10px;padding:10px 22px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;}
 
-.stock-header{padding:12px 16px 0;}
-.stock-name{font-size:20px;font-weight:700;}
-.stock-code{font-size:11px;color:var(--muted);margin-top:2px;}
-.stock-price{font-size:28px;font-weight:700;margin-top:8px;}
+/* ── 종목 헤더 (wide) ── */
+.stock-header-wide{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:16px 0 0;}
+.shw-left .stock-name{font-size:22px;font-weight:700;}
+.shw-left .stock-code{font-size:12px;color:var(--muted);margin-top:3px;}
+.shw-right{text-align:right;flex-shrink:0;}
+.stock-price{font-size:30px;font-weight:700;}
 .stock-chg{font-size:13px;margin-top:3px;}
 
-.section{padding:16px 16px 0;}
-.section-title{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;}
+/* ── 2컬럼 그리드 ── */
+.detail-grid{display:grid;grid-template-columns:2fr 3fr;gap:14px;margin-top:14px;align-items:start;}
+.detail-col{display:flex;flex-direction:column;gap:12px;}
 
-.chart-wrap{background:#fff;border:1.5px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);}
-#mainChart{width:100%;height:280px;}
-#rsiChart{width:100%;height:110px;}
-.chart-divider{height:1px;background:var(--border);}
-
-.indicator-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;}
-.ind-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;box-shadow:var(--shadow);}
-.ind-label{font-size:10px;color:var(--muted);margin-bottom:5px;}
-.ind-val{font-size:13px;font-weight:600;}
-
-.opinion-card{border-radius:14px;padding:14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
-.opinion-left .opinion-label{font-size:10px;color:var(--muted);margin-bottom:4px;}
-.opinion-left .opinion-text{font-size:17px;font-weight:700;}
-.opinion-rsi{font-size:11px;margin-top:4px;color:var(--muted);}
-.bull-bear{text-align:right;}
-.bull-bear-row{font-size:11px;margin-bottom:3px;}
-
-.signals-list{display:flex;flex-direction:column;gap:6px;}
-.signal-item{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
-.signal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.signal-text{font-size:12px;color:var(--text);}
-
-.sr-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
-.sr-card{border-radius:12px;padding:10px 12px;text-align:center;}
-.sr-label{font-size:10px;margin-bottom:5px;}
-.sr-val{font-size:14px;font-weight:700;}
-.sr-gap{font-size:10px;margin-top:2px;color:var(--muted);}
-
-.supply-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.supply-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;box-shadow:var(--shadow);}
-.supply-label{font-size:10px;color:var(--muted);margin-bottom:5px;}
-.supply-val{font-size:13px;font-weight:600;}
-
-.dart-list{display:flex;flex-direction:column;gap:8px;}
-.dart-card{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;text-decoration:none;box-shadow:var(--shadow);}
-.dart-dot{width:7px;height:7px;border-radius:50%;background:var(--blue);margin-top:4px;flex-shrink:0;}
-.dart-body{flex:1;}
-.dart-title{font-size:13px;color:var(--text);line-height:1.5;font-weight:500;}
-.dart-meta{font-size:10px;color:var(--muted);margin-top:3px;}
-
-.skeleton{background:linear-gradient(90deg,#e9ecf0 25%,#f2f4f8 50%,#e9ecf0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:6px;}
-@keyframes shimmer{to{background-position:-200% 0;}}
-
-.empty{text-align:center;color:var(--muted);padding:20px;font-size:12px;}
-
-.green{color:var(--green);} .red{color:var(--red);} .muted{color:var(--muted);}
-
-#state-idle{padding:40px 20px;text-align:center;color:var(--muted);}
-#state-loading{padding:24px 16px;display:none;}
-#state-result{display:none;}
-#state-error{padding:20px 16px;display:none;text-align:center;color:var(--red);}
+/* ── 카드 공통 ── */
+.dl-card{background:#fff;border:1.5px solid var(--border);border-radius:14px;padding:16px;box-shadow:var(--shadow);}
+.dl-title{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px;}
 
 /* ── 분석 점수 ── */
-.score-hero{display:flex;align-items:center;gap:16px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;}
-.score-circle{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border:3px solid;transition:all .4s;}
-.score-num-big{font-size:26px;font-weight:700;line-height:1;}
+.score-hero{display:flex;align-items:center;gap:16px;}
+.score-circle{width:76px;height:76px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border:3px solid;transition:all .4s;}
+.score-num-big{font-size:28px;font-weight:700;line-height:1;}
 .score-pts{font-size:10px;margin-top:1px;opacity:.7;}
 .score-right{flex:1;}
-.score-grade{font-size:17px;font-weight:700;margin-bottom:6px;}
-.score-bar-outer{height:5px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:6px;}
+.score-grade{font-size:18px;font-weight:700;margin-bottom:6px;}
+.score-bar-outer{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;margin-bottom:6px;}
 .score-bar-inner{height:100%;border-radius:99px;transition:width .6s ease;}
 .score-subdesc{font-size:11px;color:var(--muted);}
 
 /* ── 매매 전략 ── */
-.strategy-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;}
 .strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.s-item{background:var(--bg3);border-radius:10px;padding:10px 12px;}
+.s-item{background:var(--bg);border-radius:10px;padding:10px 12px;}
 .s-item.full{grid-column:1/-1;}
 .s-label{font-size:10px;color:var(--muted);margin-bottom:4px;}
 .s-val{font-size:14px;font-weight:700;line-height:1.3;}
 .s-unit{font-size:10px;font-weight:400;}
 .s-sub{font-size:10px;color:var(--muted);margin-top:3px;}
 .strategy-note{font-size:10px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5;border-top:1px solid var(--border);padding-top:8px;}
-.strategy-avoid{text-align:center;padding:12px 8px;}
+.strategy-avoid{text-align:center;padding:10px 8px;}
 .strategy-avoid-icon{font-size:28px;margin-bottom:6px;}
 .strategy-avoid-label{font-size:17px;font-weight:700;color:var(--red);margin-bottom:4px;}
 .strategy-avoid-desc{font-size:12px;color:var(--muted);line-height:1.7;}
 
 /* ── 체크리스트 ── */
 .checklist{display:flex;flex-direction:column;gap:6px;}
-.check-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg2);border:1px solid var(--border);border-left-width:3px;border-radius:10px;padding:10px 12px;}
+.check-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg);border:1px solid var(--border);border-left-width:3px;border-radius:10px;padding:10px 12px;}
 .check-item.ok   {border-left-color:var(--green);}
 .check-item.warn {border-left-color:var(--amber);}
 .check-item.fail {border-left-color:var(--red);}
@@ -127,6 +83,72 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .check-right{flex:1;}
 .check-label{font-size:12px;font-weight:600;margin-bottom:2px;}
 .check-desc{font-size:11px;color:var(--muted);line-height:1.4;}
+
+/* ── MA / 기술분석 / 지지저항 ── */
+.indicator-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:0;}
+.ind-card{background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;}
+.ind-label{font-size:10px;color:var(--muted);margin-bottom:5px;}
+.ind-val{font-size:14px;font-weight:600;}
+.opinion-card{border-radius:12px;padding:12px;margin-top:10px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+.opinion-left .opinion-label{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.opinion-left .opinion-text{font-size:16px;font-weight:700;}
+.opinion-rsi{font-size:11px;margin-top:4px;color:var(--muted);}
+.bull-bear{text-align:right;}
+.bull-bear-row{font-size:11px;margin-bottom:3px;}
+.signals-list{display:flex;flex-direction:column;gap:5px;}
+.signal-item{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;}
+.signal-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.signal-text{font-size:12px;color:var(--text);}
+.sr-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;}
+.sr-card{border-radius:10px;padding:12px;text-align:center;}
+.sr-label{font-size:10px;margin-bottom:5px;}
+.sr-val{font-size:15px;font-weight:700;}
+.sr-gap{font-size:10px;margin-top:2px;color:var(--muted);}
+
+/* ── 수급 ── */
+.supply-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.supply-card{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;}
+.supply-label{font-size:10px;color:var(--muted);margin-bottom:5px;}
+.supply-val{font-size:13px;font-weight:600;}
+
+/* ── 공시 ── */
+.dart-list{display:flex;flex-direction:column;gap:8px;}
+.dart-card{background:var(--bg);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;text-decoration:none;}
+.dart-dot{width:7px;height:7px;border-radius:50%;background:var(--blue);margin-top:4px;flex-shrink:0;}
+.dart-body{flex:1;}
+.dart-title{font-size:13px;color:var(--text);line-height:1.5;font-weight:500;}
+.dart-meta{font-size:10px;color:var(--muted);margin-top:3px;}
+
+/* ── 차트 ── */
+.chart-wrap{background:#fff;border:1.5px solid var(--border);border-radius:14px;overflow:hidden;}
+#mainChart{width:100%;height:320px;}
+#rsiChart{width:100%;height:120px;}
+.chart-divider{height:1px;background:var(--border);}
+
+/* ── 풀 width 섹션 ── */
+.full-row{margin-top:14px;}
+
+/* ── 스켈레톤 ── */
+.skeleton{background:linear-gradient(90deg,#e9ecf0 25%,#f2f4f8 50%,#e9ecf0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:8px;}
+@keyframes shimmer{to{background-position:-200% 0;}}
+.skel-grid{display:grid;grid-template-columns:2fr 3fr;gap:14px;margin-top:14px;}
+.skel-col{display:flex;flex-direction:column;gap:12px;}
+
+.empty{text-align:center;color:var(--muted);padding:20px;font-size:12px;}
+.green{color:var(--green);} .red{color:var(--red);} .muted{color:var(--muted);}
+
+#state-idle{padding:60px 20px;text-align:center;color:var(--muted);}
+#state-loading{padding-top:16px;display:none;}
+#state-result{display:none;}
+#state-error{padding:20px 0;display:none;text-align:center;color:var(--red);}
+
+/* ── 반응형 ── */
+@media(max-width:680px){
+  .detail-grid,.skel-grid{grid-template-columns:1fr;}
+  .stock-header-wide{flex-direction:column;gap:4px;}
+  .shw-right{text-align:left;}
+  #mainChart{height:240px;}
+}
 </style>
 </head>
 <body>
@@ -142,129 +164,165 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   </div>
 
   <div id="state-idle">
-    <div style="font-size:32px;margin-bottom:12px;">📊</div>
-    <div style="font-size:14px;margin-bottom:6px;">종목을 검색하세요</div>
-    <div style="font-size:12px;">60일 가격 차트 · 기술지표 · 수급 · 공시</div>
+    <div style="font-size:40px;margin-bottom:14px;">📊</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px;">종목을 검색하세요</div>
+    <div style="font-size:13px;color:var(--muted);">60일 가격 차트 · 이평선 분석 · 수급 · 공시</div>
   </div>
 
   <div id="state-loading">
-    <div class="skeleton" style="height:64px;border-radius:12px;margin-bottom:10px;"></div>
-    <div class="skeleton" style="height:76px;border-radius:16px;margin-bottom:8px;"></div>
-    <div class="skeleton" style="height:120px;border-radius:16px;margin-bottom:8px;"></div>
-    <div class="skeleton" style="height:170px;border-radius:16px;margin-bottom:12px;"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
-      <div class="skeleton" style="height:52px;border-radius:12px;"></div>
-      <div class="skeleton" style="height:52px;border-radius:12px;"></div>
-      <div class="skeleton" style="height:52px;border-radius:12px;"></div>
+    <!-- 종목 헤더 스켈레톤 -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;padding:16px 0 0;">
+      <div>
+        <div class="skeleton" style="width:180px;height:26px;margin-bottom:8px;"></div>
+        <div class="skeleton" style="width:80px;height:14px;"></div>
+      </div>
+      <div style="text-align:right;">
+        <div class="skeleton" style="width:140px;height:34px;margin-bottom:8px;"></div>
+        <div class="skeleton" style="width:100px;height:14px;"></div>
+      </div>
     </div>
-    <div class="skeleton" style="height:52px;border-radius:14px;margin-bottom:8px;"></div>
-    <div class="skeleton" style="height:52px;border-radius:14px;margin-bottom:12px;"></div>
-    <div class="skeleton" style="height:300px;border-radius:16px;"></div>
+    <!-- 2컬 스켈레톤 -->
+    <div class="skel-grid">
+      <div class="skel-col">
+        <div class="skeleton" style="height:88px;"></div>
+        <div class="skeleton" style="height:140px;"></div>
+        <div class="skeleton" style="height:200px;"></div>
+      </div>
+      <div class="skel-col">
+        <div class="skeleton" style="height:72px;"></div>
+        <div class="skeleton" style="height:180px;"></div>
+        <div class="skeleton" style="height:80px;"></div>
+        <div class="skeleton" style="height:80px;"></div>
+      </div>
+    </div>
+    <!-- 하단 스켈레톤 -->
+    <div class="skeleton" style="height:60px;margin-top:14px;"></div>
+    <div class="skeleton" style="height:360px;margin-top:14px;"></div>
   </div>
 
   <div id="state-error"></div>
 
   <div id="state-result">
 
-    <!-- ① 종목 헤더 -->
-    <div class="stock-header">
-      <div class="stock-name" id="r-name"></div>
-      <div class="stock-code" id="r-code"></div>
-      <div class="stock-price" id="r-price"></div>
-      <div class="stock-chg" id="r-chg"></div>
+    <!-- ① 종목 헤더 (wide) -->
+    <div class="stock-header-wide">
+      <div class="shw-left">
+        <div class="stock-name" id="r-name"></div>
+        <div class="stock-code" id="r-code"></div>
+      </div>
+      <div class="shw-right">
+        <div class="stock-price" id="r-price"></div>
+        <div class="stock-chg" id="r-chg"></div>
+      </div>
     </div>
 
-    <!-- ② 분석 점수 -->
-    <div class="section" style="margin-top:14px;">
-      <div class="score-hero">
-        <div class="score-circle" id="r-score-circle">
-          <div class="score-num-big" id="r-score-num">-</div>
-          <div class="score-pts">점</div>
-        </div>
-        <div class="score-right">
-          <div class="score-grade" id="r-score-grade">분석 중…</div>
-          <div class="score-bar-outer">
-            <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
+    <!-- ② 2컬럼 그리드 -->
+    <div class="detail-grid">
+
+      <!-- 좌측 컬럼: 점수 / 전략 / 체크리스트 -->
+      <div class="detail-col">
+
+        <!-- 분석 점수 -->
+        <div class="dl-card">
+          <div class="dl-title">분석 점수</div>
+          <div class="score-hero">
+            <div class="score-circle" id="r-score-circle">
+              <div class="score-num-big" id="r-score-num">-</div>
+              <div class="score-pts">점</div>
+            </div>
+            <div class="score-right">
+              <div class="score-grade" id="r-score-grade">분석 중…</div>
+              <div class="score-bar-outer">
+                <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
+              </div>
+              <div class="score-subdesc">이동평균선 종합 분석 (5~99점)</div>
+            </div>
           </div>
-          <div class="score-subdesc">이동평균선 종합 분석 점수 (5~99)</div>
         </div>
-      </div>
-    </div>
 
-    <!-- ③ 매매 전략 -->
-    <div class="section" style="margin-top:8px;">
-      <div class="section-title">매매 전략</div>
-      <div class="strategy-card" id="r-strategy"></div>
-    </div>
-
-    <!-- ④ 지금 확인할 것 (체크리스트) -->
-    <div class="section" style="margin-top:8px;">
-      <div class="section-title">지금 확인할 것</div>
-      <div class="checklist" id="r-checklist"></div>
-    </div>
-
-    <!-- ⑤ 이동평균 수치 -->
-    <div class="section" style="margin-top:14px;">
-      <div class="section-title">이동평균</div>
-      <div class="indicator-row">
-        <div class="ind-card"><div class="ind-label">MA 5일</div><div class="ind-val" id="r-ma5">-</div></div>
-        <div class="ind-card"><div class="ind-label">MA 20일</div><div class="ind-val" id="r-ma20">-</div></div>
-        <div class="ind-card"><div class="ind-label">MA 60일</div><div class="ind-val" id="r-ma60">-</div></div>
-      </div>
-    </div>
-
-    <!-- ⑥ 기술 분석 의견 + 신호 -->
-    <div class="section" style="margin-top:6px;">
-      <div class="section-title">기술 분석</div>
-      <div class="opinion-card" id="r-opinion-card">
-        <div class="opinion-left">
-          <div class="opinion-label">종합 판단</div>
-          <div class="opinion-text" id="r-opinion"></div>
-          <div class="opinion-rsi" id="r-rsi-label"></div>
+        <!-- 매매 전략 -->
+        <div class="dl-card">
+          <div class="dl-title">매매 전략</div>
+          <div id="r-strategy"></div>
         </div>
-        <div class="bull-bear">
-          <div class="bull-bear-row green" id="r-bull"></div>
-          <div class="bull-bear-row red" id="r-bear"></div>
-        </div>
-      </div>
-      <div class="signals-list" id="r-signals"></div>
-    </div>
 
-    <!-- ⑦ 지지·저항 -->
-    <div class="section" style="margin-top:6px;">
-      <div class="sr-grid">
-        <div class="sr-card" id="r-resistance-card" style="background:var(--red-bg);">
-          <div class="sr-label red">저항선 (20일 고점)</div>
-          <div class="sr-val red" id="r-resistance"></div>
-          <div class="sr-gap" id="r-rgap"></div>
+        <!-- 체크리스트 -->
+        <div class="dl-card">
+          <div class="dl-title">지금 확인할 것</div>
+          <div class="checklist" id="r-checklist"></div>
         </div>
-        <div class="sr-card" id="r-support-card" style="background:var(--green-bg);">
-          <div class="sr-label green">지지선 (20일 저점)</div>
-          <div class="sr-val green" id="r-support"></div>
-          <div class="sr-gap" id="r-sgap"></div>
+
+      </div><!-- /좌측 -->
+
+      <!-- 우측 컬럼: MA / 기술분석 / 지지저항 / 수급 -->
+      <div class="detail-col">
+
+        <!-- 이동평균 -->
+        <div class="dl-card">
+          <div class="dl-title">이동평균</div>
+          <div class="indicator-row">
+            <div class="ind-card"><div class="ind-label">MA 5일</div><div class="ind-val" id="r-ma5">-</div></div>
+            <div class="ind-card"><div class="ind-label">MA 20일</div><div class="ind-val" id="r-ma20">-</div></div>
+            <div class="ind-card"><div class="ind-label">MA 60일</div><div class="ind-val" id="r-ma60">-</div></div>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <!-- ⑧ 투자자 수급 -->
-    <div class="section" style="margin-top:14px;">
-      <div class="section-title">투자자 수급 <span id="r-investor-src" style="font-weight:400;text-transform:none;"></span></div>
-      <div class="supply-grid">
-        <div class="supply-card"><div class="supply-label">개인</div><div class="supply-val" id="r-personal">-</div></div>
-        <div class="supply-card"><div class="supply-label">외국인</div><div class="supply-val" id="r-foreign">-</div></div>
-        <div class="supply-card"><div class="supply-label">기관</div><div class="supply-val" id="r-inst">-</div></div>
-      </div>
-    </div>
+        <!-- 기술 분석 의견 + 신호 -->
+        <div class="dl-card">
+          <div class="dl-title">기술 분석</div>
+          <div class="opinion-card" id="r-opinion-card">
+            <div class="opinion-left">
+              <div class="opinion-label">종합 판단</div>
+              <div class="opinion-text" id="r-opinion"></div>
+              <div class="opinion-rsi" id="r-rsi-label"></div>
+            </div>
+            <div class="bull-bear">
+              <div class="bull-bear-row green" id="r-bull"></div>
+              <div class="bull-bear-row red" id="r-bear"></div>
+            </div>
+          </div>
+          <div class="signals-list" id="r-signals"></div>
+        </div>
 
-    <!-- ⑨ 최근 공시 -->
-    <div class="section" style="margin-top:14px;">
-      <div class="section-title">최근 공시 (1개월)</div>
+        <!-- 지지·저항 -->
+        <div class="dl-card">
+          <div class="dl-title">지지 · 저항</div>
+          <div class="sr-grid">
+            <div class="sr-card" style="background:var(--red-bg);">
+              <div class="sr-label red">저항선 (20일 고점)</div>
+              <div class="sr-val red" id="r-resistance"></div>
+              <div class="sr-gap" id="r-rgap"></div>
+            </div>
+            <div class="sr-card" style="background:var(--green-bg);">
+              <div class="sr-label green">지지선 (20일 저점)</div>
+              <div class="sr-val green" id="r-support"></div>
+              <div class="sr-gap" id="r-sgap"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 투자자 수급 -->
+        <div class="dl-card">
+          <div class="dl-title">투자자 수급 <span id="r-investor-src" style="font-weight:400;text-transform:none;letter-spacing:0;"></span></div>
+          <div class="supply-grid">
+            <div class="supply-card"><div class="supply-label">개인</div><div class="supply-val" id="r-personal">-</div></div>
+            <div class="supply-card"><div class="supply-label">외국인</div><div class="supply-val" id="r-foreign">-</div></div>
+            <div class="supply-card"><div class="supply-label">기관</div><div class="supply-val" id="r-inst">-</div></div>
+          </div>
+        </div>
+
+      </div><!-- /우측 -->
+    </div><!-- /detail-grid -->
+
+    <!-- ③ 최근 공시 (full width) -->
+    <div class="dl-card full-row">
+      <div class="dl-title">최근 공시 (1개월)</div>
       <div class="dart-list" id="r-dart"></div>
     </div>
 
-    <!-- ⑩ 가격 차트 (하단) -->
-    <div class="section" style="margin-top:20px;">
-      <div class="section-title">📈 가격 차트 · RSI (60일)</div>
+    <!-- ④ 가격 차트 (full width, 하단) -->
+    <div class="dl-card full-row" style="padding:16px 16px 12px;">
+      <div class="dl-title">📈 가격 차트 · RSI (60일)</div>
       <div class="chart-wrap">
         <div id="mainChart"></div>
         <div class="chart-divider"></div>
