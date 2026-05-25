@@ -89,6 +89,43 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 #state-loading{padding:24px 16px;display:none;}
 #state-result{display:none;}
 #state-error{padding:20px 16px;display:none;text-align:center;color:var(--red);}
+
+/* ── 분석 점수 ── */
+.score-hero{display:flex;align-items:center;gap:16px;background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px;}
+.score-circle{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border:3px solid;transition:all .4s;}
+.score-num-big{font-size:26px;font-weight:700;line-height:1;}
+.score-pts{font-size:10px;margin-top:1px;opacity:.7;}
+.score-right{flex:1;}
+.score-grade{font-size:17px;font-weight:700;margin-bottom:6px;}
+.score-bar-outer{height:5px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-bottom:6px;}
+.score-bar-inner{height:100%;border-radius:99px;transition:width .6s ease;}
+.score-subdesc{font-size:11px;color:var(--muted);}
+
+/* ── 매매 전략 ── */
+.strategy-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:14px;}
+.strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.s-item{background:var(--bg3);border-radius:10px;padding:10px 12px;}
+.s-item.full{grid-column:1/-1;}
+.s-label{font-size:10px;color:var(--muted);margin-bottom:4px;}
+.s-val{font-size:14px;font-weight:700;line-height:1.3;}
+.s-unit{font-size:10px;font-weight:400;}
+.s-sub{font-size:10px;color:var(--muted);margin-top:3px;}
+.strategy-note{font-size:10px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5;border-top:1px solid var(--border);padding-top:8px;}
+.strategy-avoid{text-align:center;padding:12px 8px;}
+.strategy-avoid-icon{font-size:28px;margin-bottom:6px;}
+.strategy-avoid-label{font-size:17px;font-weight:700;color:var(--red);margin-bottom:4px;}
+.strategy-avoid-desc{font-size:12px;color:var(--muted);line-height:1.7;}
+
+/* ── 체크리스트 ── */
+.checklist{display:flex;flex-direction:column;gap:6px;}
+.check-item{display:flex;align-items:flex-start;gap:10px;background:var(--bg2);border:1px solid var(--border);border-left-width:3px;border-radius:10px;padding:10px 12px;}
+.check-item.ok   {border-left-color:var(--green);}
+.check-item.warn {border-left-color:var(--amber);}
+.check-item.fail {border-left-color:var(--red);}
+.check-icon{font-size:15px;flex-shrink:0;width:20px;text-align:center;margin-top:1px;}
+.check-right{flex:1;}
+.check-label{font-size:12px;font-weight:600;margin-bottom:2px;}
+.check-desc{font-size:11px;color:var(--muted);line-height:1.4;}
 </style>
 </head>
 <body>
@@ -110,19 +147,25 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   </div>
 
   <div id="state-loading">
-    <div class="skeleton" style="height:60px;border-radius:12px;margin-bottom:12px;"></div>
-    <div class="skeleton" style="height:280px;border-radius:16px;margin-bottom:12px;"></div>
-    <div class="skeleton" style="height:110px;border-radius:16px;margin-bottom:12px;"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
-      <div class="skeleton" style="height:56px;border-radius:12px;"></div>
-      <div class="skeleton" style="height:56px;border-radius:12px;"></div>
-      <div class="skeleton" style="height:56px;border-radius:12px;"></div>
+    <div class="skeleton" style="height:64px;border-radius:12px;margin-bottom:10px;"></div>
+    <div class="skeleton" style="height:76px;border-radius:16px;margin-bottom:8px;"></div>
+    <div class="skeleton" style="height:120px;border-radius:16px;margin-bottom:8px;"></div>
+    <div class="skeleton" style="height:170px;border-radius:16px;margin-bottom:12px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div class="skeleton" style="height:52px;border-radius:12px;"></div>
+      <div class="skeleton" style="height:52px;border-radius:12px;"></div>
+      <div class="skeleton" style="height:52px;border-radius:12px;"></div>
     </div>
+    <div class="skeleton" style="height:52px;border-radius:14px;margin-bottom:8px;"></div>
+    <div class="skeleton" style="height:52px;border-radius:14px;margin-bottom:12px;"></div>
+    <div class="skeleton" style="height:300px;border-radius:16px;"></div>
   </div>
 
   <div id="state-error"></div>
 
   <div id="state-result">
+
+    <!-- ① 종목 헤더 -->
     <div class="stock-header">
       <div class="stock-name" id="r-name"></div>
       <div class="stock-code" id="r-code"></div>
@@ -130,14 +173,36 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <div class="stock-chg" id="r-chg"></div>
     </div>
 
+    <!-- ② 분석 점수 -->
     <div class="section" style="margin-top:14px;">
-      <div class="chart-wrap">
-        <div id="mainChart"></div>
-        <div class="chart-divider"></div>
-        <div id="rsiChart"></div>
+      <div class="score-hero">
+        <div class="score-circle" id="r-score-circle">
+          <div class="score-num-big" id="r-score-num">-</div>
+          <div class="score-pts">점</div>
+        </div>
+        <div class="score-right">
+          <div class="score-grade" id="r-score-grade">분석 중…</div>
+          <div class="score-bar-outer">
+            <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
+          </div>
+          <div class="score-subdesc">이동평균선 종합 분석 점수 (5~99)</div>
+        </div>
       </div>
     </div>
 
+    <!-- ③ 매매 전략 -->
+    <div class="section" style="margin-top:8px;">
+      <div class="section-title">매매 전략</div>
+      <div class="strategy-card" id="r-strategy"></div>
+    </div>
+
+    <!-- ④ 지금 확인할 것 (체크리스트) -->
+    <div class="section" style="margin-top:8px;">
+      <div class="section-title">지금 확인할 것</div>
+      <div class="checklist" id="r-checklist"></div>
+    </div>
+
+    <!-- ⑤ 이동평균 수치 -->
     <div class="section" style="margin-top:14px;">
       <div class="section-title">이동평균</div>
       <div class="indicator-row">
@@ -147,6 +212,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       </div>
     </div>
 
+    <!-- ⑥ 기술 분석 의견 + 신호 -->
     <div class="section" style="margin-top:6px;">
       <div class="section-title">기술 분석</div>
       <div class="opinion-card" id="r-opinion-card">
@@ -163,14 +229,15 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <div class="signals-list" id="r-signals"></div>
     </div>
 
+    <!-- ⑦ 지지·저항 -->
     <div class="section" style="margin-top:6px;">
       <div class="sr-grid">
-        <div class="sr-card red-bg" id="r-resistance-card" style="background:var(--red-bg);">
+        <div class="sr-card" id="r-resistance-card" style="background:var(--red-bg);">
           <div class="sr-label red">저항선 (20일 고점)</div>
           <div class="sr-val red" id="r-resistance"></div>
           <div class="sr-gap" id="r-rgap"></div>
         </div>
-        <div class="sr-card green-bg" id="r-support-card" style="background:var(--green-bg);">
+        <div class="sr-card" id="r-support-card" style="background:var(--green-bg);">
           <div class="sr-label green">지지선 (20일 저점)</div>
           <div class="sr-val green" id="r-support"></div>
           <div class="sr-gap" id="r-sgap"></div>
@@ -178,6 +245,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       </div>
     </div>
 
+    <!-- ⑧ 투자자 수급 -->
     <div class="section" style="margin-top:14px;">
       <div class="section-title">투자자 수급 <span id="r-investor-src" style="font-weight:400;text-transform:none;"></span></div>
       <div class="supply-grid">
@@ -187,10 +255,22 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       </div>
     </div>
 
+    <!-- ⑨ 최근 공시 -->
     <div class="section" style="margin-top:14px;">
       <div class="section-title">최근 공시 (1개월)</div>
       <div class="dart-list" id="r-dart"></div>
     </div>
+
+    <!-- ⑩ 가격 차트 (하단) -->
+    <div class="section" style="margin-top:20px;">
+      <div class="section-title">📈 가격 차트 · RSI (60일)</div>
+      <div class="chart-wrap">
+        <div id="mainChart"></div>
+        <div class="chart-divider"></div>
+        <div id="rsiChart"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -315,6 +395,74 @@ function renderCharts(data) {
   echarts.connect([mainChart, rsiChart]);
 }
 
+function scoreColor(sc) {
+  return sc >= 75 ? '#22c55e' : sc >= 58 ? '#3b82f6' : sc >= 42 ? '#f59e0b' : '#6b7280';
+}
+
+function renderScore(score) {
+  const c  = scoreColor(score);
+  const lbl = score >= 75 ? '매수 유리' : score >= 60 ? '관심 종목' : score >= 45 ? '관망 권장' : '매수 비추천';
+  const circle = document.getElementById('r-score-circle');
+  circle.style.borderColor = c + '99';
+  circle.style.background  = c + '1a';
+  const numEl = document.getElementById('r-score-num');
+  numEl.textContent = score;
+  numEl.style.color = c;
+  const gradeEl = document.getElementById('r-score-grade');
+  gradeEl.textContent = lbl;
+  gradeEl.style.color = c;
+  const bar = document.getElementById('r-score-bar');
+  bar.style.width      = score + '%';
+  bar.style.background = c;
+}
+
+function renderStrategy(rec) {
+  const el = document.getElementById('r-strategy');
+  if (!rec || rec.grade === 'bear') {
+    el.innerHTML = `
+      <div class="strategy-avoid">
+        <div class="strategy-avoid-icon">⛔</div>
+        <div class="strategy-avoid-label">매수 비추천</div>
+        <div class="strategy-avoid-desc">${rec?.reason || '이평선 하락 추세 진행 중'}<br>지지선 회복 확인 후 재진입 검토</div>
+      </div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="strategy-grid">
+      <div class="s-item">
+        <div class="s-label">🟢 추천 매수가</div>
+        <div class="s-val" style="color:var(--green);">${rec.buyLow.toLocaleString()} ~ ${rec.buyHigh.toLocaleString()}<span class="s-unit">원</span></div>
+        <div class="s-sub">${rec.reason}</div>
+      </div>
+      <div class="s-item">
+        <div class="s-label">🎯 단기 목표가</div>
+        <div class="s-val" style="color:#3b82f6;">${rec.target.toLocaleString()}<span class="s-unit">원</span></div>
+        <div class="s-sub">기대 수익 +${rec.gainPct}%</div>
+      </div>
+      <div class="s-item full">
+        <div class="s-label">🛑 손절가 (리스크 관리)</div>
+        <div class="s-val" style="color:var(--red);">${rec.stop.toLocaleString()}<span class="s-unit">원</span>
+          <span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:6px;">예상 손실 -${rec.lossPct}%</span>
+        </div>
+        <div class="s-sub">지지선 기준 · 이 가격 이탈 시 추가 하락 위험</div>
+      </div>
+    </div>
+    <div class="strategy-note">※ 이동평균선 기반 기계적 기준선이며, 실제 매매 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
+}
+
+function renderChecklist(checklist) {
+  const el = document.getElementById('r-checklist');
+  const icons = { ok: '✅', warn: '⚠️', fail: '❌' };
+  el.innerHTML = (checklist || []).map(item => `
+    <div class="check-item ${item.status}">
+      <div class="check-icon">${icons[item.status] || '⚠️'}</div>
+      <div class="check-right">
+        <div class="check-label">${item.label}</div>
+        <div class="check-desc">${item.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
 function renderResult(data) {
   const { stock, analysis, investor, disclosures, indicators } = data;
 
@@ -390,9 +538,14 @@ function renderResult(data) {
       </a>`).join('');
   }
 
+  // 점수 + 전략 + 체크리스트
+  renderScore(data.score ?? 50);
+  renderStrategy(data.recommend);
+  renderChecklist(data.checklist);
+
   renderCharts(data);
   show('result');
-  setTimeout(()=>{ mainChart?.resize(); rsiChart?.resize(); }, 50);
+  setTimeout(()=>{ mainChart?.resize(); rsiChart?.resize(); }, 100);
 }
 
 async function doSearch() {

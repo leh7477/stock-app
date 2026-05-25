@@ -98,6 +98,117 @@ function calcBollinger(closes, period = 20, mult = 2) {
   return { upper, mid, lower };
 }
 
+function calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
+  const n   = closes.length - 1;
+  const cur = closes[n];
+  const ma5  = ma5arr[n]  || 0;
+  const ma20 = ma20arr[n] || 0;
+  const ma60 = ma60arr[n] || 0;
+  const rsi  = rsiArr[n];
+  let score  = 50;
+
+  if (ma5 && ma20 && ma60) {
+    if (ma5 > ma20 && ma20 > ma60)       score += 15;
+    else if (ma5 < ma20 && ma20 < ma60)  score -= 18;
+  }
+  if (ma5)  score += cur > ma5  ? 8 : -5;
+  if (ma20) score += cur > ma20 ? 8 : -5;
+  if (ma60) score += cur > ma60 ? 5 : -3;
+
+  if (n >= 1) {
+    const pm5 = ma5arr[n-1] || 0, pm20 = ma20arr[n-1] || 0;
+    if (pm5 && pm20 && ma5 && ma20) {
+      if (pm5 <= pm20 && ma5 > ma20) score += 10;  // 골든크로스
+      if (pm5 >= pm20 && ma5 < ma20) score -= 10;  // 데드크로스
+    }
+  }
+  if (rsi !== null) {
+    if      (rsi < 30) score += 8;
+    else if (rsi > 70) score -= 8;
+    else if (rsi > 55) score += 3;
+    else if (rsi < 45) score -= 3;
+  }
+  return Math.max(5, Math.min(99, Math.round(score)));
+}
+
+function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
+  const grade = score >= 68 ? 'bull' : score >= 48 ? 'neutral' : 'bear';
+  if (grade === 'bear') {
+    return { grade, label: '매수 비추천', reason: '이평선 하락 추세', color: '#ef4444' };
+  }
+  const ref     = grade === 'bull' ? (ma5 || cur) : (ma20 || cur);
+  const buyLow  = Math.round(ref * 0.985);
+  const buyHigh = Math.round(ref * 1.005);
+  const target  = resistanceNum > cur ? resistanceNum : Math.round(cur * 1.07);
+  const stop    = Math.round(Math.max(supportNum * 0.97, buyLow * 0.92));
+  return {
+    grade, color: grade === 'bull' ? '#22c55e' : '#f59e0b',
+    label: grade === 'bull' ? '매수 유리' : '조건부 매수',
+    reason: grade === 'bull' ? 'MA5 기준 (단기 지지)' : 'MA20 기준 (중기 지지)',
+    buyLow, buyHigh, target, stop,
+    gainPct: ((target - buyLow) / buyLow * 100).toFixed(1),
+    lossPct: ((buyLow - stop)   / buyLow * 100).toFixed(1),
+  };
+}
+
+function buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
+  const n   = closes.length - 1;
+  const cur = closes[n];
+  const ma5  = ma5arr[n]  || 0;
+  const ma20 = ma20arr[n] || 0;
+  const ma60 = ma60arr[n] || 0;
+  const rsi  = rsiArr[n];
+  const pm5  = (n >= 1 ? ma5arr[n-1]  : 0) || 0;
+  const pm20 = (n >= 1 ? ma20arr[n-1] : 0) || 0;
+
+  const isGolden  = pm5 && pm20 && ma5 && ma20 && pm5 <= pm20 && ma5 > ma20;
+  const isDead    = pm5 && pm20 && ma5 && ma20 && pm5 >= pm20 && ma5 < ma20;
+  const isPerfect = ma5 && ma20 && ma60 && ma5 > ma20 && ma20 > ma60;
+  const isReverse = ma5 && ma20 && ma60 && ma5 < ma20 && ma20 < ma60;
+  const aboveAll  = ma5 && ma20 && cur > ma5 && cur > ma20;
+  const aboveSome = !aboveAll && ((ma5 && cur > ma5) || (ma20 && cur > ma20));
+  const supportNum    = Math.min(...closes.slice(-20));
+  const supportGapPct = (cur - supportNum) / cur * 100;
+
+  return [
+    {
+      status: isPerfect ? 'ok' : isReverse ? 'fail' : 'warn',
+      label: '이평선 배열',
+      desc:  isPerfect ? '정배열 — 5일>20일>60일, 강한 상승 추세' :
+             isReverse ? '역배열 — 하락 추세 진행 중, 매수 주의' :
+                         '혼조 배열 — 추세 불명확, 관망 권장',
+    },
+    {
+      status: aboveAll ? 'ok' : aboveSome ? 'warn' : 'fail',
+      label: '현재가 위치',
+      desc:  aboveAll  ? 'MA5·MA20 모두 위 — 단기·중기 모두 강세' :
+             aboveSome ? '일부 이평선 위 — 혼조세, 추이 확인 필요' :
+                         '이평선 아래 — 매도 압력 우세',
+    },
+    {
+      status: rsi === null ? 'warn' : rsi < 30 ? 'ok' : rsi > 70 ? 'warn' : rsi >= 50 ? 'ok' : 'warn',
+      label: 'RSI 모멘텀',
+      desc:  rsi === null ? 'RSI 계산 불가 (데이터 부족)' :
+             rsi < 30    ? `RSI ${rsi} — 과매도 구간, 반등 가능성` :
+             rsi > 70    ? `RSI ${rsi} — 과매수 구간, 조정 주의` :
+             rsi >= 50   ? `RSI ${rsi} — 강세 흐름 유지` :
+                           `RSI ${rsi} — 약세 흐름, 하락 압력`,
+    },
+    {
+      status: isGolden ? 'ok' : isDead ? 'fail' : 'warn',
+      label: '크로스 신호',
+      desc:  isGolden ? '골든크로스 발생 — 단기 매수 신호, 상승 전환 기대' :
+             isDead   ? '데드크로스 발생 — 하락 전환 신호, 손절 검토' :
+                        '크로스 없음 — 현재 추세 지속 중',
+    },
+    {
+      status: supportGapPct > 7 ? 'ok' : supportGapPct > 3 ? 'warn' : 'fail',
+      label: '손절 여유',
+      desc:  `20일 지지선 ${supportNum.toLocaleString()}원 · 현재가에서 -${supportGapPct.toFixed(1)}% 아래`,
+    },
+  ];
+}
+
 function buildAnalysis(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
   const n = closes.length - 1;
   const cur = closes[n];
@@ -245,12 +356,23 @@ export default async function handler(req, res) {
     const chgAmt  = latest.close - prev.close;
     const chgRate = (chgAmt/prev.close*100).toFixed(2);
 
+    const n             = closes.length - 1;
+    const recentCloses  = closes.slice(-20);
+    const supportNum    = Math.min(...recentCloses);
+    const resistanceNum = Math.max(...recentCloses);
+    const score     = calcScore(closes, ma5arr, ma20arr, ma60arr, rsiArr);
+    const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
+    const checklist = buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr);
+
     res.status(200).json({
       success: true,
       stock: { name, code, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume },
       history,
       indicators: { ma5:ma5arr, ma20:ma20arr, ma60:ma60arr, rsi:rsiArr, bollUpper:boll.upper, bollMid:boll.mid, bollLower:boll.lower },
       analysis,
+      score,
+      recommend,
+      checklist,
       investor,
       disclosures,
     });
