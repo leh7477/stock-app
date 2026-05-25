@@ -583,7 +583,12 @@ async function main() {
   results.forEach(s => { if (s.investorSupply) invMap[s.code] = s.investorSupply; });
   await redisSet('investor_supply', invMap, 28 * 3600);
 
-  console.log(`      완료: ${results.length}개 종목 저장, 수급 맵 ${Object.keys(invMap).length}개, 기준일 ${baseDate}`);
+  // stock_scores: 코드 → 점수 맵 (analyze API 점수 동기화용 — 메인/분석기 동일 점수 보장)
+  const scoreMap = {};
+  results.forEach(s => { scoreMap[s.code] = s.score; });
+  await redisSet('stock_scores', scoreMap, 28 * 3600);
+
+  console.log(`      완료: ${results.length}개 종목 저장, 수급 맵 ${Object.keys(invMap).length}개, 점수 맵 ${Object.keys(scoreMap).length}개, 기준일 ${baseDate}`);
   console.log('\n=== 완료 ===\n');
 }
 

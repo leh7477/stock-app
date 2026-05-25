@@ -526,17 +526,30 @@ export default async function handler(req, res) {
       volume: parseNum(pOut.acml_vol),
     };
 
-    // 투자자 수급 (5일/20일 누적) — GitHub Actions 사전 계산 → Redis 읽기
+    // 투자자 수급 + 점수 (GitHub Actions 사전 계산 → Redis 읽기)
+    // → 메인 페이지와 분석기가 항상 동일한 점수를 표시하도록 Redis 저장값을 우선 사용
+    const _redisUrl   = process.env.KV_REST_API_URL;
+    const _redisToken = process.env.KV_REST_API_TOKEN;
+
     let investorSupply = null;
     try {
-      const redisUrl   = process.env.KV_REST_API_URL;
-      const redisToken = process.env.KV_REST_API_TOKEN;
-      const invRaw = await timedFetch(`${redisUrl}/get/investor_supply`, {
-        headers: { Authorization: `Bearer ${redisToken}` },
+      const invRaw = await timedFetch(`${_redisUrl}/get/investor_supply`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
       }).then(r => r.json());
       if (invRaw.result) {
         const invMap = JSON.parse(invRaw.result);
         investorSupply = invMap[code] || null;
+      }
+    } catch (_) {}
+
+    let storedScore = null;
+    try {
+      const scRaw = await timedFetch(`${_redisUrl}/get/stock_scores`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (scRaw.result) {
+        const scMap = JSON.parse(scRaw.result);
+        if (scMap[code] !== undefined) storedScore = scMap[code];
       }
     } catch (_) {}
 
@@ -589,7 +602,8 @@ export default async function handler(req, res) {
     const recentCloses  = closes.slice(-20);
     const supportNum    = Math.min(...recentCloses);
     const resistanceNum = Math.max(...recentCloses);
-    const score     = calcScore(closes, volumes, boll);
+    // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
+    const score     = storedScore !== null ? storedScore : calcScore(closes, volumes, boll);
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
 
     // 이평선 세부 점수 (배열 20점 + MA20 이격도 20점 = 최대 40점)
