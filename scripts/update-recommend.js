@@ -1,20 +1,17 @@
 /**
  * 전종목 MA + 기본 정보 분석 업데이트 스크립트
- * - DART API  → 전종목 코드 + corp_code
- * - KIS (FHKST01010400) → 일봉 (거래량, 외인보유율, 외인순매수 포함)
+ * - KRX → KOSPI·KOSDAQ 상장종목 목록 (비상장·코넥스 완전 제외)
+ * - KIS (FHKST03010100) → 일봉 (거래량, 외인보유율, 외인순매수 포함)
  * - KIS (FHKST01010100) → 시가총액, PER, PBR, EPS, 업종명
  * - MA5/MA20/MA60 계산, 스코어링 → Redis 저장
  */
 
 'use strict';
 
-const AdmZip = require('adm-zip');
-
 const KV_URL    = process.env.KV_REST_API_URL;
 const KV_TOKEN  = process.env.KV_REST_API_TOKEN;
 const KIS_KEY   = process.env.KIS_APP_KEY;
 const KIS_SEC   = process.env.KIS_APP_SECRET;
-const DART_KEY  = process.env.DART_API_KEY;
 
 const BATCH_SIZE  = 6;     // 종목당 API 3회 → 6개 병렬 = 약 18 calls/sec (KIS 한도 20/sec)
 const BATCH_DELAY = 1200;
@@ -81,43 +78,53 @@ async function getKisToken() {
   return data.access_token;
 }
 
-// ─── DART 전종목 코드 조회 ─────────────────────────────────────────────────
+// ─── KRX 상장종목 조회 (KOSPI + KOSDAQ만, 비상장·코넥스 제외) ───────────────
 
 async function fetchAllListedStocks() {
-  console.log('[dart] corpCode.xml 다운로드...');
-  const url = `https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${DART_KEY}`;
+  const KRX_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Referer':    'https://kind.krx.co.kr',
+  };
 
-  const res = await timedFetch(url);
-  if (!res.ok) throw new Error(`DART 응답 오류: ${res.status}`);
+  const fetchMarket = async (marketType, marketName) => {
+    const url = `https://kind.krx.co.kr/corpgeneral/corpList.do?method=download&searchType=13&marketType=${marketType}`;
+    const res  = await timedFetch(url, { headers: KRX_HEADERS });
+    if (!res.ok) throw new Error(`KRX ${marketName} 응답 오류: ${res.status}`);
+    const html = await res.text();
 
-  const buffer = Buffer.from(await res.arrayBuffer());
-  if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
-    throw new Error(`DART 응답이 ZIP이 아님: ${buffer.slice(0, 200).toString('utf-8')}`);
-  }
-
-  const zip   = new AdmZip(buffer);
-  const entry = zip.getEntry('CORPCODE.xml');
-  if (!entry) throw new Error('CORPCODE.xml not found in ZIP');
-  const xml = entry.getData().toString('utf-8');
-
-  const stocks = [];
-  const re = /<list>([\s\S]*?)<\/list>/g;
-  let m;
-  while ((m = re.exec(xml)) !== null) {
-    const block    = m[1];
-    const code     = (block.match(/<stock_code>\s*(\S+)\s*<\/stock_code>/) || [])[1]?.trim();
-    const name     = (block.match(/<corp_name>\s*(.*?)\s*<\/corp_name>/)   || [])[1]?.trim();
-    const corpCode = (block.match(/<corp_code>\s*(\S+)\s*<\/corp_code>/)   || [])[1]?.trim();
-    if (code && /^\d{6}$/.test(code)) {
-      // 스팩·특수목적법인·ETF·레버리지 제외
-      if (name && SKIP_KEYWORDS.some(kw => name.includes(kw))) continue;
-      if (name && isETF(name)) continue;
-      stocks.push({ code, name, corp_code: corpCode, market: '', sector: '' });
+    const stocks = [];
+    // <tr> 행 추출 (첫 행은 헤더 → 건너뜀)
+    const rowRe  = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    let rowMatch, isHeader = true;
+    while ((rowMatch = rowRe.exec(html)) !== null) {
+      if (isHeader) { isHeader = false; continue; }
+      const cells = [];
+      const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+      let cm;
+      while ((cm = cellRe.exec(rowMatch[1])) !== null) {
+        cells.push(cm[1].replace(/<[^>]+>/g, '').trim());
+      }
+      if (cells.length < 2) continue;
+      const name = cells[0];
+      const code = cells[1].replace(/\D/g, '').padStart(6, '0');
+      const sector = cells[2] || '';
+      if (!code || !/^\d{6}$/.test(code) || !name) continue;
+      if (SKIP_KEYWORDS.some(kw => name.includes(kw))) continue;
+      if (isETF(name)) continue;
+      stocks.push({ code, name, corp_code: '', market: marketName, sector });
     }
-  }
+    return stocks;
+  };
 
-  console.log(`[dart] 분석 대상 ${stocks.length}개 확인`);
-  return stocks;
+  const [kospi, kosdaq] = await Promise.all([
+    fetchMarket('stockMkt',  'KOSPI'),
+    fetchMarket('kosdaqMkt', 'KOSDAQ'),
+  ]);
+
+  const all = [...kospi, ...kosdaq];
+  console.log(`[krx] KOSPI ${kospi.length}개 + KOSDAQ ${kosdaq.length}개 = 총 ${all.length}개`);
+  if (all.length < 1000) throw new Error(`KRX 종목 수 이상 (${all.length}개) — 응답 확인 필요`);
+  return all;
 }
 
 // ─── KIS 일봉 조회 (거래량·외인 포함) ─────────────────────────────────────
@@ -580,8 +587,8 @@ async function main() {
   const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
   console.log(`\n=== 전종목 MA + 기본정보 분석: ${kstNow.toISOString().replace('T',' ').slice(0,19)} KST ===\n`);
 
-  // 1. DART 전종목 코드
-  console.log('[1/4] DART 전종목 목록 조회...');
+  // 1. KRX 상장종목 목록
+  console.log('[1/4] KRX KOSPI·KOSDAQ 상장종목 조회...');
   let allStocks;
   try   { allStocks = await fetchAllListedStocks(); }
   catch (e) { console.error('[1/4] 실패:', e.message); process.exit(1); }
