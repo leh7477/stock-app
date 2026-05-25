@@ -66,6 +66,18 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .score-bar-inner{height:100%;border-radius:99px;transition:width .6s ease;}
 .score-subdesc{font-size:11px;color:var(--muted);}
 
+/* ── 이평선 점수 ── */
+.ma-score-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}
+.ma-score-row:last-child{border-bottom:none;}
+.ma-score-label{font-size:12px;color:var(--sub);flex-shrink:0;width:90px;}
+.ma-score-bar-wrap{flex:1;margin:0 10px;}
+.ma-score-bar-bg{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;}
+.ma-score-bar-fill{height:100%;border-radius:99px;transition:width .5s ease;}
+.ma-score-val{font-size:12px;font-weight:700;width:44px;text-align:right;}
+.ma-score-total{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1.5px solid var(--border);}
+.ma-score-total-label{font-size:12px;color:var(--muted);}
+.ma-score-total-val{font-size:18px;font-weight:700;}
+
 /* ── 매매 전략 ── */
 .strategy-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .s-item{background:var(--bg);border-radius:10px;padding:10px 12px;}
@@ -258,9 +270,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <!-- 좌측 컬럼: 점수 / 전략 / 체크리스트 -->
       <div class="detail-col">
 
-        <!-- 분석 점수 -->
+        <!-- 퀀트 종합 점수 -->
         <div class="dl-card">
-          <div class="dl-title">분석 점수</div>
+          <div class="dl-title">퀀트 종합 점수</div>
           <div class="score-hero">
             <div class="score-circle" id="r-score-circle">
               <div class="score-num-big" id="r-score-num">-</div>
@@ -271,9 +283,15 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
               <div class="score-bar-outer">
                 <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
               </div>
-              <div class="score-subdesc">이동평균선 종합 분석 (5~99점)</div>
+              <div class="score-subdesc">추세·모멘텀·수급·볼린저 종합 (0~100점)</div>
             </div>
           </div>
+        </div>
+
+        <!-- 이평선 점수 -->
+        <div class="dl-card">
+          <div class="dl-title">이평선 점수</div>
+          <div id="r-ma-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
         <!-- 매매 전략 -->
@@ -520,6 +538,39 @@ function renderScore(score) {
   bar.style.background = c;
 }
 
+function renderMAScore(maScore) {
+  const el = document.getElementById('r-ma-score');
+  if (!el || !maScore) return;
+  const { arrangement = 0, deviation = 0, total = 0 } = maScore;
+  const c = total >= 32 ? '#22c55e' : total >= 20 ? '#3b82f6' : total >= 10 ? '#f59e0b' : '#9ca3af';
+  const arrLbl = arrangement >= 20 ? '완벽 정배열' : arrangement >= 16 ? '3선 정배열' :
+                 arrangement >= 13 ? '골든크로스' : arrangement >= 8 ? '중기 정배열' :
+                 arrangement >= 4  ? '단기 우위'  : '역배열/혼조';
+  const devLbl = deviation >= 20 ? '이상적 구간(101~106%)' : deviation >= 16 ? '안정 상승(100~109%)' :
+                 deviation >= 10 ? '소폭 이탈/과열' : deviation >= 5 ? '중간 이탈/과열' : '범위 외';
+  el.innerHTML = `
+    <div class="ma-score-row">
+      <div class="ma-score-label">이평선 배열</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${arrLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${arrangement/20*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${arrangement}<span style="font-size:10px;font-weight:400;color:var(--muted)">/20</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label">MA20 이격도</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${devLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${deviation/20*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${deviation}<span style="font-size:10px;font-weight:400;color:var(--muted)">/20</span></div>
+    </div>
+    <div class="ma-score-total">
+      <div class="ma-score-total-label">이평선 합계</div>
+      <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 40점</span></div>
+    </div>`;
+}
+
 function renderStrategy(rec) {
   const el = document.getElementById('r-strategy');
   if (!rec || rec.grade === 'bear') {
@@ -696,6 +747,7 @@ function renderResult(data) {
 
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
+  renderMAScore(data.maScore);
   renderStrategy(data.recommend);
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);

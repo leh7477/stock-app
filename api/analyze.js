@@ -591,6 +591,29 @@ export default async function handler(req, res) {
     const resistanceNum = Math.max(...recentCloses);
     const score     = calcScore(closes, volumes, boll);
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
+
+    // 이평선 세부 점수 (배열 20점 + MA20 이격도 20점 = 최대 40점)
+    const _ma60a  = calcMA(closes, Math.min(60,  closes.length));
+    const _ma120a = calcMA(closes, Math.min(120, closes.length));
+    const _ma5  = ma5arr[n]  || 0, _ma20 = ma20arr[n] || 0;
+    const _ma60 = _ma60a[n]  || 0, _ma120 = _ma120a[n] || 0;
+    const _pm5  = (n > 0 ? ma5arr[n-1]  : 0) || 0;
+    const _pm20 = (n > 0 ? ma20arr[n-1] : 0) || 0;
+    let maArrangement = 0;
+    if (_ma5 && _ma20 && _ma60 && _ma120 && _ma5 > _ma20 && _ma20 > _ma60 && _ma60 > _ma120) maArrangement = 20;
+    else if (_ma5 && _ma20 && _ma60 && _ma5 > _ma20 && _ma20 > _ma60) maArrangement = 16;
+    else if (_pm5 && _pm20 && _ma5 && _ma20 && _pm5 <= _pm20 && _ma5 > _ma20) maArrangement = 13;
+    else if (_ma20 && _ma60 && _ma20 > _ma60) maArrangement = 8;
+    else if (_ma5 && _ma20 && _ma5 > _ma20)   maArrangement = 4;
+    let maDeviation = 0;
+    if (_ma20) {
+      const d = latest.close / _ma20 * 100;
+      if      (d >= 101 && d <= 106)                             maDeviation = 20;
+      else if ((d >= 100 && d < 101) || (d > 106 && d <= 109))  maDeviation = 16;
+      else if ((d >=  95 && d < 100) || (d > 109 && d <= 112))  maDeviation = 10;
+      else if ((d >=  92 && d <  95) || (d > 112 && d <= 116))  maDeviation = 5;
+    }
+    const maScore = { arrangement: maArrangement, deviation: maDeviation, total: maArrangement + maDeviation };
     const checklist = buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr);
 
     res.status(200).json({
@@ -600,6 +623,7 @@ export default async function handler(req, res) {
       indicators: { ma5:wMA5, ma20:wMA20, ma60:wMA60, rsi:wRSI, bollUpper:wBoll.upper, bollMid:wBoll.mid, bollLower:wBoll.lower },
       analysis,
       score,
+      maScore,
       recommend,
       checklist,
       investorSupply,
