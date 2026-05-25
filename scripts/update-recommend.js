@@ -132,23 +132,18 @@ function kisHeaders(token, trId) {
 }
 
 async function fetchDailyCandles(token, code, mkCode) {
+  // analyze.js와 완전히 동일한 엔드포인트 사용 → 같은 데이터 → 같은 점수
+  // FHKST01010400(inquire-daily-price)는 반환 레코드 수가 달라 RSI 등 지표 차이 발생
   const now     = new Date();
   const endDt   = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const startDt = new Date(now - 240 * 86400000).toISOString().slice(0, 10).replace(/-/g, ''); // analyze.js ago(240)과 동일 (MA120 확보)
+  const startDt = new Date(now - 240 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
 
-  const params = new URLSearchParams({
-    fid_cond_mrkt_div_code: mkCode,
-    fid_input_iscd:         code,
-    fid_input_date_1:       startDt,
-    fid_input_date_2:       endDt,
-    fid_period_div_code:    'D',
-    fid_org_adj_prc:        '0',
-  });
+  const url = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice` +
+    `?FID_COND_MRKT_DIV_CODE=${mkCode}&FID_INPUT_ISCD=${code}` +
+    `&FID_INPUT_DATE_1=${startDt}&FID_INPUT_DATE_2=${endDt}` +
+    `&FID_PERIOD_DIV_CODE=D&FID_ORG_ADJ_PRC=0`;
 
-  return timedFetch(
-    `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-price?${params}`,
-    { headers: kisHeaders(token, 'FHKST01010400') }
-  ).then(r => r.json());
+  return timedFetch(url, { headers: kisHeaders(token, 'FHKST03010100') }).then(r => r.json());
 }
 
 // ─── KIS 현재가 + 기본 정보 (PER·PBR·EPS·시가총액·업종) ───────────────────
