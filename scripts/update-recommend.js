@@ -138,8 +138,10 @@ async function fetchDailyCandles(token, code, mkCode) {
   const endDt   = now.toISOString().slice(0, 10).replace(/-/g, '');
   const startDt = new Date(now - 240 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
 
+  // analyze.js와 동일하게 FID_COND_MRKT_DIV_CODE=J 고정
+  // (FHKST03010100 엔드포인트는 J로 KOSPI/KOSDAQ 모두 조회 가능)
   const url = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice` +
-    `?FID_COND_MRKT_DIV_CODE=${mkCode}&FID_INPUT_ISCD=${code}` +
+    `?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}` +
     `&FID_INPUT_DATE_1=${startDt}&FID_INPUT_DATE_2=${endDt}` +
     `&FID_PERIOD_DIV_CODE=D&FID_ORG_ADJ_PRC=0`;
 
