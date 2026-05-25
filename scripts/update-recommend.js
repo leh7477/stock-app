@@ -175,6 +175,25 @@ function calcMAArr(closes, n) {
   });
 }
 
+function calcRSI(closes, period = 14) {
+  const rsi = new Array(closes.length).fill(null);
+  if (closes.length < period + 1) return rsi;
+  let gainSum = 0, lossSum = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) gainSum += d; else lossSum -= d;
+  }
+  let ag = gainSum / period, al = lossSum / period;
+  rsi[period] = al === 0 ? 100 : Math.round((100 - 100 / (1 + ag / al)) * 10) / 10;
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    ag = (ag * (period - 1) + (d > 0 ? d : 0)) / period;
+    al = (al * (period - 1) + (d < 0 ? -d : 0)) / period;
+    rsi[i] = al === 0 ? 100 : Math.round((100 - 100 / (1 + ag / al)) * 10) / 10;
+  }
+  return rsi;
+}
+
 function maSignal(price, ma) {
   if (!ma || !price) return 'neutral';
   const r = (price - ma) / ma * 100;
@@ -190,53 +209,51 @@ function analyze(stock, closes, extra = {}) {
   const n = closes.length - 1, cur = closes[n];
   if (!cur) return null;
 
-  const ma5  = calcMA(closes, 5);
-  const ma20 = calcMA(closes, 20);
-  const ma60 = calcMA(closes, Math.min(60, closes.length));
-  const ma5p  = closes.length > 6  ? calcMA(closes.slice(0, -3), 5)  : null;
-  const ma20p = closes.length > 30 ? calcMA(closes.slice(0, -7), 20) : null;
-
-  let score = 30; // 기본 30점 (낮춰서 99점 남발 방지)
-  const signals = [];
-
-  // ── 이평선 배열 (최대 ±20) ──
-  if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) { score += 20; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
-    else if (ma5 < ma20 && ma20 < ma60) { score -= 20; signals.push('역배열 — 하락 추세 지속 주의'); }
-    else if (ma5 > ma20)                { score += 8;  signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
-    else if (ma20 > ma60)               { score += 4;  signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
-  }
-
-  // ── 현재가 vs 이평선 (+14) ──
-  if (ma5  && cur > ma5)  score += 4;
-  if (ma20 && cur > ma20) score += 6;
-  if (ma60 && cur > ma60) score += 4;
-
-  // ── 이평선 방향 (+7) ──
-  if (ma5  && ma5p  && ma5  > ma5p)  score += 3;
-  if (ma20 && ma20p && ma20 > ma20p) { score += 4; signals.push('20일선 상승 중'); }
-
-  // ── 골든/데드크로스 (+9 / -15) ──
+  // ── MA 배열 계산 ──
   const ma5a  = calcMAArr(closes, 5);
   const ma20a = calcMAArr(closes, 20);
-  let cross = false;
-  for (let i = Math.max(1, n - 4); i <= n && !cross; i++) {
-    if (ma5a[i] && ma20a[i] && ma5a[i-1] && ma20a[i-1]) {
-      if      (ma5a[i] > ma20a[i] && ma5a[i-1] <= ma20a[i-1]) { score += 9; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); cross = true; }
-      else if (ma5a[i] < ma20a[i] && ma5a[i-1] >= ma20a[i-1]) { score -= 15; signals.unshift('데드크로스 발생 — 단기 주의 신호');  cross = true; }
+  const ma60a = calcMAArr(closes, Math.min(60, closes.length));
+  const rsiArr = calcRSI(closes);
+
+  const ma5  = ma5a[n]  || 0;
+  const ma20 = ma20a[n] || 0;
+  const ma60 = ma60a[n] || 0;
+  const rsi  = rsiArr[n];
+
+  const signals = [];
+
+  // ── 점수 계산 (analyze.js calcScore와 동일) ──
+  let score = 50;
+
+  // 이평선 배열 (±15 / -18)
+  if (ma5 && ma20 && ma60) {
+    if      (ma5 > ma20 && ma20 > ma60) { score += 15; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
+    else if (ma5 < ma20 && ma20 < ma60) { score -= 18; signals.push('역배열 — 하락 추세 지속 주의'); }
+    else if (ma5 > ma20)                {              signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
+    else if (ma20 > ma60)               {              signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
+  }
+
+  // 현재가 vs 이평선 (상승 +8/+8/+5, 하락 -5/-5/-3)
+  if (ma5)  score += cur > ma5  ? 8 : -5;
+  if (ma20) score += cur > ma20 ? 8 : -5;
+  if (ma60) score += cur > ma60 ? 5 : -3;
+
+  // 골든/데드크로스 (+10 / -10, 직전 1봉 기준)
+  if (n >= 1) {
+    const pm5 = ma5a[n - 1] || 0, pm20 = ma20a[n - 1] || 0;
+    if (pm5 && pm20 && ma5 && ma20) {
+      if (pm5 <= pm20 && ma5 > ma20) { score += 10; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); }
+      if (pm5 >= pm20 && ma5 < ma20) { score -= 10; signals.unshift('데드크로스 발생 — 단기 주의 신호'); }
     }
   }
 
-  // ── 5일 수익률 (±7) ──
-  const chg5 = closes.length >= 6 ? (cur - closes[n - 5]) / closes[n - 5] * 100 : 0;
-  score += Math.max(-7, Math.min(7, Math.round(chg5)));
-
-  // ── 거래량·외인 수급 보너스 (최대 +6) ──
-  const { volume = 0, frgnBuyQty = 0 } = extra;
-  if (volume > 100000)  score += 2;
-  if (volume > 1000000) score += 2;
-  if (frgnBuyQty > 0)   score += 2;
-  if (frgnBuyQty < -0)  score -= 1;
+  // RSI 반영 (+8 / -8 / ±3)
+  if (rsi !== null) {
+    if      (rsi < 30) score += 8;
+    else if (rsi > 70) score -= 8;
+    else if (rsi > 55) score += 3;
+    else if (rsi < 45) score -= 3;
+  }
 
   score = Math.max(5, Math.min(99, Math.round(score)));
 
