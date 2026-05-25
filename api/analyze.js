@@ -283,36 +283,42 @@ function calcScore(closes, volumes, boll) {
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
 // PBR 저평가(12) + max(PER저평가, 미래성장가점)(8) + 패닉셀링 감지(10)
 
-// 성장 섹터 키워드 — 국장 주도 성장주 판별용
-const GROWTH_SECTOR_KW = [
-  '반도체','IT','바이오','의약품','전기','2차전지','로봇','방위산업',
-  '우주항공','소프트웨어','인터넷','게임','디스플레이','통신장비','항공','의료기기',
-];
+// 성장 섹터 등급 (이평선 배열과 겹치지 않는 독립 지표)
+// Tier1=6점: 국장 최고 성장 테마 / Tier2=5점 / Tier3=4점 / Tier4=2점 / 일반=0점
+const GROWTH_TIER1 = ['반도체', '방위산업'];
+const GROWTH_TIER2 = ['바이오', '의약품', '2차전지', '로봇', '우주항공'];
+const GROWTH_TIER3 = ['소프트웨어', '인터넷', '게임', '의료기기', '디스플레이'];
+const GROWTH_TIER4 = ['통신장비', '전기장비'];
+const GROWTH_SECTOR_KW = [...GROWTH_TIER1, ...GROWTH_TIER2, ...GROWTH_TIER3, ...GROWTH_TIER4];
+
+// 섹터 점수만 반환 (0~6점)
+function sectorGrowthScore(sector) {
+  const s = sector || '';
+  if (GROWTH_TIER1.some(k => s.includes(k))) return 6;
+  if (GROWTH_TIER2.some(k => s.includes(k))) return 5;
+  if (GROWTH_TIER3.some(k => s.includes(k))) return 4;
+  if (GROWTH_TIER4.some(k => s.includes(k))) return 2;
+  return 0;
+}
 
 // 미래 성장성 가점 (최대 8점)
-// Forward EPS 미확보 시 → 가격 모멘텀·섹터를 PEG 근사 지표로 활용
-function calcGrowthBonus(sector, ma5, ma20, ma60) {
-  let bonus = 0;
-  const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k));
-  if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) bonus += 6;  // 완전 정배열 — 강한 성장 모멘텀
-    else if (ma5 > ma60)                bonus += 3;  // 중기 지지 — 상승 전환 시도
-    else if (ma5 > ma20)                bonus += 2;  // 단기 반등 — 모멘텀 초기
-  }
-  if (isGrowthSector) bonus += 2;  // 성장 섹터 프리미엄
-  return Math.min(8, bonus);
+// = 성장 섹터 등급(0~6) + 외인+기관 5일 순매수 방향(0~2)
+// 이평선 배열은 기술지표 70점에 이미 반영 → 여기선 사용 안 함
+function calcGrowthBonus(sector, d5FrgnInst) {
+  const secScore = sectorGrowthScore(sector);
+  const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 2 : 0;
+  return { total: Math.min(8, secScore + buyScore), secScore, buyScore };
 }
 
 // 종목 성격 태그: 'value' | 'growth' | 'neutral'
-function getStockTag(pbr, per, sector, ma5, ma20, ma60) {
+function getStockTag(pbr, per, sector) {
   const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k));
-  const isUptrend = ma5 && ma20 && ma60 && ma5 > ma20 && ma20 > ma60;
-  if ((per > 25 && isUptrend) || (isGrowthSector && per > 15 && isUptrend)) return 'growth';
+  if (per > 40 || (isGrowthSector && per > 15)) return 'growth';
   if (pbr > 0 && pbr < 1.2 && per > 0 && per < 18) return 'value';
   return 'neutral';
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, ma5, ma20, ma60) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -320,10 +326,10 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, ma5, ma20, ma60) {
   const pbrScore = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
 
   // PER 저평가 vs 미래 성장성 가점 (각 최대 8점, 높은 값 선택)
-  // 가치주: PER 낮을수록 고득점 / 성장주: PER 높아도 모멘텀·섹터로 방어
-  const perScore    = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
-  const growthScore = calcGrowthBonus(sector, ma5, ma20, ma60);
-  const perFinal    = Math.max(perScore, growthScore);
+  // 가치주: PER 낮을수록 고득점 / 성장주: PER 높아도 섹터·수급으로 방어
+  const perScore  = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
+  const { total: growthTotal } = calcGrowthBonus(sector, d5FrgnInst);
+  const perFinal  = Math.max(perScore, growthTotal);
 
   // 패닉셀링 감지 (최대 10점) — RSI·낙폭 조합 조건 → 구간 방식 유지
   const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
@@ -691,8 +697,11 @@ export default async function handler(req, res) {
     const per2     = parseF(pOut.per || '0');
     const pbr2     = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
+    // 외인+기관 5일 순매수 (미래성장 가점용 — 이평선 배열과 겹치지 않는 독립 지표)
+    const _d5 = investorSupply?.d5;
+    const d5FrgnInst2 = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
     const techScore = calcScore(closes, volumes, boll);
-    const korScore  = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, ma5arr[n] || 0, ma20arr[n] || 0, ma60arr[n] || 0);
+    const korScore  = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2);
     const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     const score     = storedScore !== null ? storedScore : liveScore;
@@ -733,35 +742,28 @@ export default async function handler(req, res) {
         const pbrS     = Math.round(pbr2 > 0 ? Math.max(0, 12 * (1.5 - pbr2) / 1.5) : 0);
         const perS     = Math.round(per2 > 0 ? Math.max(0, 8  * (25  - per2)  / 25)  : 0);
         // 성장 가점 상세: 모멘텀/섹터 분리 계산 (UI 역산 오차 방지)
-        const _ma5n = ma5arr[n] || 0, _ma20n = ma20arr[n] || 0, _ma60n = ma60arr[n] || 0;
-        const _isGrowthSec = GROWTH_SECTOR_KW.some(k => sector2.includes(k));
-        let _momScore = 0;
-        if (_ma5n && _ma20n && _ma60n) {
-          if      (_ma5n > _ma20n && _ma20n > _ma60n) _momScore = 6;
-          else if (_ma5n > _ma60n)                     _momScore = 3;
-          else if (_ma5n > _ma20n)                     _momScore = 2;
-        }
-        const _secBonus = _isGrowthSec ? 2 : 0;
-        const growthS   = Math.min(8, _momScore + _secBonus);
+        // 미래성장 가점 상세 (섹터 등급 + 외인기관 수급 — 이평선과 완전 무관)
+        const { total: growthS, secScore: growthSecS, buyScore: growthBuyS } =
+          calcGrowthBonus(sector2, d5FrgnInst2);
         const perFinalS = Math.max(perS, growthS);
         const panicS   = Math.max(0, korScore - pbrS - perFinalS);
         const rsiNow   = rsiArr[n];
         const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
         const drawdownPct = recentHigh > 0 ? Math.round((recentHigh - closes[n]) / recentHigh * 100 * 10) / 10 : 0;
-        const tag = getStockTag(pbr2, per2, sector2, _ma5n, _ma20n, _ma60n);
+        const tag = getStockTag(pbr2, per2, sector2);
         const growthComment = (tag === 'growth' && per2 > 50)
-          ? `이 종목은 [🔥 국장 주도 성장주] 태그에 해당하여, 현재 PER(${per2.toFixed(1)}배)로는 비싸 보이지만 이평선 정배열·성장 섹터 모멘텀을 반영한 [미래성장 가점 ${growthS}점]을 부여하여 국장특화 점수를 방어했습니다.`
+          ? `이 종목은 [🔥 국장 주도 성장주] 태그에 해당하여, 현재 PER(${per2.toFixed(1)}배)로는 비싸 보이지만 성장 섹터(${growthSecS}점)·외인기관 수급(${growthBuyS}점)을 반영한 [미래성장 가점 ${growthS}점]을 부여하여 국장특화 점수를 방어했습니다.`
           : null;
         return {
           total: korScore, pbr: pbr2, per: per2,
           pbrScore: pbrS, perScore: perS,
-          growthScore: growthS, growthMom: _momScore, growthSector: _secBonus,
+          growthScore: growthS, growthSector: growthSecS, growthBuy: growthBuyS,
           perFinal: perFinalS, panicScore: panicS,
           techScore: Math.round(techScore * 0.7),
           rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
           drawdown: drawdownPct,
-          tag,           // 'value' | 'growth' | 'neutral'
-          growthComment, // 고PER 성장주 전용 해설 (null이면 비표시)
+          tag,
+          growthComment,
         };
       })(),
       maScore,

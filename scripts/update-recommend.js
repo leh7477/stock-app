@@ -389,33 +389,36 @@ function calcScore(closes, volumes) {
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
 // PBR 저평가(12) + max(PER저평가, 미래성장가점)(8) + 패닉셀링 감지(10)
 
-// 성장 섹터 키워드 (analyze.js와 동일)
-const GROWTH_SECTOR_KW = [
-  '반도체','IT','바이오','의약품','전기','2차전지','로봇','방위산업',
-  '우주항공','소프트웨어','인터넷','게임','디스플레이','통신장비','항공','의료기기',
-];
+// 성장 섹터 등급 (analyze.js와 동일 — 이평선 배열과 겹치지 않는 독립 지표)
+const GROWTH_TIER1 = ['반도체', '방위산업'];
+const GROWTH_TIER2 = ['바이오', '의약품', '2차전지', '로봇', '우주항공'];
+const GROWTH_TIER3 = ['소프트웨어', '인터넷', '게임', '의료기기', '디스플레이'];
+const GROWTH_TIER4 = ['통신장비', '전기장비'];
+const GROWTH_SECTOR_KW = [...GROWTH_TIER1, ...GROWTH_TIER2, ...GROWTH_TIER3, ...GROWTH_TIER4];
 
-function calcGrowthBonus(sector, ma5, ma20, ma60) {
-  let bonus = 0;
-  const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k));
-  if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) bonus += 6;
-    else if (ma5 > ma60)                bonus += 3;
-    else if (ma5 > ma20)                bonus += 2;
-  }
-  if (isGrowthSector) bonus += 2;
-  return Math.min(8, bonus);
+function sectorGrowthScore(sector) {
+  const s = sector || '';
+  if (GROWTH_TIER1.some(k => s.includes(k))) return 6;
+  if (GROWTH_TIER2.some(k => s.includes(k))) return 5;
+  if (GROWTH_TIER3.some(k => s.includes(k))) return 4;
+  if (GROWTH_TIER4.some(k => s.includes(k))) return 2;
+  return 0;
 }
 
-function getStockTag(pbr, per, sector, ma5, ma20, ma60) {
+function calcGrowthBonus(sector, d5FrgnInst) {
+  const secScore = sectorGrowthScore(sector);
+  const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 2 : 0;
+  return { total: Math.min(8, secScore + buyScore), secScore, buyScore };
+}
+
+function getStockTag(pbr, per, sector) {
   const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k));
-  const isUptrend = ma5 && ma20 && ma60 && ma5 > ma20 && ma20 > ma60;
-  if ((per > 25 && isUptrend) || (isGrowthSector && per > 15 && isUptrend)) return 'growth';
+  if (per > 40 || (isGrowthSector && per > 15)) return 'growth';
   if (pbr > 0 && pbr < 1.2 && per > 0 && per < 18) return 'value';
   return 'neutral';
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, ma5, ma20, ma60) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -423,9 +426,9 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, ma5, ma20, ma60) {
   const pbrScore = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
 
   // PER 저평가 vs 미래 성장성 가점 (각 최대 8점, 높은 값 선택)
-  const perScore    = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
-  const growthScore = calcGrowthBonus(sector, ma5, ma20, ma60);
-  const perFinal    = Math.max(perScore, growthScore);
+  const perScore             = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
+  const { total: growthTotal } = calcGrowthBonus(sector, d5FrgnInst);
+  const perFinal             = Math.max(perScore, growthTotal);
 
   // 패닉셀링 감지 (최대 10점)
   const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
@@ -485,7 +488,9 @@ function analyze(stock, closes, volumes, extra = {}) {
   // ── 통합 퀀트 스코어: 기술지표 70% + 국장 특화 30점 ──
   const rsiArr2  = calcRSI(closes);
   const techScore = calcScore(closes, volumes);
-  const korScore  = calcKoreanScore(extra.pbr || 0, extra.per || 0, rsiArr2[n], closes, extra.sector || '', ma5, ma20, ma60);
+  const _d5 = extra.investorSupply?.d5;
+  const d5FrgnInst = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
+  const korScore  = calcKoreanScore(extra.pbr || 0, extra.per || 0, rsiArr2[n], closes, extra.sector || '', d5FrgnInst);
   const score     = Math.min(100, Math.round(techScore * 0.7) + korScore);
 
   const chgRate = closes.length >= 2
@@ -514,7 +519,7 @@ function analyze(stock, closes, volumes, extra = {}) {
     per:         extra.per         || 0,
     pbr:         extra.pbr         || 0,
     eps:         extra.eps         || 0,
-    stockTag:    getStockTag(extra.pbr || 0, extra.per || 0, extra.sector || '', ma5, ma20, ma60),
+    stockTag:    getStockTag(extra.pbr || 0, extra.per || 0, extra.sector || ''),
   };
 }
 
@@ -592,7 +597,7 @@ async function processStock(token, stock) {
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply }
       );
       if (result) result.investorSupply = investorSupply;
       return result;

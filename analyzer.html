@@ -686,15 +686,19 @@ function renderGrowthScore(ks) {
   const isApplied = growthScore > perScore;   // 성장 가점이 실제로 PER 대신 적용된 경우
   const gc = isApplied ? '#f59e0b' : 'var(--muted)';
 
-  const momScore    = growthMom;
-  const sectorBonus = growthSector;
+  const sectorScore = growthSector ?? 0;  // 섹터 등급 점수 (0~6)
+  const buyScore    = growthBuy    ?? 0;  // 외인+기관 순매수 (0~2)
 
-  const momLbl = momScore >= 6 ? '완전 정배열 (MA5>MA20>MA60)'
-               : momScore >= 3 ? '중기 상승 지지 (MA5>MA60)'
-               : momScore >= 2 ? '단기 반등 (MA5>MA20)'
-               :                 '이평선 역배열 또는 혼조';
-  const secLbl = sectorBonus > 0 ? '성장 섹터 해당 (반도체·바이오·2차전지 등)'
-                                  : '일반 섹터 (해당 없음)';
+  // 섹터 등급 라벨
+  const secLbl = sectorScore >= 6 ? '반도체·방위산업 — 국장 최고 성장 테마 (6점)'
+               : sectorScore >= 5 ? '바이오·2차전지·로봇·우주항공 (5점)'
+               : sectorScore >= 4 ? '소프트웨어·인터넷·게임·의료기기·디스플레이 (4점)'
+               : sectorScore >= 2 ? '통신장비·전기장비 (2점)'
+               :                   '일반 섹터 — 성장 프리미엄 없음 (0점)';
+
+  // 외인+기관 수급 라벨
+  const buyLbl = buyScore > 0 ? '외인+기관 5일 순매수 양수 — 스마트머니 유입 신호 (2점)'
+                               : '외인+기관 5일 순매수 없음 또는 데이터 미확인 (0점)';
 
   const statusBadge = isApplied
     ? `<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✅ PER 대신 적용 중</span>`
@@ -716,20 +720,20 @@ function renderGrowthScore(ks) {
       ${statusBadge}
     </div>
     <div class="ma-score-row">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">정배열<br>모멘텀</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${momLbl}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${momScore/6*100}%;background:${gc}"></div></div>
-      </div>
-      <div class="ma-score-val" style="color:${gc}">${momScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/6</span></div>
-    </div>
-    <div class="ma-score-row">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">섹터<br>프리미엄</div>
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">섹터<br>등급</div>
       <div class="ma-score-bar-wrap">
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${secLbl}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${sectorBonus/2*100}%;background:${gc}"></div></div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${sectorScore/6*100}%;background:${gc}"></div></div>
       </div>
-      <div class="ma-score-val" style="color:${gc}">${sectorBonus}<span style="font-size:10px;font-weight:400;color:var(--muted)">/2</span></div>
+      <div class="ma-score-val" style="color:${gc}">${sectorScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/6</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">외인기관<br>수급</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${buyLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${buyScore/2*100}%;background:${gc}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${gc}">${buyScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/2</span></div>
     </div>
     ${perRef}
     ${commentHtml}`;
