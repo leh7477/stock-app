@@ -751,8 +751,8 @@ function renderAIOpinion(data) {
     <div class="ai-disc">※ 기술적 분석 지표 기반 자동 생성 의견이며 투자 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
 }
 
-async function doSearch() {
-  const q = document.getElementById('q').value.trim();
+async function doSearch(queryOverride) {
+  const q = queryOverride || document.getElementById('q').value.trim();
   if (!q) return;
   show('loading');
   try {
@@ -802,7 +802,7 @@ function openDrop(items) {
   if (!items.length) { closeDrop(); return; }
   activeIdx = -1;
   dropEl.innerHTML = items.map((s, i) =>
-    `<div class="suggest-item" data-idx="${i}" onmousedown="pickSuggest('${s.n}')">
+    `<div class="suggest-item" data-idx="${i}" data-code="${s.c}" data-name="${s.n}" onmousedown="pickSuggest('${s.n}','${s.c}')">
        <span class="suggest-name">${s.n}</span>
        <span class="suggest-code">${s.c}</span>
      </div>`
@@ -817,10 +817,10 @@ function closeDrop() {
   activeIdx = -1;
 }
 
-function pickSuggest(name) {
+function pickSuggest(name, code) {
   qEl.value = name;
   closeDrop();
-  doSearch();
+  doSearch(code); // 이름 대신 코드로 검색 (서버 이름 조회 불필요)
 }
 
 function filterSuggests(q) {
@@ -843,7 +843,8 @@ qEl.addEventListener('keydown', e => {
     items.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
   } else if (e.key === 'Enter') {
     if (activeIdx >= 0 && items[activeIdx]) {
-      pickSuggest(items[activeIdx].querySelector('.suggest-name').textContent);
+      const el = items[activeIdx];
+      pickSuggest(el.dataset.name, el.dataset.code);
     } else {
       closeDrop(); doSearch();
     }
