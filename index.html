@@ -156,6 +156,14 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
   .score-bar { width: 50px; }
 }
 .disclaimer { font-size: 10px; color: var(--muted); text-align: center; padding: 14px 0 18px; line-height: 1.6; border-top: 1px solid var(--border); margin-top: 20px; }
+
+/* ── 종목 상세 지표 칩 ── */
+.stats-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.stat-chip { display: inline-flex; align-items: center; gap: 2px; font-size: 10px; background: var(--bg); border-radius: 5px; padding: 2px 6px; white-space: nowrap; }
+.stat-lbl { color: var(--muted); }
+.stat-val { font-weight: 600; color: var(--sub); }
+.stat-val.pos { color: var(--green); }
+.stat-val.neg { color: var(--red); }
 </style>
 </head>
 <body>
@@ -205,6 +213,11 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <button class="fbtn green"  id="f-ma20"   onclick="setFilter('ma20')">20일선 ▲</button>
       <button class="fbtn green"  id="f-ma60"   onclick="setFilter('ma60')">60일선 ▲</button>
       <button class="fbtn"        id="f-golden" onclick="setFilter('golden')">골든크로스 ✓</button>
+    </div>
+    <div class="filter-row" style="padding-top:0">
+      <span class="filter-label">수급</span>
+      <button class="fbtn active" id="s-all"  onclick="setFrgn(false)">전체</button>
+      <button class="fbtn green"  id="s-frgn" onclick="setFrgn(true)">외인 순매수 ▲</button>
     </div>
 
     <!-- 빠른 종목 -->
@@ -310,6 +323,7 @@ const PAGE_SIZE = 100;                  // 한 번에 표시할 종목 수
 let allStocks   = [];
 let curFilter   = 'all';
 let curMarket   = '';
+let curFrgn     = false;   // 외인 순매수 필터
 let curOffset   = 0;
 let totalCount  = 0;
 let totalAll    = 0;
@@ -319,6 +333,24 @@ const AV_COLORS = ['#ef4444','#f97316','#eab308','#16a34a','#0d9488','#2563eb','
 function avColor(name) {
   let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xfffffff;
   return AV_COLORS[h % AV_COLORS.length];
+}
+
+// ── 포맷 헬퍼 ─────────────────────────────────────────
+function fmtMktCap(v) {
+  if (!v || v <= 0) return null;
+  if (v >= 10000) return (v / 10000).toFixed(1) + '조';
+  return v.toLocaleString() + '억';
+}
+function fmtVol(v) {
+  if (!v || v <= 0) return null;
+  if (v >= 10000) return Math.round(v / 10000).toLocaleString() + '만주';
+  return v.toLocaleString() + '주';
+}
+function fmtFrgnBuy(v) {
+  if (v === null || v === undefined) return null;
+  const abs = Math.abs(v);
+  const str = abs >= 10000 ? (abs / 10000).toFixed(1) + '만' : abs.toLocaleString();
+  return { txt: (v >= 0 ? '+' : '-') + str, pos: v >= 0 };
 }
 
 // 점수 → 색상
@@ -348,6 +380,23 @@ function cardHTML(s) {
   const sig = s.signals?.[0] || '';
   const golden = isGolden(s);
 
+  // 상세 지표
+  const mktCapTxt = fmtMktCap(s.mktCap);
+  const volTxt    = fmtVol(s.volume);
+  const frgnPct   = s.frgnRatio != null ? s.frgnRatio.toFixed(2) + '%' : null;
+  const frgnBuy   = fmtFrgnBuy(s.frgnBuyQty);
+  const perTxt    = (s.per != null && s.per > 0 && s.per < 999) ? s.per.toFixed(1) : null;
+  const pbrTxt    = (s.pbr != null && s.pbr > 0) ? s.pbr.toFixed(2) : null;
+
+  const statsChips = [
+    mktCapTxt ? `<span class="stat-chip"><span class="stat-lbl">시총</span><span class="stat-val">${mktCapTxt}</span></span>` : '',
+    volTxt    ? `<span class="stat-chip"><span class="stat-lbl">거래량</span><span class="stat-val">${volTxt}</span></span>` : '',
+    frgnPct   ? `<span class="stat-chip"><span class="stat-lbl">외인보유</span><span class="stat-val">${frgnPct}</span></span>` : '',
+    frgnBuy   ? `<span class="stat-chip"><span class="stat-lbl">외인순매수</span><span class="stat-val ${frgnBuy.pos ? 'pos' : 'neg'}">${frgnBuy.txt}</span></span>` : '',
+    perTxt    ? `<span class="stat-chip"><span class="stat-lbl">PER</span><span class="stat-val">${perTxt}</span></span>` : '',
+    pbrTxt    ? `<span class="stat-chip"><span class="stat-lbl">PBR</span><span class="stat-val">${pbrTxt}</span></span>` : '',
+  ].filter(Boolean).join('');
+
   return `<div class="scard"
     data-ma5="${s.ma5Signal}" data-ma20="${s.ma20Signal}" data-ma60="${s.ma60Signal}"
     data-golden="${golden}"
@@ -357,7 +406,7 @@ function cardHTML(s) {
       <div class="sname-row">
         <span class="sname">${s.name}</span>
         <span class="sbadge mkt">${s.market}</span>
-        <span class="sbadge sec">${s.sector}</span>
+        ${s.sector ? `<span class="sbadge sec">${s.sector}</span>` : ''}
         ${golden ? `<span class="sbadge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">골든크로스</span>` : ''}
       </div>
       <div class="ma-row">
@@ -366,6 +415,7 @@ function cardHTML(s) {
         ${maBadge(s.ma60Signal, '60일')}
         <span style="font-size:11px;color:${chgClr};font-weight:600;margin-left:2px;">${chgTxt}</span>
       </div>
+      ${statsChips ? `<div class="stats-row">${statsChips}</div>` : ''}
       ${sig ? `<div class="ssignal">${sig}</div>` : ''}
     </div>
     <div class="sscore-wrap">
@@ -394,6 +444,14 @@ function setMarket(m) {
     const el = document.getElementById('m-' + k);
     if (el) el.classList.toggle('active', (m === '' ? 'all' : m.toLowerCase()) === k);
   });
+  loadData();
+}
+
+function setFrgn(on) {
+  curFrgn = on;
+  curOffset = 0;
+  document.getElementById('s-all') .classList.toggle('active', !on);
+  document.getElementById('s-frgn').classList.toggle('active', !!on);
   loadData();
 }
 
@@ -447,7 +505,7 @@ async function loadData(append = false) {
 
   // 캐시 우선 표시 (첫 로드 & 필터 변경 없을 때만)
   if (!append && curOffset === 0) {
-    const cacheKey = `rec_${curMarket}_${curFilter}`;
+    const cacheKey = `rec_${curMarket}_${curFilter}_${curFrgn ? 'f' : ''}`;
     const cached = loadCache(cacheKey);
     if (cached) {
       renderStocks(cached, false);
@@ -460,6 +518,7 @@ async function loadData(append = false) {
   });
   if (curMarket) params.set('market', curMarket);
   if (curFilter !== 'all') params.set('filter', curFilter);
+  if (curFrgn) params.set('frgnbuy', '1');
 
   const data = await fetchJ(`/api/recommend?${params}`);
 
@@ -467,7 +526,7 @@ async function loadData(append = false) {
     renderStocks(data, append);
     // 첫 페이지만 캐시 저장
     if (curOffset === 0) {
-      const cacheKey = `rec_${curMarket}_${curFilter}`;
+      const cacheKey = `rec_${curMarket}_${curFilter}_${curFrgn ? 'f' : ''}`;
       saveCache(cacheKey, data);
     }
   } else if (!append) {

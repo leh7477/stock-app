@@ -32,10 +32,11 @@ export default async function handler(req, res) {
   const redisUrl   = process.env.KV_REST_API_URL;
   const redisToken = process.env.KV_REST_API_TOKEN;
 
-  const market = req.query?.market || '';            // KOSPI | KOSDAQ | '' = 전체
-  const filter = req.query?.filter || '';            // golden | ma5 | ma20 | ma60 | ''
-  const limit  = Math.min(parseInt(req.query?.limit  || '100'), 500);
-  const offset = Math.max(parseInt(req.query?.offset || '0'),   0);
+  const market   = req.query?.market   || '';        // KOSPI | KOSDAQ | '' = 전체
+  const filter   = req.query?.filter   || '';        // golden | ma5 | ma20 | ma60 | ''
+  const frgnbuy  = req.query?.frgnbuy  === '1';     // 외인 순매수 > 0 필터
+  const limit    = Math.min(parseInt(req.query?.limit  || '100'), 500);
+  const offset   = Math.max(parseInt(req.query?.offset || '0'),   0);
 
   try {
     const raw = await timedFetch(`${redisUrl}/get/recommend_v2`, {
@@ -66,6 +67,11 @@ export default async function handler(req, res) {
       stocks = stocks.filter(s => s.ma20Signal === 'up');
     } else if (filter === 'ma60') {
       stocks = stocks.filter(s => s.ma60Signal === 'up');
+    }
+
+    // 외인 순매수 필터 (다른 필터와 AND 조건)
+    if (frgnbuy) {
+      stocks = stocks.filter(s => (s.frgnBuyQty ?? 0) > 0);
     }
 
     const totalFiltered = stocks.length;
