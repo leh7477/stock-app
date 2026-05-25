@@ -1,7 +1,8 @@
 /**
- * 전종목 MA 분석 업데이트 스크립트
- * - DART API → KOSPI+KOSDAQ 전종목 코드 조회 (ZIP 파일)
- * - KIS API  → 각 종목 60일 일봉 종가 조회
+ * 전종목 MA + 기본 정보 분석 업데이트 스크립트
+ * - DART API  → 전종목 코드 + corp_code
+ * - KIS (FHKST01010400) → 일봉 (거래량, 외인보유율, 외인순매수 포함)
+ * - KIS (FHKST01010100) → 시가총액, PER, PBR, EPS, 업종명
  * - MA5/MA20/MA60 계산, 스코어링 → Redis 저장
  */
 
@@ -9,20 +10,27 @@
 
 const AdmZip = require('adm-zip');
 
-const KV_URL      = process.env.KV_REST_API_URL;
-const KV_TOKEN    = process.env.KV_REST_API_TOKEN;
-const KIS_KEY     = process.env.KIS_APP_KEY;
-const KIS_SEC     = process.env.KIS_APP_SECRET;
-const DART_KEY    = process.env.DART_API_KEY;
+const KV_URL    = process.env.KV_REST_API_URL;
+const KV_TOKEN  = process.env.KV_REST_API_TOKEN;
+const KIS_KEY   = process.env.KIS_APP_KEY;
+const KIS_SEC   = process.env.KIS_APP_SECRET;
+const DART_KEY  = process.env.DART_API_KEY;
 
-const BATCH_SIZE  = 15;    // KIS API: 초당 20건 제한보다 여유있게
-const BATCH_DELAY = 1100;  // ms
+const BATCH_SIZE  = 8;     // 종목당 API 2회 → 8개 병렬 = 약 16 calls/sec
+const BATCH_DELAY = 1200;
 const TIMEOUT_MS  = 10000;
+
+// 분석 제외 키워드 (스팩, 특수 목적 법인)
+const SKIP_KEYWORDS = [
+  '기업인수목적', '스팩', 'SPAC', '선박투자회사',
+  '부동산투자회사', '인프라투자회사', '위탁관리부동산',
+];
 
 // ─── 유틸 ──────────────────────────────────────────────────────────────────
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function parseNum(s) { return parseInt(String(s || '0').replace(/,/g, '')) || 0; }
+function parseF(s)   { return parseFloat(String(s || '0').replace(/,/g, '')) || 0; }
 
 async function timedFetch(url, options = {}) {
   const ctrl = new AbortController();
@@ -70,8 +78,6 @@ async function getKisToken() {
 }
 
 // ─── DART 전종목 코드 조회 ─────────────────────────────────────────────────
-// DART API: corpCode.xml → ZIP 파일 → CORPCODE.xml (전 상장/비상장 법인)
-// stock_code가 6자리 숫자인 것만 = 실제 상장 종목
 
 async function fetchAllListedStocks() {
   console.log('[dart] corpCode.xml 다운로드...');
@@ -81,37 +87,44 @@ async function fetchAllListedStocks() {
   if (!res.ok) throw new Error(`DART 응답 오류: ${res.status}`);
 
   const buffer = Buffer.from(await res.arrayBuffer());
-
-  // ZIP 파일 여부 확인 (ZIP 시그니처 PK = 0x50 0x4B)
   if (buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
-    const preview = buffer.slice(0, 500).toString('utf-8');
-    throw new Error(`DART 응답이 ZIP이 아님 (API 키 오류?): ${preview}`);
+    throw new Error(`DART 응답이 ZIP이 아님: ${buffer.slice(0, 200).toString('utf-8')}`);
   }
 
-  const zip = new AdmZip(buffer);
+  const zip   = new AdmZip(buffer);
   const entry = zip.getEntry('CORPCODE.xml');
   if (!entry) throw new Error('CORPCODE.xml not found in ZIP');
-
   const xml = entry.getData().toString('utf-8');
 
-  // 정규식으로 XML 파싱 (xml2js 없이)
   const stocks = [];
   const re = /<list>([\s\S]*?)<\/list>/g;
   let m;
   while ((m = re.exec(xml)) !== null) {
-    const block = m[1];
-    const code = (block.match(/<stock_code>\s*(\S+)\s*<\/stock_code>/) || [])[1]?.trim();
-    const name = (block.match(/<corp_name>\s*(.*?)\s*<\/corp_name>/)   || [])[1]?.trim();
+    const block    = m[1];
+    const code     = (block.match(/<stock_code>\s*(\S+)\s*<\/stock_code>/) || [])[1]?.trim();
+    const name     = (block.match(/<corp_name>\s*(.*?)\s*<\/corp_name>/)   || [])[1]?.trim();
+    const corpCode = (block.match(/<corp_code>\s*(\S+)\s*<\/corp_code>/)   || [])[1]?.trim();
     if (code && /^\d{6}$/.test(code)) {
-      stocks.push({ code, name, market: '', sector: '' });
+      // 스팩·특수목적법인 제외
+      if (name && SKIP_KEYWORDS.some(kw => name.includes(kw))) continue;
+      stocks.push({ code, name, corp_code: corpCode, market: '', sector: '' });
     }
   }
 
-  console.log(`[dart] 상장 종목 ${stocks.length}개 확인`);
+  console.log(`[dart] 분석 대상 ${stocks.length}개 확인`);
   return stocks;
 }
 
-// ─── KIS 일봉 조회 ─────────────────────────────────────────────────────────
+// ─── KIS 일봉 조회 (거래량·외인 포함) ─────────────────────────────────────
+
+function kisHeaders(token, trId) {
+  return {
+    Authorization: `Bearer ${token}`,
+    appkey: KIS_KEY, appsecret: KIS_SEC,
+    'tr_id': trId, custtype: 'P',
+    'Content-Type': 'application/json',
+  };
+}
 
 async function fetchDailyCandles(token, code, mkCode) {
   const now     = new Date();
@@ -129,20 +142,25 @@ async function fetchDailyCandles(token, code, mkCode) {
 
   return timedFetch(
     `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-price?${params}`,
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        appkey:    KIS_KEY,
-        appsecret: KIS_SEC,
-        'tr_id':   'FHKST01010400',
-        custtype:  'P',
-        'Content-Type': 'application/json',
-      },
-    }
+    { headers: kisHeaders(token, 'FHKST01010400') }
   ).then(r => r.json());
 }
 
-// ─── MA 계산 & 스코어 ──────────────────────────────────────────────────────
+// ─── KIS 현재가 + 기본 정보 (PER·PBR·EPS·시가총액·업종) ───────────────────
+
+async function fetchStockInfo(token, code, mkCode) {
+  const params = new URLSearchParams({
+    fid_cond_mrkt_div_code: mkCode,
+    fid_input_iscd:         code,
+  });
+
+  return timedFetch(
+    `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?${params}`,
+    { headers: kisHeaders(token, 'FHKST01010100') }
+  ).then(r => r.json());
+}
+
+// ─── MA 계산 ───────────────────────────────────────────────────────────────
 
 function calcMA(closes, n) {
   const i = closes.length - 1;
@@ -165,9 +183,13 @@ function maSignal(price, ma) {
   return 'neutral';
 }
 
-function analyze(stock, closes) {
+// ─── 스코어링 & 분석 ───────────────────────────────────────────────────────
+
+function analyze(stock, closes, extra = {}) {
   if (closes.length < 22) return null;
   const n = closes.length - 1, cur = closes[n];
+  if (!cur) return null;
+
   const ma5  = calcMA(closes, 5);
   const ma20 = calcMA(closes, 20);
   const ma60 = calcMA(closes, Math.min(60, closes.length));
@@ -177,72 +199,121 @@ function analyze(stock, closes) {
   let score = 40;
   const signals = [];
 
+  // ── 이평선 배열 (최대 ±25) ──
   if (ma5 && ma20 && ma60) {
-    if      (ma5 > ma20 && ma20 > ma60) { score += 30; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
+    if      (ma5 > ma20 && ma20 > ma60) { score += 25; signals.push('정배열 — 단기·중기·장기 모두 우상향'); }
     else if (ma5 < ma20 && ma20 < ma60) { score -= 25; signals.push('역배열 — 하락 추세 지속 주의'); }
     else if (ma5 > ma20)                { score += 10; signals.push('단기 이평선 상향 — 중기 회복 진행 중'); }
     else if (ma20 > ma60)               { score += 5;  signals.push('중기 이평선 상향 — 장기 추세 전환 시도'); }
   }
 
-  if (ma5  && cur > ma5)  score += 8;
-  if (ma20 && cur > ma20) score += 10;
-  if (ma60 && cur > ma60) score += 5;
-  if (ma5  && ma5p  && ma5  > ma5p)  score += 5;
+  // ── 현재가 vs 이평선 (+17) ──
+  if (ma5  && cur > ma5)  score += 5;
+  if (ma20 && cur > ma20) score += 8;
+  if (ma60 && cur > ma60) score += 4;
+
+  // ── 이평선 방향 (+9) ──
+  if (ma5  && ma5p  && ma5  > ma5p)  score += 4;
   if (ma20 && ma20p && ma20 > ma20p) { score += 5; signals.push('20일선 상승 중'); }
 
+  // ── 골든/데드크로스 (+12 / -18) ──
   const ma5a  = calcMAArr(closes, 5);
   const ma20a = calcMAArr(closes, 20);
   let cross = false;
   for (let i = Math.max(1, n - 4); i <= n && !cross; i++) {
     if (ma5a[i] && ma20a[i] && ma5a[i-1] && ma20a[i-1]) {
-      if      (ma5a[i] > ma20a[i] && ma5a[i-1] <= ma20a[i-1]) { score += 15; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); cross = true; }
-      else if (ma5a[i] < ma20a[i] && ma5a[i-1] >= ma20a[i-1]) { score -= 12; signals.unshift('데드크로스 발생 — 단기 주의 신호');  cross = true; }
+      if      (ma5a[i] > ma20a[i] && ma5a[i-1] <= ma20a[i-1]) { score += 12; signals.unshift('골든크로스 발생 — 단기 강세 신호 ✓'); cross = true; }
+      else if (ma5a[i] < ma20a[i] && ma5a[i-1] >= ma20a[i-1]) { score -= 18; signals.unshift('데드크로스 발생 — 단기 주의 신호');  cross = true; }
     }
   }
 
+  // ── 5일 수익률 (±10) ──
   const chg5 = closes.length >= 6 ? (cur - closes[n - 5]) / closes[n - 5] * 100 : 0;
   score += Math.max(-10, Math.min(10, Math.round(chg5)));
-  score  = Math.max(10, Math.min(95, Math.round(score)));
+
+  // ── 거래량·외인 수급 보너스 (최대 +7) ──
+  const { volume = 0, frgnBuyQty = 0 } = extra;
+  if (volume > 100000)  score += 2;
+  if (volume > 1000000) score += 2;
+  if (frgnBuyQty > 0)   score += 2;
+  if (frgnBuyQty < -0)  score -= 1;
+
+  score = Math.max(5, Math.min(99, Math.round(score)));
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
 
   return {
-    ...stock,
-    price:     cur,
-    chgRate:   parseFloat(chgRate),
+    code:        stock.code,
+    name:        stock.name,
+    corp_code:   stock.corp_code || '',
+    market:      stock.market,
+    sector:      extra.sector    || stock.sector || '',
+    price:       cur,
+    chgRate:     parseFloat(chgRate),
     ma5, ma20, ma60,
-    ma5Signal:  maSignal(cur, ma5),
-    ma20Signal: maSignal(cur, ma20),
-    ma60Signal: maSignal(cur, ma60),
+    ma5Signal:   maSignal(cur, ma5),
+    ma20Signal:  maSignal(cur, ma20),
+    ma60Signal:  maSignal(cur, ma60),
     score,
-    signals: signals.slice(0, 2),
+    signals:     signals.slice(0, 2),
+    // 수급·기본 정보
+    volume:      extra.volume      || 0,
+    frgnRatio:   extra.frgnRatio   || 0,   // 외인 보유율 (%)
+    frgnBuyQty:  extra.frgnBuyQty  || 0,   // 외인 순매수 수량
+    mktCap:      extra.mktCap      || 0,   // 시가총액 (억원)
+    per:         extra.per         || 0,
+    pbr:         extra.pbr         || 0,
+    eps:         extra.eps         || 0,
   };
 }
 
-// ─── 단일 종목 처리 (KOSPI→KOSDAQ 순서로 자동 감지) ──────────────────────
+// ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
 async function processStock(token, stock) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
     try {
+      // 1) 일봉 데이터 조회
       const raw = await fetchDailyCandles(token, stock.code, mkCode);
-
-      // output 또는 output2 필드 모두 허용 (TR_ID에 따라 다름)
       const rawOutput = raw?.output2 ?? raw?.output;
       if (!rawOutput?.length) continue;
 
-      // 최근 100일만 사용, 시간순 정렬
-      const closes = rawOutput.slice(0, 100).reverse().map(d => parseNum(d.stck_clpr));
+      const recent      = rawOutput.slice(0, 100);  // 최신순 상위 100개
+      const latestDay   = recent[0];                // 가장 최근 일봉
+      const closes      = recent.slice().reverse().map(d => parseNum(d.stck_clpr));
+
       if (closes.length < 22) continue;
-      if (!closes[closes.length - 1]) continue; // 최근 종가 0이면 거래 없는 종목
+      if (!closes[closes.length - 1]) continue;     // 최근 종가 0 → 거래 없음
+
+      // 일봉에서 수급 데이터 추출
+      const volume     = parseNum(latestDay?.acml_vol);
+      const frgnRatio  = parseF(latestDay?.hts_frgn_ehrt);
+      const frgnBuyQty = parseNum(latestDay?.frgn_ntby_qty);
+
+      // 2) 현재가 + 기본 정보 조회 (PER·PBR·EPS·시가총액·업종)
+      let mktCap = 0, per = 0, pbr = 0, eps = 0, sector = '';
+      try {
+        const info = await fetchStockInfo(token, stock.code, mkCode);
+        const o = info?.output;
+        if (o) {
+          mktCap = parseNum(o.hts_avls);
+          per    = parseF(o.per);
+          pbr    = parseF(o.pbr);
+          eps    = parseNum(o.eps);
+          sector = (o.bstp_kor_isnm || o.bstp_kor_isn_nm || '').trim();
+        }
+      } catch (_) { /* 기본정보 실패 시 무시 */ }
 
       const market = mkCode === 'J' ? 'KOSPI' : 'KOSDAQ';
-      return analyze({ ...stock, market }, closes);
-    } catch (e) {
-      continue;
-    }
+      return analyze(
+        { ...stock, market },
+        closes,
+        { volume, frgnRatio, frgnBuyQty, mktCap, per, pbr, eps, sector }
+      );
+
+    } catch (_) { continue; }
   }
   return null;
 }
@@ -251,40 +322,32 @@ async function processStock(token, stock) {
 
 async function main() {
   const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
-  console.log(`\n=== 전종목 MA 분석 시작: ${kstNow.toISOString().replace('T',' ').slice(0,19)} KST ===\n`);
+  console.log(`\n=== 전종목 MA + 기본정보 분석: ${kstNow.toISOString().replace('T',' ').slice(0,19)} KST ===\n`);
 
-  // 1. DART → 전종목 코드
+  // 1. DART 전종목 코드
   console.log('[1/4] DART 전종목 목록 조회...');
   let allStocks;
-  try {
-    allStocks = await fetchAllListedStocks();
-  } catch (e) {
-    console.error('[1/4] 실패:', e.message);
-    process.exit(1);
-  }
+  try   { allStocks = await fetchAllListedStocks(); }
+  catch (e) { console.error('[1/4] 실패:', e.message); process.exit(1); }
 
   // 2. KIS 토큰
   console.log('[2/4] KIS 토큰 확인...');
   let token;
-  try {
-    token = await getKisToken();
-  } catch (e) {
-    console.error('[2/4] KIS 토큰 실패:', e.message);
-    process.exit(1);
-  }
+  try   { token = await getKisToken(); }
+  catch (e) { console.error('[2/4] 실패:', e.message); process.exit(1); }
 
   // 3. 배치 처리
-  console.log(`[3/4] 일봉 조회 + MA 분석... (${allStocks.length}개 종목, 배치 ${BATCH_SIZE}개)`);
+  console.log(`[3/4] 일봉 + 기본정보 조회... (${allStocks.length}개, 배치 ${BATCH_SIZE}개)`);
   const results = [];
   let processed = 0, failed = 0;
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
-    const batch = allStocks.slice(i, i + BATCH_SIZE);
+    const batch    = allStocks.slice(i, i + BATCH_SIZE);
     const batchRes = await Promise.all(batch.map(s => processStock(token, s)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 
-    if (processed % 300 === 0 || i + BATCH_SIZE >= allStocks.length) {
+    if (processed % 200 === 0 || i + BATCH_SIZE >= allStocks.length) {
       const pct = ((processed / allStocks.length) * 100).toFixed(1);
       console.log(`      ${processed}/${allStocks.length} (${pct}%) | 성공 ${results.length} / 실패 ${failed}`);
     }
