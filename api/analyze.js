@@ -161,11 +161,14 @@ function calcOBVArr(closes, volumes) {
 
 // ── 점수 계산 (최고 100점 / 최악 0점) ───────────────────────────────────────
 // 추세(40) + 모멘텀(30) + 수급(30) + 볼린저스퀴즈 보너스/패널티(±10)
+// 반환: { total: 0~100, detail: { arrangement, deviation, rsi, macd, volume, obv, boll } }
 function calcScore(closes, volumes, boll) {
   const n = closes.length - 1;
   const cur = closes[n];
-  if (n < 21 || !cur) return 0;
-  let score = 0;
+  const ZERO = { total: 0, detail: { arrangement:0, deviation:0, rsi:0, macd:0, volume:0, obv:0, boll:0 } };
+  if (n < 21 || !cur) return ZERO;
+
+  let arrangementPts = 0, deviationPts = 0, rsiPts = 0, macdPts = 0, volPts = 0, obvPts = 0, bollPts = 0;
 
   // ── 1. 추세 구조 (40점) ─────────────────────────────────────────────────
   const ma5a   = calcMA(closes, 5);
@@ -181,23 +184,23 @@ function calcScore(closes, volumes, boll) {
 
   // 1a. 이평선 배열 (20점) — 5단계
   if (ma5 && ma20 && ma60 && ma120 && ma5 > ma20 && ma20 > ma60 && ma60 > ma120)
-    score += 20; // 완벽 정배열 5>20>60>120
+    arrangementPts = 20; // 완벽 정배열 5>20>60>120
   else if (ma5 && ma20 && ma60 && ma5 > ma20 && ma20 > ma60)
-    score += 16; // 3선 정배열 5>20>60
+    arrangementPts = 16; // 3선 정배열 5>20>60
   else if (pm5 && pm20 && ma5 && ma20 && pm5 <= pm20 && ma5 > ma20)
-    score += 13; // 골든크로스
+    arrangementPts = 13; // 골든크로스
   else if (ma20 && ma60 && ma20 > ma60)
-    score += 8;  // 중기 정배열 20>60
+    arrangementPts = 8;  // 중기 정배열 20>60
   else if (ma5 && ma20 && ma5 > ma20)
-    score += 4;  // 단기 우위
+    arrangementPts = 4;  // 단기 우위
 
   // 1b. MA20 이격도 (20점) — 5단계
   if (ma20) {
     const d = cur / ma20 * 100;
-    if      (d >= 101 && d <= 106)                             score += 20; // 이상적 상승권
-    else if ((d >= 100 && d <  101) || (d > 106 && d <= 109)) score += 16; // 안정 상승
-    else if ((d >=  95 && d < 100)  || (d > 109 && d <= 112)) score += 10; // 소폭 이탈/과열
-    else if ((d >=  92 && d <  95)  || (d > 112 && d <= 116)) score += 5;  // 중간 이탈/과열
+    if      (d >= 101 && d <= 106)                             deviationPts = 20; // 이상적 상승권
+    else if ((d >= 100 && d <  101) || (d > 106 && d <= 109)) deviationPts = 16; // 안정 상승
+    else if ((d >=  95 && d < 100)  || (d > 109 && d <= 112)) deviationPts = 10; // 소폭 이탈/과열
+    else if ((d >=  92 && d <  95)  || (d > 112 && d <= 116)) deviationPts = 5;  // 중간 이탈/과열
     // 92% 미만 or 116% 초과: 0점
   }
 
@@ -206,12 +209,12 @@ function calcScore(closes, volumes, boll) {
   const rsiArr = calcRSI(closes);
   const rsi = rsiArr[n];
   if (rsi !== null) {
-    if      (rsi >= 58 && rsi <  68) score += 15; // 최적 상승
-    else if (rsi >= 52 && rsi <  58) score += 10; // 강세
-    else if (rsi >= 68 && rsi <  73) score += 10; // 과매수 초입
-    else if (rsi >= 47 && rsi <  52) score += 6;  // 중립
-    else if (rsi >= 73)              score += 3;  // 과매수
-    else if (rsi >= 40 && rsi <  47) score += 2;  // 약세
+    if      (rsi >= 58 && rsi <  68) rsiPts = 15; // 최적 상승
+    else if (rsi >= 52 && rsi <  58) rsiPts = 10; // 강세
+    else if (rsi >= 68 && rsi <  73) rsiPts = 10; // 과매수 초입
+    else if (rsi >= 47 && rsi <  52) rsiPts = 6;  // 중립
+    else if (rsi >= 73)              rsiPts = 3;  // 과매수
+    else if (rsi >= 40 && rsi <  47) rsiPts = 2;  // 약세
     // RSI < 40: 0점
   }
 
@@ -219,16 +222,16 @@ function calcScore(closes, volumes, boll) {
   const macd = calcMACDFull(closes);
   if (macd) {
     if      (macd.hist > 0 && macd.prevHist !== null && macd.hist > macd.prevHist)
-      score += 15; // 양수 확장 (양전환 포함)
+      macdPts = 15; // 양수 확장 (양전환 포함)
     else if (macd.hist > 0 && macd.prevHist !== null && macd.prevHist > 0 && macd.hist > macd.prevHist * 0.7)
-      score += 10; // 양수 미미 축소 (70% 이상 유지)
+      macdPts = 10; // 양수 미미 축소 (70% 이상 유지)
     else if (macd.hist > 0)
-      score += 7;  // 양수 강한 축소
+      macdPts = 7;  // 양수 강한 축소
     else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0
           && macd.hist > macd.prevHist && macd.hist > macd.prevHist * 0.5)
-      score += 5;  // 음수 강하게 수축
+      macdPts = 5;  // 음수 강하게 수축
     else if (macd.hist !== null && macd.prevHist !== null && macd.hist < 0 && macd.hist > macd.prevHist)
-      score += 3;  // 음수 수축
+      macdPts = 3;  // 음수 수축
     // 음수 확장: 0점
   }
 
@@ -239,11 +242,11 @@ function calcScore(closes, volumes, boll) {
     const avg5  = past5.length ? past5.reduce((a,b)=>a+b,0) / past5.length : 0;
     if (avg5 > 0) {
       const ratio = volumes[n] / avg5;
-      if      (ratio >= 3.0) score += 15; // 폭발적
-      else if (ratio >= 2.0) score += 12; // 세력 개입
-      else if (ratio >= 1.5) score += 9;  // 강한 관심
-      else if (ratio >= 1.0) score += 6;  // 평균 이상
-      else if (ratio >= 0.7) score += 3;  // 소폭 미달
+      if      (ratio >= 3.0) volPts = 15; // 폭발적
+      else if (ratio >= 2.0) volPts = 12; // 세력 개입
+      else if (ratio >= 1.5) volPts = 9;  // 강한 관심
+      else if (ratio >= 1.0) volPts = 6;  // 평균 이상
+      else if (ratio >= 0.7) volPts = 3;  // 소폭 미달
       // 70% 미만: 0점
     }
 
@@ -251,10 +254,10 @@ function calcScore(closes, volumes, boll) {
     const obv     = calcOBVArr(closes, volumes);
     const window  = obv.slice(Math.max(0, n-60), n+1);
     const obvMax  = Math.max(...window);
-    if      (obv[n] >= obvMax * 0.98) score += 15; // 신고치 갱신
-    else if (obv[n] >= obvMax * 0.90) score += 11; // 최고치 근접
-    else if (obv[n] >= obvMax * 0.80) score += 7;  // 접근
-    else if (obv[n] >= obvMax * 0.65) score += 4;  // 중간
+    if      (obv[n] >= obvMax * 0.98) obvPts = 15; // 신고치 갱신
+    else if (obv[n] >= obvMax * 0.90) obvPts = 11; // 최고치 근접
+    else if (obv[n] >= obvMax * 0.80) obvPts = 7;  // 접근
+    else if (obv[n] >= obvMax * 0.65) obvPts = 4;  // 중간
     // 65% 미만: 0점
   }
 
@@ -274,9 +277,9 @@ function calcScore(closes, volumes, boll) {
       // [공포] 스퀴즈 후 방향성 돌파 (기존 유지)
       if (curW <= minW * 1.1) {
         if (boll.upper[n] && cur > boll.upper[n] && vol5 > 0 && volumes[n] > vol5 * 2)
-          score += 10; // 스퀴즈 상방 대량 돌파
+          bollPts += 10; // 스퀴즈 상방 대량 돌파
         else if (boll.lower[n] && cur < boll.lower[n])
-          score -= 10; // 스퀴즈 하방 붕괴
+          bollPts -= 10; // 스퀴즈 하방 붕괴
       }
 
       // [탐욕 과열 감지] RSI 극과매수 + 거래량 소멸 → 역발상 경고 ★
@@ -284,15 +287,16 @@ function calcScore(closes, volumes, boll) {
       if (rsi !== null && rsi >= 75 && vol5 > 0) {
         const isVolDrying = volumes[n] < vol5 * 0.7;  // 거래량 30% 이상 소멸
         const isBBNarrow  = curW <= minW * 1.5;        // BB 역사적 저변동 구간
-        if      (rsi >= 80 && isVolDrying && isBBNarrow) score -= 6; // 극단 탐욕
-        else if (rsi >= 78 && isVolDrying)                score -= 4; // 강한 탐욕
-        else if (rsi >= 75 && isVolDrying)                score -= 3; // 과열 경고
-        else if (rsi >= 80)                               score -= 2; // RSI 극단
+        if      (rsi >= 80 && isVolDrying && isBBNarrow) bollPts -= 6; // 극단 탐욕
+        else if (rsi >= 78 && isVolDrying)                bollPts -= 4; // 강한 탐욕
+        else if (rsi >= 75 && isVolDrying)                bollPts -= 3; // 과열 경고
+        else if (rsi >= 80)                               bollPts -= 2; // RSI 극단
       }
     }
   }
 
-  return Math.max(0, Math.min(100, Math.round(score)));
+  const total = Math.max(0, Math.min(100, Math.round(arrangementPts + deviationPts + rsiPts + macdPts + volPts + obvPts + bollPts)));
+  return { total, detail: { arrangement: arrangementPts, deviation: deviationPts, rsi: rsiPts, macd: macdPts, volume: volPts, obv: obvPts, boll: bollPts } };
 }
 
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
@@ -806,7 +810,9 @@ try {
     // 외인+기관 5일 순매수 (미래성장 가점용 — 이평선 배열과 겹치지 않는 독립 지표)
     const _d5 = investorSupply?.d5;
     const d5FrgnInst2 = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
-    const techScore = calcScore(closes, volumes, boll);
+    const techResult  = calcScore(closes, volumes, boll);
+    const techScore   = techResult.total;
+    const techDetail  = techResult.detail;
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name);
     const korScore  = ks.total;
     const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
@@ -815,28 +821,12 @@ try {
     const score     = liveScore;
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
 
-    // 이평선 세부 점수 (배열 20점 + MA20 이격도 20점 = 최대 40점)
-    const _ma60a  = calcMA(closes, Math.min(60,  closes.length));
-    const _ma120a = calcMA(closes, Math.min(120, closes.length));
-    const _ma5  = ma5arr[n]  || 0, _ma20 = ma20arr[n] || 0;
-    const _ma60 = _ma60a[n]  || 0, _ma120 = _ma120a[n] || 0;
-    const _pm5  = (n > 0 ? ma5arr[n-1]  : 0) || 0;
-    const _pm20 = (n > 0 ? ma20arr[n-1] : 0) || 0;
-    let maArrangement = 0;
-    if (_ma5 && _ma20 && _ma60 && _ma120 && _ma5 > _ma20 && _ma20 > _ma60 && _ma60 > _ma120) maArrangement = 20;
-    else if (_ma5 && _ma20 && _ma60 && _ma5 > _ma20 && _ma20 > _ma60) maArrangement = 16;
-    else if (_pm5 && _pm20 && _ma5 && _ma20 && _pm5 <= _pm20 && _ma5 > _ma20) maArrangement = 13;
-    else if (_ma20 && _ma60 && _ma20 > _ma60) maArrangement = 8;
-    else if (_ma5 && _ma20 && _ma5 > _ma20)   maArrangement = 4;
-    let maDeviation = 0;
-    if (_ma20) {
-      const d = latest.close / _ma20 * 100;
-      if      (d >= 101 && d <= 106)                             maDeviation = 20;
-      else if ((d >= 100 && d < 101) || (d > 106 && d <= 109))  maDeviation = 16;
-      else if ((d >=  95 && d < 100) || (d > 109 && d <= 112))  maDeviation = 10;
-      else if ((d >=  92 && d <  95) || (d > 112 && d <= 116))  maDeviation = 5;
-    }
-    const maScore = { arrangement: maArrangement, deviation: maDeviation, total: maArrangement + maDeviation };
+    // 이평선 세부 점수: calcScore 내부 계산값 재활용 (중복 계산 제거)
+    const maScore = {
+      arrangement: techDetail.arrangement,
+      deviation:   techDetail.deviation,
+      total:       techDetail.arrangement + techDetail.deviation,
+    };
     const checklist = buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr);
 
     res.status(200).json({
@@ -867,6 +857,7 @@ try {
           disclosureScore: discS,
           isIVExtreme,
           techScore: Math.round(techScore * 0.7),
+          techDetail,
           rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
           drawdown: drawdownPct,
           tag,

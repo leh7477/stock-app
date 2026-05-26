@@ -267,7 +267,17 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
     <!-- ① 한줄 AI 코멘트 -->
     <div id="r-oneliner" style="display:none;margin:12px 0 4px;"></div>
 
-    <!-- ② 2컬럼 그리드 -->
+    <!-- ② 가격 차트 (full width — 상단으로 이동) -->
+    <div class="dl-card full-row" style="padding:16px 16px 12px;margin-top:10px;">
+      <div class="dl-title">📈 가격 차트 · RSI <span style="font-weight:400;color:var(--muted);font-size:10px;">슬라이더로 기간 조절 가능</span></div>
+      <div class="chart-wrap">
+        <div id="mainChart"></div>
+        <div class="chart-divider"></div>
+        <div id="rsiChart"></div>
+      </div>
+    </div>
+
+    <!-- ③ 2컬럼 그리드 -->
     <div class="detail-grid">
 
       <!-- 좌측 컬럼: 점수 / 전략 / 체크리스트 -->
@@ -301,6 +311,12 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
         <div class="dl-card">
           <div class="dl-title">🌱 미래성장 가점 <span style="font-size:10px;font-weight:400;color:var(--muted)">모멘텀·섹터 기반 PEG 근사</span></div>
           <div id="r-growth-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
+        </div>
+
+        <!-- 기술지표 세부 점수 -->
+        <div class="dl-card">
+          <div class="dl-title">📊 기술지표 세부 <span style="font-weight:400;color:var(--muted);font-size:10px;">×0.7 환산 후 최대 70점</span></div>
+          <div id="r-tech-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
         <!-- 이평선 점수 -->
@@ -391,15 +407,6 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <div class="dart-list" id="r-dart"></div>
     </div>
 
-    <!-- ④ 가격 차트 (full width, 하단) -->
-    <div class="dl-card full-row" style="padding:16px 16px 12px;">
-      <div class="dl-title">📈 가격 차트 · RSI <span style="font-weight:400;color:var(--muted);font-size:10px;">슬라이더로 기간 조절 가능</span></div>
-      <div class="chart-wrap">
-        <div id="mainChart"></div>
-        <div class="chart-divider"></div>
-        <div id="rsiChart"></div>
-      </div>
-    </div>
 
   </div>
 </div>
@@ -808,10 +815,7 @@ function renderKoreanScore(ks) {
       <div class="ma-score-total-label">국장 특화 합계</div>
       <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 30점</span></div>
     </div>
-    <div class="ma-score-total">
-      <div class="ma-score-total-label">기술지표 환산</div>
-      <div class="ma-score-total-val" style="color:${c}">${techScore}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 70점</span></div>
-    </div>`;
+    `;
 }
 
 // ── 미래성장 가점 전용 카드 (모든 종목에 항상 표시) ─────────────────────
@@ -878,6 +882,102 @@ function renderGrowthScore(ks) {
     </div>
     ${perRef}
     ${commentHtml}`;
+}
+
+// ── 기술지표 세부 점수 카드 ─────────────────────────────────────────────────
+function renderTechScore(techDetail, techContrib70) {
+  const el = document.getElementById('r-tech-score');
+  if (!el) return;
+  if (!techDetail) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px">세부 데이터 없음</div>';
+    return;
+  }
+  const { arrangement=0, deviation=0, rsi=0, macd=0, volume=0, obv=0, boll=0 } = techDetail;
+
+  const trendTotal  = arrangement + deviation;    // max 40
+  const momTotal    = rsi + macd;                 // max 30
+  const supplyTotal = volume + obv;               // max 30
+  const rawTotal    = trendTotal + momTotal + supplyTotal + boll;
+  const contrib     = techContrib70 ?? Math.round(Math.min(100, Math.max(0, rawTotal)) * 0.7);
+
+  const c = scoreColor(Math.round(rawTotal));
+
+  const bar = (pts, max, col) =>
+    `<div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${max>0?Math.max(0,pts)/max*100:0}%;background:${col}"></div></div>`;
+
+  // 볼린저 조정 컬러 & 라벨
+  const bollColor = boll > 0 ? '#22c55e' : boll < 0 ? '#ef4444' : 'var(--muted)';
+  const bollLbl   = boll >= 10 ? '스퀴즈 상방 돌파 (공포→기회)'
+                  : boll > 0   ? '볼밴 긍정 신호'
+                  : boll <= -10 ? '스퀴즈 하방 붕괴'
+                  : boll <= -3  ? '탐욕 과열 경고 (거래량 소멸)'
+                  : boll <  0   ? '과열 경고'
+                  :              '볼린저 중립';
+
+  // RSI 세부 라벨
+  const rsiLbl  = rsi >= 15 ? '최적 상승 구간(58~68)'
+                : rsi >= 10 ? '강세/과매수 초입'
+                : rsi >= 6  ? '중립 흐름'
+                : rsi >= 2  ? '약세 구간'
+                :             '과매도 (0점)';
+
+  // MACD 세부 라벨
+  const macdLbl = macd >= 15 ? '양수 확장 (상승 가속)'
+                : macd >= 10 ? '양수 유지 (미미한 축소)'
+                : macd >= 7  ? '양수 강한 축소'
+                : macd >= 5  ? '음수 강하게 수축'
+                : macd >= 3  ? '음수 수축'
+                :              '음수 확장 (0점)';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div>
+        <span style="font-size:22px;font-weight:800;color:${c};">${rawTotal}</span>
+        <span style="font-size:12px;font-weight:400;color:var(--muted);"> / 100점</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:right;">×0.7 →&nbsp;<b style="font-size:14px;color:${c};">${contrib}</b><span style="color:var(--muted)"> / 70점</span></div>
+    </div>
+
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:10px;font-weight:700;line-height:1.4;">추세<br>구조</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">이평선 배열 <b>${arrangement}</b>/20 · MA20 이격도 <b>${deviation}</b>/20</div>
+        ${bar(trendTotal, 40, c)}
+      </div>
+      <div class="ma-score-val" style="color:${c}">${trendTotal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/40</span></div>
+    </div>
+
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:10px;font-weight:700;">모멘텀</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">RSI <b>${rsi}</b>/15 (${rsiLbl}) · MACD <b>${macd}</b>/15</div>
+        ${bar(momTotal, 30, c)}
+      </div>
+      <div class="ma-score-val" style="color:${c}">${momTotal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/30</span></div>
+    </div>
+
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">거래량<br>수급</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">거래량 <b>${volume}</b>/15 · OBV <b>${obv}</b>/15</div>
+        ${bar(supplyTotal, 30, c)}
+      </div>
+      <div class="ma-score-val" style="color:${c}">${supplyTotal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/30</span></div>
+    </div>
+
+    <div class="ma-score-row" style="border-bottom:none;">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">볼린저<br>조정</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:${bollColor};margin-bottom:3px">${bollLbl}</div>
+        ${bar(Math.abs(boll), 10, bollColor)}
+      </div>
+      <div class="ma-score-val" style="color:${bollColor}">${boll > 0 ? '+' : ''}${boll}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±10</span></div>
+    </div>
+
+    <div class="ma-score-total" style="margin-top:8px;">
+      <div class="ma-score-total-label">기술지표 합계 (×0.7 최종 기여)</div>
+      <div class="ma-score-total-val" style="color:${c}">${contrib}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 70점</span></div>
+    </div>`;
 }
 
 function renderStrategy(rec) {
@@ -1060,6 +1160,7 @@ function renderResult(data) {
   renderMAScore(data.maScore);
   renderKoreanScore(data.korScore);
   renderGrowthScore(data.korScore);
+  renderTechScore(data.korScore?.techDetail, data.korScore?.techScore);
   renderStrategy(data.recommend);
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);

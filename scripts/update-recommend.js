@@ -367,7 +367,7 @@ function calcScore(closes, volumes) {
     }
   }
 
-  return Math.max(0, Math.min(100, Math.round(score)));
+  return { total: Math.max(0, Math.min(100, Math.round(score))), detail: {} };
 }
 
 const GROWTH_TIER1 = ['반도체', '방위산업'];
@@ -518,8 +518,9 @@ function analyze(stock, closes, volumes, extra = {}) {
     }
   }
 
-  const rsiArr2   = calcRSI(closes);
-  const techScore = calcScore(closes, volumes);
+  const rsiArr2     = calcRSI(closes);
+  const techResult  = calcScore(closes, volumes);
+  const techScore   = techResult.total;
   const _d5 = extra.investorSupply?.d5;
   const d5FrgnInst = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
 
