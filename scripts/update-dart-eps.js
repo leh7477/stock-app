@@ -147,25 +147,41 @@ async function fetchDartEPS(corpCode) {
 
     const list = data.list || [];
 
-    // 당기순이익 (연결, 비지배 제외)
+    // ── 방법1: 기본주당이익(EPS) 직접 조회 ─────────────────────────────────
+    // DART IS/CIS 항목에 "기본주당이익(손실)" 등으로 이미 원/주 단위로 제공됨
+    // sj_div: IS=손익계산서, CIS=포괄손익계산서 (fs_div가 아님 — 주의)
+    const epsItem = list.find(r =>
+      (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
+      (r.account_nm?.includes('기본주당이익') ||
+       r.account_nm?.includes('기본주당순이익') ||
+       r.account_nm?.includes('주당순이익'))
+    );
+    if (epsItem?.thstrm_amount) {
+      const eps = parseInt(String(epsItem.thstrm_amount).replace(/[,\s]/g, '')) || 0;
+      return eps > 0 ? eps : null;
+    }
+
+    // ── 방법2: 당기순이익(백만원) ÷ 발행주식수 — fallback ────────────────
+    // DART 금액 단위는 백만원 → EPS 환산 시 × 1,000,000 필요
+    // sj_div 필드 사용 (fs_div === 'CFS' 는 API 요청 파라미터이며 응답 필드가 아님)
     const netIncome = list.find(r =>
-      r.fs_div === 'CFS' &&
+      (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
       r.account_nm?.includes('당기순이익') &&
       !r.account_nm?.includes('비지배')
     );
-    // 발행주식수 (보통주)
     const shares = list.find(r =>
       r.account_nm?.includes('보통주') &&
-      (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행'))
+      (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행주식'))
     );
 
     if (!netIncome?.thstrm_amount || !shares?.thstrm_amount) return null;
 
-    const ni = parseInt(String(netIncome.thstrm_amount).replace(/,/g, '')) || 0;
-    const sh = parseInt(String(shares.thstrm_amount).replace(/,/g, ''))   || 0;
-    if (ni <= 0 || sh <= 0) return null;
+    const niMillions = parseInt(String(netIncome.thstrm_amount).replace(/[,\s]/g, '')) || 0;
+    const sh         = parseInt(String(shares.thstrm_amount).replace(/[,\s]/g, ''))   || 0;
+    if (niMillions <= 0 || sh <= 0) return null;
 
-    const eps = Math.round(ni / sh);
+    // 백만원 × 1,000,000 ÷ 주식수 = 원/주(EPS)
+    const eps = Math.round(niMillions * 1_000_000 / sh);
     return eps > 0 ? eps : null;
   } catch (e) {
     return null;
