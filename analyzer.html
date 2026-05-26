@@ -1058,11 +1058,12 @@ function renderInvestorSupply(supply) {
             ${rows}`;
   };
 
-  el.innerHTML = `<div class="inv-grid">
-    <div class="inv-period-box">${buildPeriod(supply.d5,  '5일 누적')}</div>
-    <div class="inv-sep"></div>
-    <div class="inv-period-box">${buildPeriod(supply.d20, '20일 누적')}</div>
-  </div>`;
+  el.innerHTML = `
+    <div style="display:flex;gap:0;align-items:flex-start;">
+      <div style="flex:1;min-width:0;">${buildPeriod(supply.d5,  '5일 누적')}</div>
+      <div style="width:1px;background:var(--border);align-self:stretch;margin:0 12px;flex-shrink:0;"></div>
+      <div style="flex:1;min-width:0;">${buildPeriod(supply.d20, '20일 누적')}</div>
+    </div>`;
 }
 
 function renderChecklist(checklist) {
