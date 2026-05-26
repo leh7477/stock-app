@@ -642,6 +642,18 @@ export default async function handler(req, res) {
       } catch (_) {}
     }
 
+// DART PER 읽기 (KIS PER 보정)
+let dartPer = null;
+try {
+  const dpRaw = await timedFetch(`${_redisUrl}/get/dart_per`, {
+    headers: { Authorization: `Bearer ${_redisToken}` },
+  }).then(r => r.json());
+  if (dpRaw.result) {
+    const dpMap = JSON.parse(dpRaw.result);
+    if (dpMap[code] !== undefined) dartPer = dpMap[code];
+  }
+} catch (_) {}
+    
     const investor = null;
 
     // DART 공시
@@ -694,7 +706,7 @@ export default async function handler(req, res) {
     // 국장 특화 점수 (항상 실시간 계산 — 분석기 상세 표시용)
     // KIS per/pbr: KIS가 자체 계산한 연결 기준 PER·PBR — 네이버 등 외부 사이트와 동일 basis
     // (EPS/BPS 직접 계산 시 KIS eps가 별도 기준이라 연결 기준 네이버 값과 괴리 발생)
-    const per2     = parseF(pOut.per || '0');
+    const per2 = dartPer ?? parseF(pOut.per || '0');
     const pbr2     = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     // 외인+기관 5일 순매수 (미래성장 가점용 — 이평선 배열과 겹치지 않는 독립 지표)
