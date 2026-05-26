@@ -1,3 +1,5 @@
 {
-  "dependencies": {}
+  "dependencies": {
+    "adm-zip": "^0.5.10"
+  }
 }
