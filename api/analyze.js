@@ -805,7 +805,8 @@ try {
     const korScore  = ks.total;
     const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
-    const score     = storedScore !== null ? storedScore : liveScore;
+    // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
+    const score     = liveScore;
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
 
     // 이평선 세부 점수 (배열 20점 + MA20 이격도 20점 = 최대 40점)
