@@ -378,17 +378,17 @@ const GROWTH_SECTOR_KW = [...GROWTH_TIER1, ...GROWTH_TIER2, ...GROWTH_TIER3, ...
 
 function sectorGrowthScore(sector) {
   const s = sector || '';
-  if (GROWTH_TIER1.some(k => s.includes(k))) return 6;
-  if (GROWTH_TIER2.some(k => s.includes(k))) return 5;
-  if (GROWTH_TIER3.some(k => s.includes(k))) return 4;
-  if (GROWTH_TIER4.some(k => s.includes(k))) return 2;
+  if (GROWTH_TIER1.some(k => s.includes(k))) return 14;
+  if (GROWTH_TIER2.some(k => s.includes(k))) return 11;
+  if (GROWTH_TIER3.some(k => s.includes(k))) return 8;
+  if (GROWTH_TIER4.some(k => s.includes(k))) return 4;
   return 0;
 }
 
 function calcGrowthBonus(sector, d5FrgnInst) {
   const secScore = sectorGrowthScore(sector);
-  const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 2 : 0;
-  return { total: Math.min(8, secScore + buyScore), secScore, buyScore };
+  const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
+  return { total: Math.min(14, secScore + buyScore), secScore, buyScore };
 }
 
 function getStockTag(pbr, per, sector) {
@@ -417,12 +417,18 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const n   = closes.length - 1;
   const cur = closes[n];
 
-  const pbrScore = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
-  const perScore = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
-  const { total: growthTotal } = calcGrowthBonus(sector, d5FrgnInst);
-  const perFinal = Math.max(perScore, growthTotal);
+  // PBR (최대 8점)
+  const pbrScore = pbr > 0 ? Math.max(0, 8 * (1.5 - pbr) / 1.5) : 0;
 
-  // 공포 클라이맥스 (BB width = IV 대용)
+  // 섹터 프리미엄 vs PER 저평가 (최대 14점)
+  const secScore  = sectorGrowthScore(sector);
+  const perScore  = per > 0 ? Math.max(0, 10 * (25 - per) / 25) : 0;
+  const perFinal  = Math.max(perScore, secScore);
+
+  // 수급 모멘텀 (최대 4점)
+  const supplyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
+
+  // 공포 클라이맥스 (보너스 +4점)
   const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
   const drawdown   = recentHigh > 0 ? (recentHigh - cur) / recentHigh * 100 : 0;
 
@@ -434,18 +440,21 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
 
   let panicScore = 0;
   if (rsiLatest !== null && rsiLatest !== undefined) {
-    if      (rsiLatest < 25 && drawdown >= 30)                panicScore = 10;
-    else if (rsiLatest < 30 && drawdown >= 25 && isIVExtreme) panicScore = 10;
-    else if (rsiLatest < 35 && drawdown >= 20)                panicScore = 7;
-    else if (rsiLatest < 35 && isIVExtreme)                   panicScore = 6;
-    else if (rsiLatest < 35)                                  panicScore = 4;
-    else if (rsiLatest < 40)                                  panicScore = 2;
+    if      (rsiLatest < 25 && drawdown >= 30)                panicScore = 4;
+    else if (rsiLatest < 30 && drawdown >= 25 && isIVExtreme) panicScore = 4;
+    else if (rsiLatest < 35 && drawdown >= 20)                panicScore = 3;
+    else if (rsiLatest < 35 && isIVExtreme)                   panicScore = 3;
+    else if (rsiLatest < 35)                                  panicScore = 2;
+    else if (rsiLatest < 40)                                  panicScore = 1;
   }
 
   const discScore = calcDisclosureBonus(disclosures);
-  const total = Math.min(30, Math.round(pbrScore + perFinal + panicScore + discScore));
-  return { total, pbrScore: Math.round(pbrScore), perScore: Math.round(perScore),
-           perFinal, panicScore, discScore, drawdown, isIVExtreme };
+  const total = Math.min(30, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore));
+  return { total,
+           pbrScore:    Math.round(pbrScore * 10) / 10,
+           perScore:    Math.round(perScore * 10) / 10,
+           perFinal:    Math.round(perFinal * 10) / 10,
+           supplyScore, panicScore, discScore, drawdown, isIVExtreme };
 }
 
 function maSignal(price, ma) {
