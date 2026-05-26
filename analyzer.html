@@ -330,13 +330,32 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <!-- 우측 컬럼 (6): MA값 / 기술분析 / 지지저항 / 수급 / 매매전략 / 체크리스트 -->
       <div class="detail-col">
 
-        <!-- 이동평균 -->
+        <!-- 체크리스트 -->
         <div class="dl-card">
-          <div class="dl-title">이동평균</div>
-          <div class="indicator-row">
-            <div class="ind-card"><div class="ind-label">MA 5일</div><div class="ind-val" id="r-ma5">-</div></div>
-            <div class="ind-card"><div class="ind-label">MA 20일</div><div class="ind-val" id="r-ma20">-</div></div>
-            <div class="ind-card"><div class="ind-label">MA 60일</div><div class="ind-val" id="r-ma60">-</div></div>
+          <div class="dl-title">지금 확인할 것</div>
+          <div class="checklist" id="r-checklist"></div>
+        </div>
+
+        <!-- 매매 전략 -->
+        <div class="dl-card">
+          <div class="dl-title">매매 전략</div>
+          <div id="r-strategy"></div>
+        </div>
+
+        <!-- 지지·저항 -->
+        <div class="dl-card">
+          <div class="dl-title">지지 · 저항</div>
+          <div class="sr-grid">
+            <div class="sr-card" style="background:var(--red-bg);">
+              <div class="sr-label red">저항선 (20일 고점)</div>
+              <div class="sr-val red" id="r-resistance"></div>
+              <div class="sr-gap" id="r-rgap"></div>
+            </div>
+            <div class="sr-card" style="background:var(--green-bg);">
+              <div class="sr-label green">지지선 (20일 저점)</div>
+              <div class="sr-val green" id="r-support"></div>
+              <div class="sr-gap" id="r-sgap"></div>
+            </div>
           </div>
         </div>
 
@@ -357,39 +376,20 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
           <div class="signals-list" id="r-signals"></div>
         </div>
 
-        <!-- 지지·저항 -->
-        <div class="dl-card">
-          <div class="dl-title">지지 · 저항</div>
-          <div class="sr-grid">
-            <div class="sr-card" style="background:var(--red-bg);">
-              <div class="sr-label red">저항선 (20일 고점)</div>
-              <div class="sr-val red" id="r-resistance"></div>
-              <div class="sr-gap" id="r-rgap"></div>
-            </div>
-            <div class="sr-card" style="background:var(--green-bg);">
-              <div class="sr-label green">지지선 (20일 저점)</div>
-              <div class="sr-val green" id="r-support"></div>
-              <div class="sr-gap" id="r-sgap"></div>
-            </div>
-          </div>
-        </div>
-
         <!-- 투자자 수급 (5일/20일 누적) -->
         <div class="dl-card">
           <div class="dl-title">투자자 수급 누적</div>
           <div id="r-investor-supply"><div class="inv-nodata">불러오는 중…</div></div>
         </div>
 
-        <!-- 매매 전략 -->
+        <!-- 이동평균 -->
         <div class="dl-card">
-          <div class="dl-title">매매 전략</div>
-          <div id="r-strategy"></div>
-        </div>
-
-        <!-- 체크리스트 -->
-        <div class="dl-card">
-          <div class="dl-title">지금 확인할 것</div>
-          <div class="checklist" id="r-checklist"></div>
+          <div class="dl-title">이동평균</div>
+          <div class="indicator-row">
+            <div class="ind-card"><div class="ind-label">MA 5일</div><div class="ind-val" id="r-ma5">-</div></div>
+            <div class="ind-card"><div class="ind-label">MA 20일</div><div class="ind-val" id="r-ma20">-</div></div>
+            <div class="ind-card"><div class="ind-label">MA 60일</div><div class="ind-val" id="r-ma60">-</div></div>
+          </div>
         </div>
 
       </div><!-- /우측 -->
