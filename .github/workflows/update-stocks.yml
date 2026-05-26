@@ -10,7 +10,7 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30    # 최대 30분 (전종목 처리 여유있게)
+    timeout-minutes: 60    # 최대 60분 (전종목 ~2500개 처리 여유)
 
     steps:
       - name: 코드 체크아웃
@@ -30,7 +30,6 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           KIS_APP_KEY:       ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET:    ${{ secrets.KIS_APP_SECRET }}
-          DART_API_KEY:      ${{ secrets.DART_API_KEY }}
         run: node scripts/update-recommend.js
 
 # ──────────────────────────────────────────────────────────────────
