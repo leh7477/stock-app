@@ -774,7 +774,7 @@ function renderKoreanScore(ks) {
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${perSlotLbl} <span style="color:var(--blue);font-size:9px;">↓ 미래성장 카드 참고</span></div>
         <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${perFinal/8*100}%;background:${c}"></div></div>
       </div>
-      <div class="ma-score-val" style="color:${c}">${perFinal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
+      <div class="ma-score-val" style="color:${c}">${(+perFinal).toFixed(1)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
     </div>
     <div class="ma-score-row">
       <div class="ma-score-label">공포<br><span style="font-size:8px;">클라이맥스</span></div>
@@ -836,7 +836,7 @@ function renderGrowthScore(ks) {
     : `<span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">ℹ️ PER 점수 사용 중 (${perScore}점 ≥ ${growthScore}점)</span>`;
 
   const perRef = per > 0
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배 기준 점수: <b>${perScore}</b>점 / 미래성장 가점: <b>${growthScore}</b>점 → <b style="color:${gc}">${perFinal}점</b> 적용</div>`
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배 기준 점수: <b>${perScore}</b>점 / 미래성장 가점: <b>${growthScore}</b>점 → <b style="color:${gc}">${(+perFinal).toFixed(1)}점</b> 적용</div>`
     : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 미래성장 가점 <b style="color:${gc}">${growthScore}점</b> 적용</div>`;
 
   const commentHtml = growthComment ? `
