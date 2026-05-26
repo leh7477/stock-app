@@ -137,22 +137,21 @@ function getReportCandidates() {
   const now   = new Date();
   const year  = now.getFullYear();
   const month = now.getMonth() + 1;
+  // 분기 보고서만 시도 — 없으면 analyze.js에서 KIS PER fallback 처리
+  // (연간 사업보고서는 KIS PER과 동일 기준이라 포함 불필요)
   if (month >= 11) return [
-    { year, code: '11014' },          // Q3 당해
-    { year, code: '11012' },          // 반기 당해
-    { year, code: '11013' },          // Q1 당해
-    { year: year - 1, code: '11011' }, // 연간 전년
+    { year, code: '11014' },   // Q3 당해 (11월~)
+    { year, code: '11012' },   // 반기 당해
+    { year, code: '11013' },   // Q1 당해
   ];
   if (month >= 8) return [
-    { year, code: '11012' },          // 반기 당해
-    { year, code: '11013' },          // Q1 당해
-    { year: year - 1, code: '11011' }, // 연간 전년
+    { year, code: '11012' },   // 반기 당해 (8월~)
+    { year, code: '11013' },   // Q1 당해
   ];
   if (month >= 5) return [
-    { year, code: '11013' },          // Q1 당해
-    { year: year - 1, code: '11011' }, // 연간 전년
+    { year, code: '11013' },   // Q1 당해 (5월~)
   ];
-  return [{ year: year - 1, code: '11011' }]; // 1~4월: 연간 전년만
+  return [];  // 1~4월: 분기 미확정 → KIS PER 사용
 }
 
 // ─── DART 연결재무제표 → EPS 계산 ──────────────────────────────────────────
@@ -162,6 +161,7 @@ function getReportCandidates() {
 
 async function fetchDartEPS(corpCode) {
   const candidates = getReportCandidates();
+  if (candidates.length === 0) return null;  // 1~4월: 분기 없음 → KIS PER 사용
 
   for (const { year, code: reprtCode } of candidates) {
     try {
