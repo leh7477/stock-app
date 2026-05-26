@@ -2,8 +2,8 @@ name: 전종목 MA 분석 업데이트
 
 on:
   schedule:
-    # 매주 월~금 KST 16:30 (UTC 07:30) - 장 마감(15:30) 후 1시간 뒤
-    - cron: '30 7 * * 1-5'
+    # 매주 월~금 KST 16:00 (UTC 07:00) - 장 마감(15:30) 후 30분 뒤
+    - cron: '0 7 * * 1-5'
   workflow_dispatch:
     # 수동 실행 가능 (GitHub Actions 탭 → Run workflow)
 
