@@ -376,8 +376,26 @@ const GROWTH_TIER3 = ['소프트웨어', '인터넷', '게임', '의료기기', 
 const GROWTH_TIER4 = ['통신장비', '전기장비'];
 const GROWTH_SECTOR_KW = [...GROWTH_TIER1, ...GROWTH_TIER2, ...GROWTH_TIER3, ...GROWTH_TIER4];
 
-function sectorGrowthScore(sector) {
-  const s = sector || '';
+// 회사명 직접 화이트리스트 (KIS 업종 분류 오류 보완)
+// 예: 삼성전자·SK하이닉스 → KIS 업종 "전기·전자" (반도체 아님) → 이름으로 직접 매핑
+const TIER1_STOCK_NAMES = [
+  // ── 반도체 ────────────────────────────────────────────────────────────
+  '삼성전자', 'SK하이닉스', 'DB하이텍', '한미반도체', '피에스케이', '피에스케이홀딩스',
+  '이오테크닉스', '원익IPS', '주성엔지니어링', '유진테크', '에프에스티', '두산테스나',
+  '에스티아이', '싸이맥스', '파크시스템스', '예스티', '테스', '브이엠', 'SFA반도체',
+  '원익머트리얼즈', '솔브레인', '이엔에프테크놀로지', '리노공업', '네패스', '네패스아크',
+  '제주반도체', '어보브반도체', '퀄리타스반도체', '가온칩스', '칩스앤미디어', '텔레칩스',
+  '하나마이크론', '심텍', '이수페타시스', '대덕전자', '코리아써키트', '뱅크웨어글로벌',
+  // ── 방산 ──────────────────────────────────────────────────────────────
+  '한화에어로스페이스', 'LIG넥스원', '현대로템', '한화시스템', '한화오션',
+  '한국항공우주', '풍산', '빅텍', '퍼스텍', '스페코', '한일단조', '아이쓰리시스템',
+];
+
+function sectorGrowthScore(sector, name = '') {
+  const nm = (name || '').trim();
+  const s  = sector || '';
+  // 이름 화이트리스트 우선 체크 (업종 오분류 대형주 보완)
+  if (nm && TIER1_STOCK_NAMES.includes(nm)) return 14;
   if (GROWTH_TIER1.some(k => s.includes(k))) return 14;
   if (GROWTH_TIER2.some(k => s.includes(k))) return 11;
   if (GROWTH_TIER3.some(k => s.includes(k))) return 8;
@@ -385,14 +403,16 @@ function sectorGrowthScore(sector) {
   return 0;
 }
 
-function calcGrowthBonus(sector, d5FrgnInst) {
-  const secScore = sectorGrowthScore(sector);
+function calcGrowthBonus(sector, d5FrgnInst, name = '') {
+  const secScore = sectorGrowthScore(sector, name);
   const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
   return { total: Math.min(14, secScore + buyScore), secScore, buyScore };
 }
 
-function getStockTag(pbr, per, sector) {
-  const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k));
+function getStockTag(pbr, per, sector, name = '') {
+  const nm = (name || '').trim();
+  const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k))
+    || (nm && TIER1_STOCK_NAMES.includes(nm));
   if (per > 40 || (isGrowthSector && per > 15)) return 'growth';
   if (pbr > 0 && pbr < 1.2 && per > 0 && per < 18) return 'value';
   return 'neutral';
@@ -413,7 +433,7 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = []) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '') {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -421,7 +441,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const pbrScore = pbr > 0 ? Math.max(0, 8 * (1.5 - pbr) / 1.5) : 0;
 
   // 섹터 프리미엄 vs PER 저평가 (최대 14점)
-  const secScore  = sectorGrowthScore(sector);
+  const secScore  = sectorGrowthScore(sector, stockName);
   const perScore  = per > 0 ? Math.max(0, 10 * (25 - per) / 25) : 0;
   const perFinal  = Math.max(perScore, secScore);
 
@@ -501,7 +521,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
   // KIS PER 사용 (DART EPS는 analyze.js에서 dart_eps 읽어 실시간 계산)
   const finalPer = extra.per ?? 0;
-  const ks       = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst);
+  const ks       = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '');
   const korScore = ks.total;
   const score    = Math.min(100, Math.round(techScore * 0.7) + korScore);
 
@@ -530,7 +550,7 @@ function analyze(stock, closes, volumes, extra = {}) {
     per:         finalPer,
     pbr:         extra.pbr         || 0,
     eps:         extra.eps         || 0,
-    stockTag:    getStockTag(extra.pbr || 0, finalPer, extra.sector || ''),
+    stockTag:    getStockTag(extra.pbr || 0, finalPer, extra.sector || '', stock.name || ''),
   };
 }
 

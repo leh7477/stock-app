@@ -306,13 +306,31 @@ const GROWTH_TIER3 = ['소프트웨어', '인터넷', '게임', '의료기기', 
 const GROWTH_TIER4 = ['통신장비', '전기장비'];
 const GROWTH_SECTOR_KW = [...GROWTH_TIER1, ...GROWTH_TIER2, ...GROWTH_TIER3, ...GROWTH_TIER4];
 
-// 섹터 점수만 반환 (0~14점) — 슈퍼사이클 주도주에 충분한 가점
+// 회사명 직접 화이트리스트 (KIS 업종 분류 오류 보완)
+// 예: 삼성전자·SK하이닉스 → KIS 업종 "전기·전자" (반도체 아님) → 이름으로 직접 매핑
+const TIER1_STOCK_NAMES = [
+  // ── 반도체 ────────────────────────────────────────────────────────────
+  '삼성전자', 'SK하이닉스', 'DB하이텍', '한미반도체', '피에스케이', '피에스케이홀딩스',
+  '이오테크닉스', '원익IPS', '주성엔지니어링', '유진테크', '에프에스티', '두산테스나',
+  '에스티아이', '싸이맥스', '파크시스템스', '예스티', '테스', '브이엠', 'SFA반도체',
+  '원익머트리얼즈', '솔브레인', '이엔에프테크놀로지', '리노공업', '네패스', '네패스아크',
+  '제주반도체', '어보브반도체', '퀄리타스반도체', '가온칩스', '칩스앤미디어', '텔레칩스',
+  '하나마이크론', '심텍', '이수페타시스', '대덕전자', '코리아써키트', '뱅크웨어글로벌',
+  // ── 방산 ──────────────────────────────────────────────────────────────
+  '한화에어로스페이스', 'LIG넥스원', '현대로템', '한화시스템', '한화오션',
+  '한국항공우주', '풍산', '빅텍', '퍼스텍', '스페코', '한일단조', '아이쓰리시스템',
+];
+
+// 섹터 점수만 반환 (0~14점) — 이름 화이트리스트 우선, 업종명 보조
 // T1=14: 반도체·방산(국장 최고 성장 테마)
 // T2=11: 바이오·2차전지·로봇·우주항공
 // T3=8:  소프트웨어·인터넷·게임·의료기기
 // T4=4:  통신장비·전기장비
-function sectorGrowthScore(sector) {
-  const s = sector || '';
+function sectorGrowthScore(sector, name = '') {
+  const nm = (name || '').trim();
+  const s  = sector || '';
+  // 이름 화이트리스트 우선 체크 (업종 오분류 대형주 보완)
+  if (nm && TIER1_STOCK_NAMES.includes(nm)) return 14;
   if (GROWTH_TIER1.some(k => s.includes(k))) return 14;
   if (GROWTH_TIER2.some(k => s.includes(k))) return 11;
   if (GROWTH_TIER3.some(k => s.includes(k))) return 8;
@@ -323,15 +341,17 @@ function sectorGrowthScore(sector) {
 // 미래 성장성 가점 (최대 14점)
 // = 성장 섹터 등급(0~14) + 외인+기관 5일 순매수 방향(0~4)
 // 이평선 배열은 기술지표 70점에 이미 반영 → 여기선 사용 안 함
-function calcGrowthBonus(sector, d5FrgnInst) {
-  const secScore = sectorGrowthScore(sector);
+function calcGrowthBonus(sector, d5FrgnInst, name = '') {
+  const secScore = sectorGrowthScore(sector, name);
   const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
   return { total: Math.min(14, secScore + buyScore), secScore, buyScore };
 }
 
 // 종목 성격 태그: 'value' | 'growth' | 'neutral'
-function getStockTag(pbr, per, sector) {
-  const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k));
+function getStockTag(pbr, per, sector, name = '') {
+  const nm = (name || '').trim();
+  const isGrowthSector = GROWTH_SECTOR_KW.some(k => (sector || '').includes(k))
+    || (nm && TIER1_STOCK_NAMES.includes(nm));
   if (per > 40 || (isGrowthSector && per > 15)) return 'growth';
   if (pbr > 0 && pbr < 1.2 && per > 0 && per < 18) return 'value';
   return 'neutral';
@@ -357,7 +377,7 @@ function calcDisclosureBonus(disclosures) {
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
 // PBR(8) + max(PER저평가[10], 섹터프리미엄[14])(14) + 수급(4) + 공포보너스(+4) + 공시(±2)
 // 슈퍼사이클 주도주(삼성전자·하이닉스 등)도 90점대 진입 가능한 구조
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = []) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '') {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -366,7 +386,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
 
   // 섹터 프리미엄 vs PER 저평가 (최대 14점, 높은 값 선택)
   // 반도체/방산 슈퍼사이클(14점) ↔ 극도 저평가 가치주(PER≤8배, ~10점)
-  const secScore  = sectorGrowthScore(sector);
+  const secScore  = sectorGrowthScore(sector, stockName);
   const perScore  = per > 0 ? Math.max(0, 10 * (25 - per) / 25) : 0;
   const perFinal  = Math.max(perScore, secScore);
 
@@ -781,7 +801,7 @@ try {
     const _d5 = investorSupply?.d5;
     const d5FrgnInst2 = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
     const techScore = calcScore(closes, volumes, boll);
-    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name);
     const korScore  = ks.total;
     const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
@@ -826,9 +846,9 @@ try {
                 drawdown: drawdownPct, isIVExtreme } = ks;
         // 미래성장 가점 상세 (섹터 등급 + 외인기관 수급)
         const { total: growthS, secScore: growthSecS, buyScore: growthBuyS } =
-          calcGrowthBonus(sector2, d5FrgnInst2);
+          calcGrowthBonus(sector2, d5FrgnInst2, name);
         const rsiNow = rsiArr[n];
-        const tag    = getStockTag(pbr2, per2, sector2);
+        const tag    = getStockTag(pbr2, per2, sector2, name);
         const growthComment = (tag === 'growth' && per2 > 30)
           ? `이 종목은 [🔥 국장 주도 성장주] 태그에 해당하여, 현재 PER(${per2.toFixed(1)}배)로는 비싸 보이지만 성장 섹터(${growthSecS}점)·외인기관 수급(${growthBuyS}점)을 반영한 [섹터 프리미엄 ${growthS}점]을 부여했습니다.`
           : null;
