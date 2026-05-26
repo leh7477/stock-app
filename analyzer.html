@@ -824,11 +824,11 @@ function renderGrowthScore(ks) {
     perFinal = 0, tag = 'neutral', growthComment = null,
   } = ks;
 
-  const isApplied = growthScore > perScore;   // 성장 가점이 실제로 PER 대신 적용된 경우
+  const sectorScore  = growthSector ?? 0;   // 섹터 등급 점수 (0~14)
+  const buyScore     = growthBuy    ?? 0;   // 외인+기관 순매수 (0~4)
+  const totalGrowth  = sectorScore + buyScore;  // 실제 합산 (최대 18)
+  const isApplied = sectorScore > perScore;  // 섹터 점수가 PER보다 높으면 PER 대신 적용
   const gc = isApplied ? '#f59e0b' : 'var(--muted)';
-
-  const sectorScore = growthSector ?? 0;  // 섹터 등급 점수 (0~6)
-  const buyScore    = growthBuy    ?? 0;  // 외인+기관 순매수 (0~2)
 
   // 섹터 등급 라벨
   const secLbl = sectorScore >= 14 ? '반도체·방위산업 — 국장 최고 성장 테마 (14점)'
@@ -843,11 +843,11 @@ function renderGrowthScore(ks) {
 
   const statusBadge = isApplied
     ? `<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✅ PER 대신 적용 중</span>`
-    : `<span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">ℹ️ PER 점수 사용 중 (${perScore}점 ≥ ${growthScore}점)</span>`;
+    : `<span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">ℹ️ PER 점수 사용 중 (${perScore}점 ≥ ${sectorScore}점)</span>`;
 
   const perRef = per > 0
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배 기준 점수: <b>${perScore}</b>점 / 미래성장 가점: <b>${growthScore}</b>점 → <b style="color:${gc}">${(+perFinal).toFixed(1)}점</b> 적용</div>`
-    : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 미래성장 가점 <b style="color:${gc}">${growthScore}점</b> 적용</div>`;
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배 기준 점수: <b>${perScore}</b>점 / 섹터 가점: <b>${sectorScore}</b>점 + 수급: <b>${buyScore}</b>점 = <b style="color:${gc}">${totalGrowth}</b>점 합산</div>`
+    : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 섹터 <b style="color:${gc}">${sectorScore}</b>점 + 수급 <b style="color:${gc}">${buyScore}</b>점 적용</div>`;
 
   const commentHtml = growthComment ? `
     <div style="margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
@@ -857,7 +857,7 @@ function renderGrowthScore(ks) {
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div style="font-size:22px;font-weight:800;color:${gc};">${growthScore}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 14점</span></div>
+      <div style="font-size:22px;font-weight:800;color:${gc};">${totalGrowth}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 18점</span></div>
       ${statusBadge}
     </div>
     <div class="ma-score-row">

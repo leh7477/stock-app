@@ -344,7 +344,8 @@ function sectorGrowthScore(sector, name = '') {
 function calcGrowthBonus(sector, d5FrgnInst, name = '') {
   const secScore = sectorGrowthScore(sector, name);
   const buyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
-  return { total: Math.min(14, secScore + buyScore), secScore, buyScore };
+  // 섹터(최대 14) + 수급(최대 4) = 최대 18 (표시용 합계 — 실제 점수는 calcKoreanScore에서 별도 합산)
+  return { total: Math.min(18, secScore + buyScore), secScore, buyScore };
 }
 
 // 종목 성격 태그: 'value' | 'growth' | 'neutral'
