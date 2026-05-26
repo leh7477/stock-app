@@ -1,10 +1,12 @@
 /**
- * 전종목 MA + 기본 정보 분석 업데이트 스크립트
+ * 전종목 MA + 기본 정보 분석 업데이트 스크립트 (매일 실행)
  * - KRX → KOSPI·KOSDAQ 상장종목 목록 (비상장·코넥스 완전 제외)
  * - KIS (FHKST03010100) → 일봉 (거래량, 외인보유율, 외인순매수 포함)
  * - KIS (FHKST01010100) → 시가총액, PER, PBR, EPS, 업종명
- * - DART → 연결 기준 EPS/PER (KIS PER보다 정확)
  * - MA5/MA20/MA60 계산, 스코어링 → Redis 저장
+ *
+ * DART EPS는 update-dart-eps.js (분기 1회) 에서 별도 관리
+ * analyze.js에서 PER = 현재가 ÷ dart_eps 로 실시간 계산
  */
 
 'use strict';
@@ -13,7 +15,6 @@ const KV_URL    = process.env.KV_REST_API_URL;
 const KV_TOKEN  = process.env.KV_REST_API_TOKEN;
 const KIS_KEY   = process.env.KIS_APP_KEY;
 const KIS_SEC   = process.env.KIS_APP_SECRET;
-const DART_KEY  = process.env.DART_API_KEY;
 
 const BATCH_SIZE  = 6;
 const BATCH_DELAY = 1200;
@@ -126,82 +127,6 @@ async function fetchAllListedStocks() {
   console.log('[krx] 파싱 샘플:', all.slice(0, 5).map(s => `${s.code}(${s.market}) ${s.name}`).join(', '));
   if (all.length < 1000) throw new Error(`KRX 종목 수 이상 (${all.length}개) — 응답 확인 필요`);
   return all;
-}
-
-// ─── DART corp_code 맵 (종목코드 → corp_code) ────────────────────────────
-
-async function fetchDartCorpMap(krxCodes) {
-  if (!DART_KEY) return {};
-  try {
-    const AdmZip = (await import('adm-zip')).default;
-    const res = await timedFetch(
-      `https://opendart.fss.or.kr/api/corpCode.xml?crtfc_key=${DART_KEY}`
-    );
-    const buf = await res.arrayBuffer();
-    const zip = new AdmZip(Buffer.from(buf));
-    const xml = zip.getEntry('CORPCODE.xml')?.getData().toString('utf-8');
-    if (!xml) throw new Error('CORPCODE.xml 없음');
-
-    const corpMap = {};
-    const re = /<list>([\s\S]*?)<\/list>/g;
-    let m;
-    while ((m = re.exec(xml)) !== null) {
-      const block      = m[1];
-      const corp_code  = block.match(/<corp_code>(\d+)<\/corp_code>/)?.[1];
-      const stock_code = block.match(/<stock_code>\s*(\d+)\s*<\/stock_code>/)?.[1]?.trim();
-      if (corp_code && stock_code && krxCodes.has(stock_code)) {
-        corpMap[stock_code] = corp_code;
-      }
-    }
-    console.log(`[dart] corp_code 매핑: ${Object.keys(corpMap).length}개 (KRX 기준 필터)`);
-    return corpMap;
-  } catch (e) {
-    console.warn('[dart] corp_code 맵 실패:', e.message);
-    return {};
-  }
-}
-
-// ─── DART 연결 재무제표 → PER 계산 ──────────────────────────────────────
-
-async function fetchDartPER(corpCode, price) {
-  if (!DART_KEY || !corpCode || !price) return null;
-  try {
-    // 전년도 연간 결산 (11011 = 사업보고서)
-    const year = new Date().getFullYear() - 1;
-    const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json` +
-      `?crtfc_key=${DART_KEY}&corp_code=${corpCode}` +
-      `&bsns_year=${year}&reprt_code=11011&fs_div=CFS`;
-
-    const data = await timedFetch(url).then(r => r.json()).catch(() => null);
-    if (data?.status !== '000') return null;
-
-    const list = data.list || [];
-
-    // 당기순이익 (연결, 비지배 제외)
-    const netIncome = list.find(r =>
-      r.fs_div === 'CFS' &&
-      r.account_nm?.includes('당기순이익') &&
-      !r.account_nm?.includes('비지배')
-    );
-    // 발행주식수 (보통주)
-    const shares = list.find(r =>
-      r.account_nm?.includes('보통주') &&
-      (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행'))
-    );
-
-    if (!netIncome?.thstrm_amount || !shares?.thstrm_amount) return null;
-
-    const ni = parseInt(String(netIncome.thstrm_amount).replace(/,/g, '')) || 0;
-    const sh = parseInt(String(shares.thstrm_amount).replace(/,/g, ''))   || 0;
-    if (ni <= 0 || sh <= 0) return null;
-
-    const eps = Math.round(ni / sh);
-    const per = Math.round(price / eps * 10) / 10;
-    // 비정상값 제외 (0 이하 또는 500 초과)
-    return (per > 0 && per < 500) ? per : null;
-  } catch (e) {
-    return null;
-  }
 }
 
 // ─── KIS 일봉 조회 ─────────────────────────────────────────────────────────
@@ -410,20 +335,35 @@ function calcScore(closes, volumes) {
     else if (obv[n] >= obvMax * 0.65) score += 4;
   }
 
+  // ── 볼린저 심리 레이어 — 공포/탐욕 양방향 (±10점) ─────────────────────
   const widths = calcBollingerWidths(closes);
   const curW   = widths[n];
   const histW  = widths.slice(Math.max(0, n - 120), n).filter(x => x !== null);
   if (curW !== null && histW.length >= 20) {
     const minW = Math.min(...histW);
-    if (curW <= minW * 1.1 && volumes && volumes.length > 5) {
-      const vol5 = volumes.slice(Math.max(0, n - 5), n).reduce((a, b) => a + b, 0) / 5;
+    const vol5 = (volumes && volumes.length > 5)
+      ? volumes.slice(Math.max(0, n - 5), n).reduce((a, b) => a + b, 0) / 5 : 0;
+
+    // [공포] 스퀴즈 돌파/붕괴 (기존 유지)
+    if (curW <= minW * 1.1 && vol5 > 0) {
       const s20  = closes.slice(Math.max(0, n - 19), n + 1);
       const mean = s20.reduce((a, b) => a + b, 0) / s20.length;
       const std  = Math.sqrt(s20.map(x => (x - mean) ** 2).reduce((a, b) => a + b, 0) / s20.length);
       const bollUpper = Math.round(mean + std * 2);
       const bollLower = Math.round(mean - std * 2);
-      if (cur > bollUpper && vol5 > 0 && volumes[n] > vol5 * 2) score += 10;
-      else if (cur < bollLower)                                   score -= 10;
+      if (cur > bollUpper && volumes[n] > vol5 * 2) score += 10;
+      else if (cur < bollLower)                      score -= 10;
+    }
+
+    // [탐욕 과열 감지] RSI 극과매수 + 거래량 소멸 → 역발상 경고 ★
+    const rsiNow = rsiArr[n];
+    if (rsiNow !== null && rsiNow >= 75 && vol5 > 0) {
+      const isVolDrying = volumes[n] < vol5 * 0.7;
+      const isBBNarrow  = curW <= minW * 1.5;
+      if      (rsiNow >= 80 && isVolDrying && isBBNarrow) score -= 6;
+      else if (rsiNow >= 78 && isVolDrying)                score -= 4;
+      else if (rsiNow >= 75 && isVolDrying)                score -= 3;
+      else if (rsiNow >= 80)                               score -= 2;
     }
   }
 
@@ -458,26 +398,54 @@ function getStockTag(pbr, per, sector) {
   return 'neutral';
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst) {
+// ─── 공시 모멘텀 (-2 ~ +2점) ───────────────────────────────────────────────
+const DISC_GOOD_KW = ['수주', '계약체결', '흑자전환', '증가', '승인', '완료', '특허', '임상성공', '수상'];
+const DISC_BAD_KW  = ['손실', '적자', '감소', '소송', '횡령', '조사', '회수', '불성실공시', '영업정지'];
+
+function calcDisclosureBonus(disclosures) {
+  if (!Array.isArray(disclosures) || disclosures.length === 0) return 0;
+  let pts = 0;
+  for (const d of disclosures) {
+    const nm = d.reportName || '';
+    if (DISC_GOOD_KW.some(k => nm.includes(k))) pts += 1;
+    if (DISC_BAD_KW.some(k => nm.includes(k)))  pts -= 1;
+  }
+  return Math.max(-2, Math.min(2, pts));
+}
+
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = []) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
-  const pbrScore             = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
-  const perScore             = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
+  const pbrScore = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
+  const perScore = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
   const { total: growthTotal } = calcGrowthBonus(sector, d5FrgnInst);
-  const perFinal             = Math.max(perScore, growthTotal);
+  const perFinal = Math.max(perScore, growthTotal);
 
+  // 공포 클라이맥스 (BB width = IV 대용)
   const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
   const drawdown   = recentHigh > 0 ? (recentHigh - cur) / recentHigh * 100 : 0;
+
+  const bbWidths = calcBollingerWidths(closes);
+  const curBBW   = bbWidths[n];
+  const histBBW  = bbWidths.slice(Math.max(0, n - 120), n).filter(x => x !== null);
+  const maxBBW   = histBBW.length >= 10 ? Math.max(...histBBW) : null;
+  const isIVExtreme = maxBBW !== null && curBBW !== null && curBBW >= maxBBW * 0.80;
+
   let panicScore = 0;
   if (rsiLatest !== null && rsiLatest !== undefined) {
-    if      (rsiLatest < 25 && drawdown >= 30) panicScore = 10;
-    else if (rsiLatest < 35 && drawdown >= 20) panicScore = 7;
-    else if (rsiLatest < 35)                   panicScore = 4;
-    else if (rsiLatest < 40)                   panicScore = 2;
+    if      (rsiLatest < 25 && drawdown >= 30)                panicScore = 10;
+    else if (rsiLatest < 30 && drawdown >= 25 && isIVExtreme) panicScore = 10;
+    else if (rsiLatest < 35 && drawdown >= 20)                panicScore = 7;
+    else if (rsiLatest < 35 && isIVExtreme)                   panicScore = 6;
+    else if (rsiLatest < 35)                                  panicScore = 4;
+    else if (rsiLatest < 40)                                  panicScore = 2;
   }
 
-  return Math.round(pbrScore + perFinal + panicScore);
+  const discScore = calcDisclosureBonus(disclosures);
+  const total = Math.min(30, Math.round(pbrScore + perFinal + panicScore + discScore));
+  return { total, pbrScore: Math.round(pbrScore), perScore: Math.round(perScore),
+           perFinal, panicScore, discScore, drawdown, isIVExtreme };
 }
 
 function maSignal(price, ma) {
@@ -522,10 +490,11 @@ function analyze(stock, closes, volumes, extra = {}) {
   const _d5 = extra.investorSupply?.d5;
   const d5FrgnInst = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
 
-  // DART PER 우선, 없으면 KIS PER
-  const finalPer  = extra.dartPer ?? extra.per ?? 0;
-  const korScore  = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst);
-  const score     = Math.min(100, Math.round(techScore * 0.7) + korScore);
+  // KIS PER 사용 (DART EPS는 analyze.js에서 dart_eps 읽어 실시간 계산)
+  const finalPer = extra.per ?? 0;
+  const ks       = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst);
+  const korScore = ks.total;
+  const score    = Math.min(100, Math.round(techScore * 0.7) + korScore);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
@@ -549,8 +518,7 @@ function analyze(stock, closes, volumes, extra = {}) {
     frgnRatio:   extra.frgnRatio   || 0,
     frgnBuyQty:  extra.frgnBuyQty  || 0,
     mktCap:      extra.mktCap      || 0,
-    per:         finalPer,          // DART 우선 적용된 PER
-    dartPer:     extra.dartPer     ?? null,  // DART PER 원본 (null이면 미확인)
+    per:         finalPer,
     pbr:         extra.pbr         || 0,
     eps:         extra.eps         || 0,
     stockTag:    getStockTag(extra.pbr || 0, finalPer, extra.sector || ''),
@@ -559,7 +527,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, dartCorpMap = {}) {
+async function processStock(token, stock) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -620,19 +588,12 @@ async function processStock(token, stock, dartCorpMap = {}) {
         }
       } catch (_) {}
 
-      // ── DART 연결 PER 조회 (KIS PER 보정) ──
-      let dartPer = null;
-      const corpCode = dartCorpMap[stock.code];
-      if (corpCode) {
-        dartPer = await fetchDartPER(corpCode, closes[closes.length - 1]);
-      }
-
       const market = mkCode === 'J' ? 'KOSPI' : 'KOSDAQ';
       const result = analyze(
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, dartPer }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -652,35 +613,25 @@ async function main() {
   console.log(`\n=== 전종목 MA + 기본정보 분석: ${kstNow.toISOString().replace('T',' ').slice(0,19)} KST ===\n`);
 
   // 1. KRX 상장종목 목록
-  console.log('[1/5] KRX KOSPI·KOSDAQ 상장종목 조회...');
+  console.log('[1/4] KRX KOSPI·KOSDAQ 상장종목 조회...');
   let allStocks;
   try   { allStocks = await fetchAllListedStocks(); }
-  catch (e) { console.error('[1/5] 실패:', e.message); process.exit(1); }
+  catch (e) { console.error('[1/4] 실패:', e.message); process.exit(1); }
 
-  // 2. DART corp_code 맵 구성
-  console.log('[2/5] DART corp_code 맵 구성...');
-  let dartCorpMap = {};
-  try {
-    const krxCodes = new Set(allStocks.map(s => s.code));
-    dartCorpMap = await fetchDartCorpMap(krxCodes);
-  } catch (e) {
-    console.warn('[2/5] DART 맵 실패 (무시):', e.message);
-  }
-
-  // 3. KIS 토큰
-  console.log('[3/5] KIS 토큰 확인...');
+  // 2. KIS 토큰
+  console.log('[2/4] KIS 토큰 확인...');
   let token;
   try   { token = await getKisToken(); }
-  catch (e) { console.error('[3/5] 실패:', e.message); process.exit(1); }
+  catch (e) { console.error('[2/4] 실패:', e.message); process.exit(1); }
 
-  // 4. 배치 처리
-  console.log(`[4/5] 일봉 + 기본정보 + DART PER 조회... (${allStocks.length}개, 배치 ${BATCH_SIZE}개)`);
+  // 3. 배치 처리 (일봉 + 기본정보 + 수급)
+  console.log(`[3/4] 일봉 + 기본정보 조회... (${allStocks.length}개, 배치 ${BATCH_SIZE}개)`);
   const results = [];
   let processed = 0, failed = 0;
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, dartCorpMap)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 
@@ -691,8 +642,8 @@ async function main() {
     await sleep(BATCH_DELAY);
   }
 
-  // 5. Redis 저장
-  console.log('[5/5] Redis 저장...');
+  // 4. Redis 저장
+  console.log('[4/4] Redis 저장...');
   results.sort((a, b) => b.score - a.score);
 
   const baseDate = kstNow.toISOString().slice(0, 10);
@@ -708,15 +659,8 @@ async function main() {
   results.forEach(s => { scoreMap[s.code] = s.score; });
   await redisSet('stock_scores', scoreMap, 28 * 3600);
 
-  // DART PER 맵 저장 (analyze.js에서 읽어서 KIS PER 대신 사용)
-  const dartPerMap = {};
-  results.forEach(s => { if (s.dartPer !== null && s.dartPer !== undefined) dartPerMap[s.code] = s.dartPer; });
-  await redisSet('dart_per', dartPerMap, 28 * 3600);
-
-  const dartCount = Object.keys(dartPerMap).length;
   console.log(`      완료: ${results.length}개 종목 저장`);
   console.log(`      수급 맵 ${Object.keys(invMap).length}개, 점수 맵 ${Object.keys(scoreMap).length}개`);
-  console.log(`      DART PER 맵 ${dartCount}개 (전체의 ${(dartCount/results.length*100).toFixed(1)}%)`);
   console.log(`      기준일 ${baseDate}`);
   console.log('\n=== 완료 ===\n');
 }

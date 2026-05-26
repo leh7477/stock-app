@@ -1,0 +1,41 @@
+name: DART EPS 업데이트 (분기 1회)
+
+on:
+  schedule:
+    # 분기 결산 후 반영 — 1/4/7/10월 5일 KST 10:00 (UTC 01:00)
+    # 사업보고서(11011)는 전년도 실적, 3월 말 제출 → 4월 초 반영
+    # 반기보고서(11012)는 6월 실적, 8월 말 제출 → 10월 초 반영 등
+    - cron: '0 1 5 1,4,7,10 *'
+  workflow_dispatch:
+    # 수동 실행 가능 (GitHub Actions 탭 → Run workflow)
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120    # DART API 전종목 조회: 최대 2시간
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node.js 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 패키지 설치
+        run: npm install
+
+      - name: DART EPS 업데이트
+        env:
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          DART_API_KEY:      ${{ secrets.DART_API_KEY }}
+        run: node scripts/update-dart-eps.js
+
+# ──────────────────────────────────────────────────────────────────
+# 실행 주기: 분기별 1회 (1/4/7/10월 5일)
+# 소요 시간: ~60~90분 (DART API 2500건 × 1.5초)
+# 저장 키: dart_eps (TTL 120일)
+# 사용처: api/analyze.js → PER = 현재가 ÷ dart_eps (실시간)
+# ──────────────────────────────────────────────────────────────────

@@ -258,7 +258,9 @@ function calcScore(closes, volumes, boll) {
     // 65% 미만: 0점
   }
 
-  // ── 볼린저 스퀴즈 레이어 (±10점) ────────────────────────────────────────
+  // ── 볼린저 심리 레이어 — 공포/탐욕 양방향 (±10점) ─────────────────────
+  // IV(내재변동성) 대용: BB width → 공포 클라이맥스 + 탐욕 과열 양방향 감지
+  // "불안할 때 기회, 안도·탐욕할 때 위험" — 김민겸 IQC 우승 핵심 철학 적용
   if (boll?.upper && volumes?.length > 5) {
     const widths = boll.upper.map((u, i) =>
       u && boll.lower[i] && boll.mid[i] ? (u - boll.lower[i]) / boll.mid[i] : null
@@ -267,12 +269,25 @@ function calcScore(closes, volumes, boll) {
     const histW = widths.slice(Math.max(0, n-120), n).filter(x => x !== null);
     if (curW !== null && histW.length >= 20) {
       const minW = Math.min(...histW);
-      if (curW <= minW * 1.1) { // 스퀴즈 상태
-        const vol5 = volumes.slice(Math.max(0, n-5), n).reduce((a,b)=>a+b,0) / 5;
+      const vol5 = volumes.slice(Math.max(0, n-5), n).reduce((a,b)=>a+b,0) / 5;
+
+      // [공포] 스퀴즈 후 방향성 돌파 (기존 유지)
+      if (curW <= minW * 1.1) {
         if (boll.upper[n] && cur > boll.upper[n] && vol5 > 0 && volumes[n] > vol5 * 2)
           score += 10; // 스퀴즈 상방 대량 돌파
         else if (boll.lower[n] && cur < boll.lower[n])
           score -= 10; // 스퀴즈 하방 붕괴
+      }
+
+      // [탐욕 과열 감지] RSI 극과매수 + 거래량 소멸 → 역발상 경고 ★
+      // "사람들이 안도·탐욕할 때 오히려 위험" — 김민겸 IV 역발상
+      if (rsi !== null && rsi >= 75 && vol5 > 0) {
+        const isVolDrying = volumes[n] < vol5 * 0.7;  // 거래량 30% 이상 소멸
+        const isBBNarrow  = curW <= minW * 1.5;        // BB 역사적 저변동 구간
+        if      (rsi >= 80 && isVolDrying && isBBNarrow) score -= 6; // 극단 탐욕
+        else if (rsi >= 78 && isVolDrying)                score -= 4; // 강한 탐욕
+        else if (rsi >= 75 && isVolDrying)                score -= 3; // 과열 경고
+        else if (rsi >= 80)                               score -= 2; // RSI 극단
       }
     }
   }
@@ -318,7 +333,27 @@ function getStockTag(pbr, per, sector) {
   return 'neutral';
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst) {
+// ─── 공시 모멘텀 (-2 ~ +2점) ───────────────────────────────────────────────
+// 뉴스 모멘텀 전략의 국장 적용 — DART 최근 공시 호재/악재 자동 감지
+// 김민겸 IQC 우승: "종가·재무제표 외 뉴스 데이터를 팩터로 수치화"
+const DISC_GOOD_KW = ['수주', '계약체결', '흑자전환', '증가', '승인', '완료', '특허', '임상성공', '수상'];
+const DISC_BAD_KW  = ['손실', '적자', '감소', '소송', '횡령', '조사', '회수', '불성실공시', '영업정지'];
+
+function calcDisclosureBonus(disclosures) {
+  if (!Array.isArray(disclosures) || disclosures.length === 0) return 0;
+  let pts = 0;
+  for (const d of disclosures) {
+    const nm = d.reportName || '';
+    if (DISC_GOOD_KW.some(k => nm.includes(k))) pts += 1;
+    if (DISC_BAD_KW.some(k => nm.includes(k)))  pts -= 1;
+  }
+  return Math.max(-2, Math.min(2, pts));
+}
+
+// ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
+// PBR 저평가(12) + max(PER저평가, 미래성장가점)(8) + 공포클라이맥스(10) + 공시모멘텀(-2~+2)
+// 공포/탐욕 양방향 포착: "불안할 때 기회, 안도할 때 위험" — 김민겸 IV 역발상 철학
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = []) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -326,23 +361,42 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst) {
   const pbrScore = pbr > 0 ? Math.max(0, 12 * (1.5 - pbr) / 1.5) : 0;
 
   // PER 저평가 vs 미래 성장성 가점 (각 최대 8점, 높은 값 선택)
-  // 가치주: PER 낮을수록 고득점 / 성장주: PER 높아도 섹터·수급으로 방어
-  const perScore  = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
+  const perScore = per > 0 ? Math.max(0, 8 * (25 - per) / 25) : 0;
   const { total: growthTotal } = calcGrowthBonus(sector, d5FrgnInst);
-  const perFinal  = Math.max(perScore, growthTotal);
+  const perFinal = Math.max(perScore, growthTotal);
 
-  // 패닉셀링 감지 (최대 10점) — RSI·낙폭 조합 조건 → 구간 방식 유지
+  // 공포 클라이맥스 감지 (최대 10점) ─────────────────────────────────────────
+  // BB width로 내재변동성(IV) 근사 → 역대 최고 변동성 = 공포 극단 신호
+  // 김민겸: "옵션의 내재변동성 → 시장 참여자의 공포 심리를 수치화"
   const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
   const drawdown   = recentHigh > 0 ? (recentHigh - cur) / recentHigh * 100 : 0;
+
+  const boll2    = calcBollinger(closes);
+  const bbWidths = boll2.upper.map((u, i) =>
+    (u && boll2.lower[i] && boll2.mid[i]) ? (u - boll2.lower[i]) / boll2.mid[i] : null
+  );
+  const curBBW  = bbWidths[n];
+  const histBBW = bbWidths.slice(Math.max(0, n - 120), n).filter(x => x !== null);
+  const maxBBW  = histBBW.length >= 10 ? Math.max(...histBBW) : null;
+  // IV 극단 = BB폭이 120일 최고의 80% 이상 → 시장 공포 클라이맥스
+  const isIVExtreme = maxBBW !== null && curBBW !== null && curBBW >= maxBBW * 0.80;
+
   let panicScore = 0;
   if (rsiLatest !== null && rsiLatest !== undefined) {
-    if      (rsiLatest < 25 && drawdown >= 30) panicScore = 10;
-    else if (rsiLatest < 35 && drawdown >= 20) panicScore = 7;
-    else if (rsiLatest < 35)                   panicScore = 4;
-    else if (rsiLatest < 40)                   panicScore = 2;
+    if      (rsiLatest < 25 && drawdown >= 30)                panicScore = 10; // 극단 공포
+    else if (rsiLatest < 30 && drawdown >= 25 && isIVExtreme) panicScore = 10; // IV 공포 클라이맥스 ★
+    else if (rsiLatest < 35 && drawdown >= 20)                panicScore = 7;
+    else if (rsiLatest < 35 && isIVExtreme)                   panicScore = 6;  // IV 가점 ★
+    else if (rsiLatest < 35)                                  panicScore = 4;
+    else if (rsiLatest < 40)                                  panicScore = 2;
   }
 
-  return Math.round(pbrScore + perFinal + panicScore);
+  // 공시 모멘텀 (-2 ~ +2점) — 뉴스 팩터 수치화
+  const discScore = calcDisclosureBonus(disclosures);
+
+  const total = Math.min(30, Math.round(pbrScore + perFinal + panicScore + discScore));
+  return { total, pbrScore: Math.round(pbrScore), perScore: Math.round(perScore),
+           perFinal, panicScore, discScore, drawdown, isIVExtreme };
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -642,15 +696,16 @@ export default async function handler(req, res) {
       } catch (_) {}
     }
 
-// DART PER 읽기 (KIS PER 보정)
-let dartPer = null;
+// DART EPS 읽기 (분기 1회 업데이트, dart_eps 키)
+// PER = 현재가 ÷ dart_eps 로 실시간 계산 (연결 기준, KIS 별도 기준보다 정확)
+let dartEps = null;
 try {
-  const dpRaw = await timedFetch(`${_redisUrl}/get/dart_per`, {
+  const dpRaw = await timedFetch(`${_redisUrl}/get/dart_eps`, {
     headers: { Authorization: `Bearer ${_redisToken}` },
   }).then(r => r.json());
   if (dpRaw.result) {
     const dpMap = JSON.parse(dpRaw.result);
-    if (dpMap[code] !== undefined) dartPer = dpMap[code];
+    if (dpMap[code] !== undefined) dartEps = dpMap[code];
   }
 } catch (_) {}
     
@@ -706,14 +761,19 @@ try {
     // 국장 특화 점수 (항상 실시간 계산 — 분석기 상세 표시용)
     // KIS per/pbr: KIS가 자체 계산한 연결 기준 PER·PBR — 네이버 등 외부 사이트와 동일 basis
     // (EPS/BPS 직접 계산 시 KIS eps가 별도 기준이라 연결 기준 네이버 값과 괴리 발생)
-    const per2 = dartPer ?? parseF(pOut.per || '0');
+    // DART EPS 있으면 실시간 연결 PER 계산, 없으면 KIS PER fallback
+    // latest.close = 현재가 (parseNum(pOut.stck_prpr), 위에서 이미 정의)
+    const per2 = (dartEps && dartEps > 0 && latest.close > 0)
+      ? Math.round(latest.close / dartEps * 10) / 10
+      : parseF(pOut.per || '0');
     const pbr2     = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     // 외인+기관 5일 순매수 (미래성장 가점용 — 이평선 배열과 겹치지 않는 독립 지표)
     const _d5 = investorSupply?.d5;
     const d5FrgnInst2 = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
     const techScore = calcScore(closes, volumes, boll);
-    const korScore  = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures);
+    const korScore  = ks.total;
     const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     const score     = storedScore !== null ? storedScore : liveScore;
@@ -751,18 +811,15 @@ try {
       analysis,
       score,
       korScore: (() => {
-        const pbrS     = Math.round(pbr2 > 0 ? Math.max(0, 12 * (1.5 - pbr2) / 1.5) : 0);
-        const perS     = Math.round(per2 > 0 ? Math.max(0, 8  * (25  - per2)  / 25)  : 0);
-        // 성장 가점 상세: 모멘텀/섹터 분리 계산 (UI 역산 오차 방지)
-        // 미래성장 가점 상세 (섹터 등급 + 외인기관 수급 — 이평선과 완전 무관)
+        // ks = calcKoreanScore 반환 객체 (위에서 이미 계산)
+        const { pbrScore: pbrS, perScore: perS, perFinal: perFinalS,
+                panicScore: panicS, discScore: discS,
+                drawdown: drawdownPct, isIVExtreme } = ks;
+        // 미래성장 가점 상세 (섹터 등급 + 외인기관 수급)
         const { total: growthS, secScore: growthSecS, buyScore: growthBuyS } =
           calcGrowthBonus(sector2, d5FrgnInst2);
-        const perFinalS = Math.max(perS, growthS);
-        const panicS   = Math.max(0, korScore - pbrS - perFinalS);
-        const rsiNow   = rsiArr[n];
-        const recentHigh = Math.max(...closes.slice(Math.max(0, n - 120), n + 1));
-        const drawdownPct = recentHigh > 0 ? Math.round((recentHigh - closes[n]) / recentHigh * 100 * 10) / 10 : 0;
-        const tag = getStockTag(pbr2, per2, sector2);
+        const rsiNow = rsiArr[n];
+        const tag    = getStockTag(pbr2, per2, sector2);
         const growthComment = (tag === 'growth' && per2 > 50)
           ? `이 종목은 [🔥 국장 주도 성장주] 태그에 해당하여, 현재 PER(${per2.toFixed(1)}배)로는 비싸 보이지만 성장 섹터(${growthSecS}점)·외인기관 수급(${growthBuyS}점)을 반영한 [미래성장 가점 ${growthS}점]을 부여하여 국장특화 점수를 방어했습니다.`
           : null;
@@ -771,11 +828,15 @@ try {
           pbrScore: pbrS, perScore: perS,
           growthScore: growthS, growthSector: growthSecS, growthBuy: growthBuyS,
           perFinal: perFinalS, panicScore: panicS,
+          disclosureScore: discS,   // 공시 모멘텀 -2~+2 (뉴스 팩터)
+          isIVExtreme,              // BB 기반 내재변동성 극단 여부
           techScore: Math.round(techScore * 0.7),
           rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
           drawdown: drawdownPct,
           tag,
           growthComment,
+          dartEps,
+          perSource: dartEps ? 'dart' : 'kis',
         };
       })(),
       maScore,

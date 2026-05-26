@@ -264,6 +264,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       </div>
     </div>
 
+    <!-- ① 한줄 AI 코멘트 -->
+    <div id="r-oneliner" style="display:none;margin:12px 0 4px;"></div>
+
     <!-- ② 2컬럼 그리드 -->
     <div class="detail-grid">
 
@@ -583,12 +586,120 @@ function renderMAScore(maScore) {
     </div>`;
 }
 
+// ── 한줄 코멘트 생성 (규칙 기반 자연어 — GPT 호출 없음) ──────────────────
+function generateOneLiner(data) {
+  const score  = data.score || 0;
+  const ks     = data.korScore || {};
+  const rec    = data.recommend || {};
+  const ms     = data.maScore   || {};
+  const {
+    tag = 'neutral', rsi = null, drawdown = 0,
+    panicScore = 0, isIVExtreme = false,
+    disclosureScore = 0, pbr = 0, per = 0,
+    growthSector = 0,
+  } = ks;
+
+  const maArr       = ms.arrangement || 0;
+  const isPerfect   = maArr >= 20;    // 4선 완벽 정배열
+  const isGolden    = maArr === 13;   // 골든크로스
+  const isBull      = rec.grade === 'bull';
+  const isNeutral   = rec.grade === 'neutral';
+  const isBear      = rec.grade === 'bear';
+  const rsiHigh     = rsi !== null && rsi >= 75;
+  const rsiLow      = rsi !== null && rsi < 35;
+  const rsiGood     = rsi !== null && rsi >= 52 && rsi < 68;
+  const isDeepValue = pbr > 0 && pbr < 0.8;
+
+  // 탐욕 극단 경고 — 가장 먼저 체크
+  if (rsiHigh && score < 62) {
+    return { text: `RSI ${rsi} 과매수에 점수까지 흔들리는 중 — 지금 추격은 위험`, tone: 'warn' };
+  }
+  if (rsiHigh) {
+    return { text: `RSI ${rsi} 과매수 구간 진입, 거래량도 빠지는 중 — 탐욕 정점 주의`, tone: 'warn' };
+  }
+
+  // 공포 클라이맥스 (역발상 기회)
+  if (panicScore >= 10 && isIVExtreme) {
+    if (isDeepValue) return { text: `변동성 극단 + PBR ${pbr.toFixed(1)}배 저평가 — 공포 속 역발상 진입 구간`, tone: 'bull' };
+    return { text: `변동성 역대 최고 근처, RSI ${rsi} 공포 클라이맥스 — 용기 있는 자에겐 기회`, tone: 'bull' };
+  }
+  if (panicScore >= 7) {
+    if (tag === 'value') return { text: `고점 대비 -${Math.round(drawdown)}% 빠진 가치주 — RSI ${rsi}, 역발상 저점 탐색 구간`, tone: 'bull' };
+    return { text: `강한 투매 구간 (RSI ${rsi} · -${Math.round(drawdown)}%) — 반등 가능성 있지만 추세는 확인 필요`, tone: 'neutral' };
+  }
+
+  // 강력 매수 신호
+  if (score >= 75 && isPerfect && isBull) {
+    if (tag === 'growth') return { text: `${growthSector >= 6 ? '반도체·방산 핵심주' : '성장 섹터'} 완벽 정배열 — 모멘텀 최상, 지금이 기회`, tone: 'bull' };
+    if (tag === 'value')  return { text: `저평가(PBR ${pbr.toFixed(1)}배) + 완벽 정배열 — 가치와 기술이 맞춰진 자리`, tone: 'bull' };
+    return { text: `이평선 정배열 + 수급까지 완벽 — 점수 ${score}점, 지금 자리 탐난다`, tone: 'bull' };
+  }
+
+  // 골든크로스
+  if (isGolden && isBull) {
+    return { text: `골든크로스 발생 + RSI ${rsi || '-'} 강세 — 단기 추세 전환 신호`, tone: 'bull' };
+  }
+
+  // 점수 좋고 모멘텀 살아있음
+  if (score >= 65 && isBull && rsiGood) {
+    if (tag === 'growth') return { text: `성장주 모멘텀 살아있음 — 이평선·수급 모두 우호적, 관심 구간`, tone: 'bull' };
+    if (tag === 'value')  return { text: `저평가 가치주 + RSI ${rsi} 상승 흐름 — 아직 늦지 않은 자리`, tone: 'bull' };
+    return { text: `점수 ${score}점, RSI ${rsi} — 추세와 수급 모두 긍정적`, tone: 'bull' };
+  }
+
+  // 공시 모멘텀
+  if (disclosureScore > 0 && score >= 55) {
+    return { text: `호재 공시 + 기술적 흐름 양호 — 모멘텀 살아날 수 있는 자리`, tone: 'bull' };
+  }
+  if (disclosureScore < 0) {
+    return { text: `악재 공시 감지됨 — 기술적으로도 주의 필요, 방어적 접근 권장`, tone: 'warn' };
+  }
+
+  // 중립 흐름
+  if (isNeutral && rsiGood) {
+    return { text: `추세 흐름은 있는데 확신은 부족 — 눌림목 후 재진입 타이밍 탐색 중`, tone: 'neutral' };
+  }
+  if (isNeutral) {
+    return { text: `뚜렷한 방향성 없음 — 추이 지켜보는 구간`, tone: 'neutral' };
+  }
+
+  // 하락 추세
+  if (isBear) {
+    if (rsiLow) return { text: `이평선 역배열에 RSI ${rsi} 과매도 — 반등 시도할 수 있지만 추세는 하락`, tone: 'warn' };
+    return { text: `이평선 하락 추세 진행 중 — 지지선 회복 확인 전까지 관망`, tone: 'warn' };
+  }
+
+  return { text: `점수 ${score}점 — 지금은 관망하며 추이 지켜보는 구간`, tone: 'neutral' };
+}
+
+function renderOneLiner(data) {
+  const el = document.getElementById('r-oneliner');
+  if (!el) return;
+  const { text, tone } = generateOneLiner(data);
+  const cfg = {
+    bull:    { bg: 'rgba(22,163,74,0.07)',   border: 'rgba(22,163,74,0.25)',   icon: '💡', tc: '#15803d' },
+    warn:    { bg: 'rgba(220,38,38,0.07)',   border: 'rgba(220,38,38,0.25)',   icon: '⚠️', tc: '#b91c1c' },
+    neutral: { bg: 'rgba(107,114,128,0.07)', border: 'rgba(107,114,128,0.20)', icon: '🔍', tc: '#374151' },
+  };
+  const s = cfg[tone] || cfg.neutral;
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div style="
+      background:${s.bg};border:1.5px solid ${s.border};
+      border-radius:12px;padding:11px 14px;
+      display:flex;align-items:center;gap:10px;">
+      <span style="font-size:18px;flex-shrink:0;">${s.icon}</span>
+      <span style="font-size:13px;font-weight:600;color:${s.tc};line-height:1.5;">${text}</span>
+    </div>`;
+}
+
 function renderKoreanScore(ks) {
   const el = document.getElementById('r-kor-score');
   if (!el || !ks) return;
   const {
     total = 0, pbr = 0, per = 0,
     pbrScore = 0, perFinal = 0, panicScore = 0,
+    disclosureScore = 0, isIVExtreme = false,
     techScore = 0, rsi = null, drawdown = 0,
     tag = 'neutral',
   } = ks;
@@ -631,11 +742,21 @@ function renderKoreanScore(ks) {
 
   const rsiTxt = rsi !== null ? `RSI ${rsi}` : 'RSI -';
   const ddTxt  = `고점대비 -${drawdown}%`;
+  // IV 극단 뱃지 — BB width가 역대 최고 근처 (공포 클라이맥스 신호)
+  const ivBadge = isIVExtreme
+    ? `<span style="margin-left:4px;background:rgba(239,68,68,0.12);color:#ef4444;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;">🔴 IV극단</span>`
+    : '';
   const panicLbl = panicScore >= 10 ? `극도 패닉셀링 감지 (${rsiTxt} · ${ddTxt})`
                  : panicScore >= 7  ? `강한 투매 구간 (${rsiTxt} · ${ddTxt})`
                  : panicScore >= 4  ? `과매도 구간 (${rsiTxt} · ${ddTxt})`
                  : panicScore >= 2  ? `약세 구간 (${rsiTxt} · ${ddTxt})`
                  :                   `해당 없음 (${rsiTxt} · ${ddTxt})`;
+
+  // 공시 모멘텀 라벨
+  const discColor = disclosureScore > 0 ? '#22c55e' : disclosureScore < 0 ? '#ef4444' : 'var(--muted)';
+  const discLbl   = disclosureScore > 0  ? `호재 공시 감지 +${disclosureScore}점`
+                  : disclosureScore < 0  ? `악재 공시 감지 ${disclosureScore}점`
+                  : '최근 30일 호재·악재 공시 없음 (0점)';
 
   el.innerHTML = `
     ${tagHtml}
@@ -656,12 +777,22 @@ function renderKoreanScore(ks) {
       <div class="ma-score-val" style="color:${c}">${perFinal}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
     </div>
     <div class="ma-score-row">
-      <div class="ma-score-label">패닉셀링</div>
+      <div class="ma-score-label">공포<br><span style="font-size:8px;">클라이맥스</span></div>
       <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${panicLbl}</div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${panicLbl}${ivBadge}</div>
         <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${panicScore/10*100}%;background:${c}"></div></div>
       </div>
       <div class="ma-score-val" style="color:${c}">${panicScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/10</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">공시<br>모멘텀</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:${discColor};margin-bottom:3px">${discLbl}</div>
+        <div class="ma-score-bar-bg">
+          <div class="ma-score-bar-fill" style="width:${Math.abs(disclosureScore)/2*100}%;background:${discColor}"></div>
+        </div>
+      </div>
+      <div class="ma-score-val" style="color:${discColor}">${disclosureScore > 0 ? '+' : ''}${disclosureScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±2</span></div>
     </div>
     <div class="ma-score-total">
       <div class="ma-score-total-label">국장 특화 합계</div>
@@ -915,6 +1046,7 @@ function renderResult(data) {
 
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
+  renderOneLiner(data);
   renderMAScore(data.maScore);
   renderKoreanScore(data.korScore);
   renderGrowthScore(data.korScore);
