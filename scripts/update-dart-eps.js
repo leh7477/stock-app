@@ -130,62 +130,89 @@ async function fetchDartCorpMap(krxCodes) {
   return corpMap;
 }
 
+// ─── 현재 시점 기준 최신 분기 보고서 후보 목록 ────────────────────────────
+// 분기 제출 기한: Q1=5/15, 반기=8/14, Q3=11/14, 연간=3/31(다음해)
+// 가장 최신 분기부터 시도 → 없으면 이전 분기 → 최종 fallback 연간
+function getReportCandidates() {
+  const now   = new Date();
+  const year  = now.getFullYear();
+  const month = now.getMonth() + 1;
+  if (month >= 11) return [
+    { year, code: '11014' },          // Q3 당해
+    { year, code: '11012' },          // 반기 당해
+    { year, code: '11013' },          // Q1 당해
+    { year: year - 1, code: '11011' }, // 연간 전년
+  ];
+  if (month >= 8) return [
+    { year, code: '11012' },          // 반기 당해
+    { year, code: '11013' },          // Q1 당해
+    { year: year - 1, code: '11011' }, // 연간 전년
+  ];
+  if (month >= 5) return [
+    { year, code: '11013' },          // Q1 당해
+    { year: year - 1, code: '11011' }, // 연간 전년
+  ];
+  return [{ year: year - 1, code: '11011' }]; // 1~4월: 연간 전년만
+}
+
 // ─── DART 연결재무제표 → EPS 계산 ──────────────────────────────────────────
-// 전년도 사업보고서(reprt_code=11011), 연결재무제표(fs_div=CFS)
-// EPS = 당기순이익(비지배 제외) ÷ 발행주식수(보통주)
+// 최신 분기 보고서부터 순서대로 시도, 연간 사업보고서로 fallback
+// EPS = 기본주당이익 직접 조회 (원/주 단위), 없으면 당기순이익÷주식수 계산
 // PER 계산은 analyze.js에서 실시간으로: 현재가 ÷ dart_eps
 
 async function fetchDartEPS(corpCode) {
-  try {
-    const year = new Date().getFullYear() - 1;
-    const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json` +
-      `?crtfc_key=${DART_KEY}&corp_code=${corpCode}` +
-      `&bsns_year=${year}&reprt_code=11011&fs_div=CFS`;
+  const candidates = getReportCandidates();
 
-    const data = await timedFetch(url).then(r => r.json()).catch(() => null);
-    if (data?.status !== '000') return null;
+  for (const { year, code: reprtCode } of candidates) {
+    try {
+      const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json` +
+        `?crtfc_key=${DART_KEY}&corp_code=${corpCode}` +
+        `&bsns_year=${year}&reprt_code=${reprtCode}&fs_div=CFS`;
 
-    const list = data.list || [];
+      const data = await timedFetch(url).then(r => r.json()).catch(() => null);
+      // status 000이 아니면 이 분기 보고서 없음 → 다음 후보로
+      if (data?.status !== '000') continue;
 
-    // ── 방법1: 기본주당이익(EPS) 직접 조회 ─────────────────────────────────
-    // DART IS/CIS 항목에 "기본주당이익(손실)" 등으로 이미 원/주 단위로 제공됨
-    // sj_div: IS=손익계산서, CIS=포괄손익계산서 (fs_div가 아님 — 주의)
-    const epsItem = list.find(r =>
-      (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
-      (r.account_nm?.includes('기본주당이익') ||
-       r.account_nm?.includes('기본주당순이익') ||
-       r.account_nm?.includes('주당순이익'))
-    );
-    if (epsItem?.thstrm_amount) {
-      const eps = parseInt(String(epsItem.thstrm_amount).replace(/[,\s]/g, '')) || 0;
-      return eps > 0 ? eps : null;
+      const list = data.list || [];
+
+      // ── 방법1: 기본주당이익(EPS) 직접 조회 ────────────────────────────────
+      // DART IS/CIS 항목에 "기본주당이익(손실)" 등으로 원/주 단위로 이미 제공됨
+      const epsItem = list.find(r =>
+        (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
+        (r.account_nm?.includes('기본주당이익') ||
+         r.account_nm?.includes('기본주당순이익') ||
+         r.account_nm?.includes('주당순이익'))
+      );
+      if (epsItem?.thstrm_amount) {
+        const eps = parseInt(String(epsItem.thstrm_amount).replace(/[,\s]/g, '')) || 0;
+        if (eps > 0) return eps;
+        continue;  // 0 또는 음수면 다음 후보 (더 오래된 기간이 양수일 수 있음)
+      }
+
+      // ── 방법2: 당기순이익(백만원) ÷ 발행주식수 — fallback ─────────────────
+      const netIncome = list.find(r =>
+        (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
+        r.account_nm?.includes('당기순이익') &&
+        !r.account_nm?.includes('비지배')
+      );
+      const shares = list.find(r =>
+        r.account_nm?.includes('보통주') &&
+        (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행주식'))
+      );
+      if (!netIncome?.thstrm_amount || !shares?.thstrm_amount) continue;
+
+      const niMillions = parseInt(String(netIncome.thstrm_amount).replace(/[,\s]/g, '')) || 0;
+      const sh         = parseInt(String(shares.thstrm_amount).replace(/[,\s]/g, ''))   || 0;
+      if (niMillions <= 0 || sh <= 0) continue;
+
+      // 백만원 × 1,000,000 ÷ 주식수 = 원/주(EPS)
+      const eps = Math.round(niMillions * 1_000_000 / sh);
+      if (eps > 0) return eps;
+    } catch (_) {
+      continue;  // 네트워크 오류 등 → 다음 후보
     }
-
-    // ── 방법2: 당기순이익(백만원) ÷ 발행주식수 — fallback ────────────────
-    // DART 금액 단위는 백만원 → EPS 환산 시 × 1,000,000 필요
-    // sj_div 필드 사용 (fs_div === 'CFS' 는 API 요청 파라미터이며 응답 필드가 아님)
-    const netIncome = list.find(r =>
-      (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
-      r.account_nm?.includes('당기순이익') &&
-      !r.account_nm?.includes('비지배')
-    );
-    const shares = list.find(r =>
-      r.account_nm?.includes('보통주') &&
-      (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행주식'))
-    );
-
-    if (!netIncome?.thstrm_amount || !shares?.thstrm_amount) return null;
-
-    const niMillions = parseInt(String(netIncome.thstrm_amount).replace(/[,\s]/g, '')) || 0;
-    const sh         = parseInt(String(shares.thstrm_amount).replace(/[,\s]/g, ''))   || 0;
-    if (niMillions <= 0 || sh <= 0) return null;
-
-    // 백만원 × 1,000,000 ÷ 주식수 = 원/주(EPS)
-    const eps = Math.round(niMillions * 1_000_000 / sh);
-    return eps > 0 ? eps : null;
-  } catch (e) {
-    return null;
   }
+  return null;  // 모든 후보 소진 → EPS 없음
 }
 
 // ─── 메인 ──────────────────────────────────────────────────────────────────
@@ -237,15 +264,16 @@ async function main() {
     await sleep(BATCH_DELAY);
   }
 
-  // 4. Redis 저장 (TTL 120일 — 다음 분기 발표까지 충분)
+  // 4. Redis 저장 (TTL 95일 ≈ 분기 주기, 다음 분기 발표 전에 갱신 권장)
   console.log('\n[4/4] Redis dart_eps 저장...');
-  const TTL_120D = 120 * 24 * 3600;
-  await redisSet('dart_eps', epsMap, TTL_120D);
+  const TTL_95D = 95 * 24 * 3600;
+  await redisSet('dart_eps', epsMap, TTL_95D);
 
   const ratio = (succeeded / targets.length * 100).toFixed(1);
+  const cands = getReportCandidates();
   console.log(`      저장 완료: ${succeeded}개 (전체 ${targets.length}개 중 ${ratio}%)`);
-  console.log(`      기준연도: ${new Date().getFullYear() - 1}년 사업보고서 (11011)`);
-  console.log(`      TTL: 120일`);
+  console.log(`      우선순위: ${cands.map(c => `${c.year}년 ${c.code}`).join(' → ')}`);
+  console.log(`      TTL: 95일 (다음 분기 보고서 제출 전 재실행 권장)`);
   console.log('\n=== 완료 ===\n');
 }
 
