@@ -157,6 +157,18 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 /* ── 풀 width 섹션 ── */
 .full-row{margin-top:14px;}
 
+/* ── 금색 반짝임 (80점 이상) ── */
+@keyframes goldGlow {
+  0%,100% { box-shadow:0 0 6px 0 rgba(234,179,8,.45); }
+  50%     { box-shadow:0 0 20px 5px rgba(234,179,8,.75), 0 0 8px 2px rgba(253,224,71,.5); }
+}
+@keyframes goldText {
+  0%,100% { color:#b45309; }
+  50%     { color:#eab308; }
+}
+.score-circle.gold { animation:goldGlow 2s ease-in-out infinite; }
+.score-num-big.gold { animation:goldText 2s ease-in-out infinite; }
+
 /* ── 스켈레톤 ── */
 .skeleton{background:linear-gradient(90deg,#e9ecf0 25%,#f2f4f8 50%,#e9ecf0 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:8px;}
 @keyframes shimmer{to{background-position:-200% 0;}}
@@ -540,24 +552,32 @@ function renderCharts(data) {
 }
 
 function scoreColor(sc) {
-  return sc >= 75 ? '#22c55e' : sc >= 58 ? '#3b82f6' : sc >= 42 ? '#f59e0b' : '#6b7280';
+  return sc >= 80 ? '#d97706' : sc >= 60 ? '#2563eb' : sc >= 40 ? '#22c55e' : '#9ca3af';
 }
 
 function renderScore(score) {
+  const isGold = score >= 80;
   const c  = scoreColor(score);
-  const lbl = score >= 75 ? '매수 유리' : score >= 60 ? '관심 종목' : score >= 45 ? '관망 권장' : '매수 비추천';
+  const lbl = isGold     ? '⭐ 최상위 종목'
+            : score >= 60 ? '매수 유리'
+            : score >= 40 ? '관심 종목'
+            :               '매수 비추천';
   const circle = document.getElementById('r-score-circle');
-  circle.style.borderColor = c + '99';
-  circle.style.background  = c + '1a';
+  circle.style.borderColor = isGold ? '#eab30899' : c + '99';
+  circle.style.background  = isGold ? 'rgba(234,179,8,.12)' : c + '1a';
+  if (isGold) circle.classList.add('gold'); else circle.classList.remove('gold');
+
   const numEl = document.getElementById('r-score-num');
   numEl.textContent = score;
-  numEl.style.color = c;
+  if (isGold) { numEl.classList.add('gold'); numEl.style.color = ''; }
+  else        { numEl.classList.remove('gold'); numEl.style.color = c; }
+
   const gradeEl = document.getElementById('r-score-grade');
   gradeEl.textContent = lbl;
-  gradeEl.style.color = c;
+  gradeEl.style.color = isGold ? '#d97706' : c;
   const bar = document.getElementById('r-score-bar');
   bar.style.width      = score + '%';
-  bar.style.background = c;
+  bar.style.background = isGold ? 'linear-gradient(90deg,#d97706,#eab308,#d97706)' : c;
 }
 
 function renderMAScore(maScore) {
