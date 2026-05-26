@@ -708,6 +708,29 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
+    // Redis 미존재 시 KIS 실시간 fallback (분석기에서 직접 조회한 종목 대응)
+    if (!investorSupply) {
+      try {
+        const mkCode = (pOut.rprs_mrkt_kor_name || '').includes('코스닥') ? 'Q' : 'J';
+        const livInv = await timedFetch(
+          `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor` +
+          `?fid_cond_mrkt_div_code=${mkCode}&fid_input_iscd=${code}`,
+          { headers: kisHdr('FHKST01010900') }
+        ).then(r => r.json()).catch(() => null);
+        const rows = Array.isArray(livInv?.output) ? livInv.output : [];
+        if (rows.length >= 5) {
+          const sumN    = (arr, f) => arr.reduce((s, d) => s + parseNum(d[f] || '0'), 0);
+          const fmtDate = d => { const dt = d?.stck_bsop_date; return dt ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : ''; };
+          const rows5   = rows.slice(0, 5);
+          const rows20  = rows.slice(0, Math.min(20, rows.length));
+          investorSupply = {
+            d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'prsn_ntby_qty'),  from: fmtDate(rows5[rows5.length-1]),  to: fmtDate(rows5[0]) },
+            d20: { foreign: sumN(rows20,'frgn_ntby_qty'), inst: sumN(rows20,'orgn_ntby_qty'), personal: sumN(rows20,'prsn_ntby_qty'), from: fmtDate(rows20[rows20.length-1]), to: fmtDate(rows20[0]) },
+          };
+        }
+      } catch (_) {}
+    }
+
     // stock_scores (소형 맵, 워크플로우 후 생성) 우선 → 없으면 recommend_v2 에서 직접 조회
     // → recommend_v2 는 이미 Redis 에 존재하므로 워크플로우 재실행 없이 즉시 동기화
     let storedScore = null;
