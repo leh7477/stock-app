@@ -781,8 +781,9 @@ try {
       ? (marketCapV / 10000).toFixed(1) + '조'
       : marketCapV ? marketCapV.toLocaleString() + '억' : '';
 
-    const chgAmt  = parseNum(pOut.prdy_vrss) * (isDown ? -1 : 1);
-    const chgRate = (parseFloat(pOut.prdy_ctrt || 0) * (isDown ? -1 : 1)).toFixed(2);
+    // KIS prdy_vrss / prdy_ctrt 는 이미 부호 포함 (하락 시 음수) → 이중 부정 방지
+    const chgAmt  = parseNum(pOut.prdy_vrss);
+    const chgRate = parseFloat(pOut.prdy_ctrt || 0).toFixed(2);
 
     const n             = closes.length - 1;
     const recentCloses  = closes.slice(-20);
