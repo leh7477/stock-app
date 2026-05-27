@@ -218,6 +218,24 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .ai-para{font-size:13px;line-height:1.75;color:var(--text);padding:11px 14px;background:var(--bg3);border-radius:10px;border-left:3px solid var(--blue);}
 .ai-disc{font-size:10px;color:var(--muted);text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 
+/* ── 레이더 차트 ── */
+.radar-dims{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px;}
+.rdim{text-align:center;background:var(--bg);border-radius:8px;padding:5px 2px;}
+.rdim-name{display:block;font-size:9px;color:var(--muted);margin-bottom:2px;}
+.rdim-val{display:block;font-size:13px;font-weight:700;}
+
+/* ── 밸류에이션 슬라이더 ── */
+.val-zone-label{font-size:16px;font-weight:700;text-align:center;margin-bottom:12px;}
+.val-slider-wrap{margin-bottom:4px;}
+.val-track{position:relative;height:8px;border-radius:99px;background:linear-gradient(to right,#22c55e 0%,#86efac 20%,#fef9c3 40%,#fef9c3 60%,#fcd34d 75%,#ef4444 100%);margin-bottom:6px;}
+.val-marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:#fff;border:2.5px solid #0A1628;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,.25);}
+.val-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);padding:0 1px;}
+.val-detail{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+.val-item{background:var(--bg);border-radius:8px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;}
+.val-item-label{font-size:11px;color:var(--muted);}
+.val-item-val{font-size:12px;font-weight:700;}
+.val-disclaimer{font-size:10px;color:var(--muted);text-align:center;margin-top:8px;}
+
 /* ── 반응형 ── */
 @media(max-width:680px){
   .detail-grid,.skel-grid{grid-template-columns:1fr;}
@@ -372,6 +390,13 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
           </div>
         </div>
 
+        <!-- 종합 지표 레이더 차트 -->
+        <div class="dl-card">
+          <div class="dl-title">📡 종합 지표 레이더</div>
+          <div id="r-radar-chart" style="width:100%;height:220px;"></div>
+          <div class="radar-dims" id="r-radar-dims"></div>
+        </div>
+
         <!-- 기술지표 세부 점수 -->
         <div class="dl-card">
           <div class="dl-title">📊 기술지표 세부 <span style="font-weight:400;color:var(--muted);font-size:10px;">×0.7 환산 후 최대 70점</span></div>
@@ -388,6 +413,12 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
         <div class="dl-card">
           <div class="dl-title">🌱 미래성장 가점 <span style="font-size:10px;font-weight:400;color:var(--muted)">모멘텀·섹터 기반 PEG 근사</span></div>
           <div id="r-growth-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
+        </div>
+
+        <!-- 밸류에이션 위치 슬라이더 -->
+        <div class="dl-card">
+          <div class="dl-title">💰 밸류에이션 위치 <span style="font-weight:400;color:var(--muted);font-size:10px;">PBR 기반 · 참고용</span></div>
+          <div id="r-valuation-slider"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
         <!-- 이평선 점수 -->
@@ -1201,6 +1232,169 @@ function renderChecklist(checklist) {
     </div>`).join('');
 }
 
+/* ──────────────────────────────────────────────────────────────
+   📡 종합 지표 레이더 차트
+────────────────────────────────────────────────────────────── */
+function renderRadarChart(ks) {
+  const container = document.getElementById('r-radar-chart');
+  if (!container || !ks) return;
+
+  const growthScore = ks.growthScore   ?? 0;
+  const pbrScore    = ks.pbrScore      ?? 0;
+  const perFinal    = ks.perFinal      ?? 0;
+  const techScore   = ks.techScore     ?? 0;  // 이미 ×0.7 환산 (최대 70)
+  const supplyScore = ks.supplyScore   ?? 0;
+  const panicScore  = ks.panicScore    ?? 0;
+  const discScore   = ks.disclosureScore ?? 0;
+
+  // 각 축 0-100 정규화
+  const g = Math.round(growthScore / 18 * 100);
+  const v = Math.round(pbrScore    / 8  * 100);
+  const p = Math.round(perFinal    / 14 * 100);
+  const t = Math.round(techScore   / 70 * 100);
+  const s = Math.max(0, Math.round(
+    supplyScore / 4 * 60 + panicScore / 4 * 25 + (discScore + 2) / 4 * 15
+  ));
+
+  const dims = [
+    { name: '성장성', val: g },
+    { name: '저평가', val: v },
+    { name: '수익성', val: p },
+    { name: '기술적', val: t },
+    { name: '수급',   val: s },
+  ];
+
+  // ECharts 인스턴스 (기존 재활용 또는 신규)
+  let chart = echarts.getInstanceByDom(container);
+  if (!chart) chart = echarts.init(container, null, { renderer: 'svg' });
+
+  const isDark = document.body.classList.contains('dark');
+  const axisColor = isDark ? 'rgba(255,255,255,.18)' : 'rgba(107,114,128,.2)';
+  const nameColor = isDark ? '#9ca3af' : '#6b7280';
+
+  chart.setOption({
+    animation: true,
+    animationDuration: 600,
+    radar: {
+      indicator:   dims.map(d => ({ name: d.name, max: 100 })),
+      center:      ['50%', '50%'],
+      radius:      '68%',
+      splitNumber: 4,
+      shape:       'polygon',
+      axisName: {
+        color:      nameColor,
+        fontSize:   11,
+        fontFamily: 'Pretendard, system-ui, sans-serif',
+        fontWeight: 600,
+      },
+      splitArea: {
+        areaStyle: {
+          color: ['rgba(250,204,21,.07)', 'rgba(250,204,21,.03)',
+                  'rgba(250,204,21,.07)', 'rgba(250,204,21,.03)'],
+        },
+      },
+      splitLine: { lineStyle: { color: axisColor } },
+      axisLine:  { lineStyle: { color: axisColor } },
+    },
+    series: [{
+      type: 'radar',
+      data: [{
+        value:     dims.map(d => d.val),
+        name:      '종합',
+        areaStyle: { color: 'rgba(250,204,21,.22)' },
+        lineStyle: { color: '#FACC15', width: 2 },
+        itemStyle: { color: '#FACC15' },
+        symbol:    'circle',
+        symbolSize: 5,
+      }],
+    }],
+  }, true);
+
+  // 하단 딤 수치 칩
+  const dimEl = document.getElementById('r-radar-dims');
+  if (dimEl) {
+    dimEl.innerHTML = dims.map(d => {
+      const col = d.val >= 70 ? '#22c55e' : d.val >= 40 ? '#f59e0b' : '#ef4444';
+      return `<div class="rdim">
+        <span class="rdim-name">${d.name}</span>
+        <span class="rdim-val" style="color:${col}">${d.val}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   💰 밸류에이션 위치 슬라이더
+────────────────────────────────────────────────────────────── */
+function renderValuationSlider(ks, price) {
+  const el = document.getElementById('r-valuation-slider');
+  if (!el) return;
+
+  const pbr         = ks?.pbr         ?? 0;
+  const growthScore = ks?.growthScore  ?? 0;
+
+  if (!ks || pbr <= 0 || !price) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">PBR 데이터 없음</div>';
+    return;
+  }
+
+  // 성장성 반영 적정 PBR: 0.8 (성장 0점) ~ 3.0 (성장 최대 18점)
+  const fairPBR   = 0.8 + (growthScore / 18) * 2.2;
+  const fairPrice = Math.round(price / pbr * fairPBR);
+  const upside    = ((fairPrice - price) / price * 100);
+
+  // PBR 비율 → 슬라이더 위치 (0-100%)
+  const ratio = pbr / fairPBR;
+  function ratioToPos(r) {
+    if (r <= 0)   return 0;
+    if (r <= 0.5) return (r / 0.5) * 20;
+    if (r <= 0.8) return 20 + ((r - 0.5) / 0.3) * 20;
+    if (r <= 1.2) return 40 + ((r - 0.8) / 0.4) * 20;
+    if (r <= 2.0) return 60 + ((r - 1.2) / 0.8) * 20;
+    return Math.min(100, 80 + ((r - 2.0) / 2.0) * 20);
+  }
+  const pos = ratioToPos(ratio).toFixed(1);
+
+  // 구간 판정
+  const zone      = ratio < 0.5 ? 0 : ratio < 0.8 ? 1 : ratio < 1.2 ? 2 : ratio < 2.0 ? 3 : 4;
+  const labels    = ['매우저평가', '저평가', '적정', '고평가', '매우고평가'];
+  const zoneColor = zone <= 1 ? '#22c55e' : zone === 2 ? '#6b7280' : zone === 3 ? '#f59e0b' : '#ef4444';
+
+  const upsideStr  = upside >= 0 ? `+${upside.toFixed(1)}%` : `${upside.toFixed(1)}%`;
+  const upsideColor = upside >= 0 ? '#22c55e' : '#ef4444';
+
+  el.innerHTML = `
+    <div class="val-zone-label" style="color:${zoneColor}">${labels[zone]}</div>
+    <div class="val-slider-wrap">
+      <div class="val-track">
+        <div class="val-marker" style="left:${pos}%"></div>
+      </div>
+      <div class="val-labels">
+        ${labels.map(l => `<span>${l}</span>`).join('')}
+      </div>
+    </div>
+    <div class="val-detail">
+      <div class="val-item">
+        <span class="val-item-label">현재 PBR</span>
+        <span class="val-item-val">${pbr.toFixed(2)}배</span>
+      </div>
+      <div class="val-item">
+        <span class="val-item-label">적정 PBR</span>
+        <span class="val-item-val">${fairPBR.toFixed(2)}배</span>
+      </div>
+      <div class="val-item">
+        <span class="val-item-label">적정 가격</span>
+        <span class="val-item-val">${fairPrice.toLocaleString()}원</span>
+      </div>
+      <div class="val-item">
+        <span class="val-item-label">괴리율</span>
+        <span class="val-item-val" style="color:${upsideColor}">${upsideStr}</span>
+      </div>
+    </div>
+    <div class="val-disclaimer">성장성 점수(${growthScore}점) 반영 적정 PBR 기준 · 투자 참고용</div>
+  `;
+}
+
 function renderResult(data) {
   const { stock, analysis, investor, disclosures, indicators } = data;
 
@@ -1288,6 +1482,10 @@ function renderResult(data) {
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);
   renderAIOpinion(data);
+
+  // 레이더 차트 + 밸류에이션 슬라이더
+  renderRadarChart(data.korScore);
+  renderValuationSlider(data.korScore, data.stock?.price);
 
   renderCharts(data);
   show('result');
