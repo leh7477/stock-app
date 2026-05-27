@@ -219,6 +219,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .ai-disc{font-size:10px;color:var(--muted);text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 
 /* ── 레이더 차트 ── */
+.radar-wrap{position:relative;width:100%;height:240px;}
+#r-radar-chart{width:100%;height:100%;}
+.rl{position:absolute;font-size:10px;font-weight:700;color:var(--muted);white-space:nowrap;line-height:1;pointer-events:none;}
 .radar-dims{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px;}
 .rdim{text-align:center;background:var(--bg);border-radius:8px;padding:5px 2px;}
 .rdim-name{display:block;font-size:9px;color:var(--muted);margin-bottom:2px;}
@@ -393,7 +396,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
         <!-- 종합 지표 레이더 차트 -->
         <div class="dl-card">
           <div class="dl-title">📡 종합 지표 레이더</div>
-          <div id="r-radar-chart" style="width:100%;height:240px;"></div>
+          <div class="radar-wrap" id="r-radar-wrap">
+            <div id="r-radar-chart"></div>
+          </div>
           <div class="radar-dims" id="r-radar-dims"></div>
         </div>
 
@@ -1257,14 +1262,15 @@ function renderChecklist(checklist) {
 ────────────────────────────────────────────────────────────── */
 function renderRadarChart(ks) {
   const container = document.getElementById('r-radar-chart');
-  if (!container || !ks) return;
+  const wrap      = document.getElementById('r-radar-wrap');
+  if (!container || !wrap || !ks) return;
 
-  const growthScore = ks.growthScore   ?? 0;
-  const pbrScore    = ks.pbrScore      ?? 0;
-  const perFinal    = ks.perFinal      ?? 0;
-  const techScore   = ks.techScore     ?? 0;  // 이미 ×0.7 환산 (최대 70)
-  const supplyScore = ks.supplyScore   ?? 0;
-  const panicScore  = ks.panicScore    ?? 0;
+  const growthScore = ks.growthScore     ?? 0;
+  const pbrScore    = ks.pbrScore        ?? 0;
+  const perFinal    = ks.perFinal        ?? 0;
+  const techScore   = ks.techScore       ?? 0;
+  const supplyScore = ks.supplyScore     ?? 0;
+  const panicScore  = ks.panicScore      ?? 0;
   const discScore   = ks.disclosureScore ?? 0;
 
   // 각 축 0-100 정규화
@@ -1276,6 +1282,7 @@ function renderRadarChart(ks) {
     supplyScore / 4 * 60 + panicScore / 4 * 25 + (discScore + 2) / 4 * 15
   ));
 
+  // 축 순서: 성장성(상단) → 저평가(좌) → 수익성(좌하) → 기술적(우하) → 수급(우) — 반시계 방향
   const dims = [
     { name: '성장성', val: g },
     { name: '저평가', val: v },
@@ -1284,55 +1291,65 @@ function renderRadarChart(ks) {
     { name: '수급',   val: s },
   ];
 
-  // ECharts 인스턴스 (기존 재활용 또는 신규)
+  // ECharts — 축 이름 비활성화 (HTML 오버레이로 대체)
   let chart = echarts.getInstanceByDom(container);
   if (!chart) chart = echarts.init(container, null, { renderer: 'svg' });
 
-  const isDark = document.body.classList.contains('dark');
+  const isDark    = document.body.classList.contains('dark');
   const axisColor = isDark ? 'rgba(255,255,255,.18)' : 'rgba(107,114,128,.2)';
-  const nameColor = isDark ? '#9ca3af' : '#6b7280';
 
   chart.setOption({
     animation: true,
     animationDuration: 600,
-    grid: { top: 0, bottom: 0, left: 0, right: 0 },
     radar: {
       indicator:   dims.map(d => ({ name: d.name, max: 100 })),
-      center:      ['50%', '52%'],
-      radius:      '52%',
+      center:      ['50%', '54%'],
+      radius:      '44%',
       splitNumber: 4,
       shape:       'polygon',
-      axisName: {
-        color:      nameColor,
-        fontSize:   11,
-        fontFamily: 'Pretendard, system-ui, sans-serif',
-        fontWeight: 600,
-        padding:    [0, 4],
-      },
-      splitArea: {
-        areaStyle: {
-          color: ['rgba(250,204,21,.07)', 'rgba(250,204,21,.03)',
-                  'rgba(250,204,21,.07)', 'rgba(250,204,21,.03)'],
-        },
-      },
-      splitLine: { lineStyle: { color: axisColor } },
-      axisLine:  { lineStyle: { color: axisColor } },
+      axisName:    { show: false },           // 라벨 HTML 오버레이로 처리
+      splitArea:   { areaStyle: { color: ['rgba(250,204,21,.07)', 'rgba(250,204,21,.03)',
+                                          'rgba(250,204,21,.07)', 'rgba(250,204,21,.03)'] } },
+      splitLine:   { lineStyle: { color: axisColor } },
+      axisLine:    { lineStyle: { color: axisColor } },
     },
     series: [{
       type: 'radar',
       data: [{
-        value:     dims.map(d => d.val),
-        name:      '종합',
-        areaStyle: { color: 'rgba(250,204,21,.22)' },
-        lineStyle: { color: '#FACC15', width: 2 },
-        itemStyle: { color: '#FACC15' },
-        symbol:    'circle',
+        value:      dims.map(d => d.val),
+        name:       '종합',
+        areaStyle:  { color: 'rgba(250,204,21,.22)' },
+        lineStyle:  { color: '#FACC15', width: 2 },
+        itemStyle:  { color: '#FACC15' },
+        symbol:     'circle',
         symbolSize: 5,
       }],
     }],
   }, true);
 
-  // 하단 딤 수치 칩
+  // ── HTML 오버레이 라벨 (pentagon 각 꼭짓점 방향에 맞게 배치) ──────────
+  // 반시계 방향 Pentagon: 성장성=상단, 저평가=좌, 수익성=좌하, 기술적=우하, 수급=우
+  const overlays = [
+    { idx: 0, style: 'top:4px;left:0;right:0;text-align:center;' },          // 성장성 — 상단 중앙
+    { idx: 1, style: 'top:37%;left:4px;' },                                   // 저평가 — 좌측
+    { idx: 2, style: 'bottom:6px;left:5%;' },                                 // 수익성 — 좌하
+    { idx: 3, style: 'bottom:6px;right:5%;text-align:right;' },               // 기술적 — 우하
+    { idx: 4, style: 'top:37%;right:4px;text-align:right;' },                 // 수급   — 우측
+  ];
+
+  // 기존 오버레이 제거 후 재생성
+  wrap.querySelectorAll('.rl').forEach(el => el.remove());
+  overlays.forEach(o => {
+    const d   = dims[o.idx];
+    const col = d.val >= 70 ? '#22c55e' : d.val >= 40 ? '#f59e0b' : '#ef4444';
+    const div = document.createElement('div');
+    div.className = 'rl';
+    div.style.cssText = o.style;
+    div.innerHTML = `${d.name}<br><span style="color:${col};font-size:11px;">${d.val}</span>`;
+    wrap.appendChild(div);
+  });
+
+  // 하단 딤 수치 칩 (동일 정보를 다른 형태로 보강)
   const dimEl = document.getElementById('r-radar-dims');
   if (dimEl) {
     dimEl.innerHTML = dims.map(d => {
