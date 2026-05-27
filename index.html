@@ -67,25 +67,25 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .site-nav a.active { color:#FACC15; }
 @media (max-width:768px) { .site-nav { display:none; } .site-hdr-inner { gap:12px; } }
 
-/* ── 시장 지수 바 (2단) ───────────────────────────── */
-.mkt-bar { background:var(--card); border-bottom:1px solid var(--border); overflow-x:auto; scrollbar-width:none; }
-.mkt-bar::-webkit-scrollbar { display:none; }
-.mkt-bar-inner { display:flex; flex-direction:column; padding:0 16px; max-width:900px; margin:0 auto; }
-/* 1단: 시장심리 */
-.mkt-senti-row { display:flex; align-items:center; gap:8px; padding:7px 0 6px; border-bottom:1px solid var(--border); }
-.mkt-senti-lbl { font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.3px; flex-shrink:0; }
-.mkt-senti-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:700; white-space:nowrap; }
-.mkt-senti-dots { display:flex; gap:3px; align-items:center; }
-.mkt-senti-dots span { width:7px; height:7px; border-radius:2px; background:var(--border); transition:.2s; }
+/* ── 시장 지수 바 (리디자인) ─────────────────────── */
+.mkt-bar { background:var(--card); border-bottom:1px solid var(--border); overflow:hidden; }
+#mkt-bar-inner { padding:0 16px; }
+/* 1단: 마켓스코어 + 미니 게이지 */
+.mkt-score-row { display:flex; align-items:center; justify-content:space-between; padding:9px 0 8px; border-bottom:1px solid var(--border); gap:8px; }
+.mkt-score-left { display:flex; align-items:baseline; gap:0; flex-wrap:wrap; min-width:0; }
+.mkt-score-val { font-size:16px; font-weight:800; color:var(--text); white-space:nowrap; }
+.mkt-score-sep { font-size:14px; color:var(--muted); margin:0 5px; }
+.mkt-score-stage { font-size:13px; font-weight:700; white-space:nowrap; }
 /* 2단: 지수 */
-.mkt-idx-row { display:flex; align-items:stretch; }
-.mkt-item { display:flex; flex-direction:column; justify-content:center; padding:8px 16px 8px 0; margin-right:16px; border-right:1px solid var(--border); flex-shrink:0; gap:2px; }
-.mkt-item:last-of-type { border-right:none; margin-right:0; }
-.mkt-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; }
-.mkt-price { font-size:15px; font-weight:800; color:var(--text); letter-spacing:-.3px; }
-.mkt-chg { font-size:11px; font-weight:600; }
-.mkt-chg.up   { color:#dc2626; }   /* 한국 증시: 오름=빨강 */
-.mkt-chg.dn   { color:#2563eb; }   /* 내림=파랑 */
+.mkt-ticker-row { display:flex; align-items:center; padding:7px 0; gap:0; overflow-x:auto; scrollbar-width:none; }
+.mkt-ticker-row::-webkit-scrollbar { display:none; }
+.mkt-item { display:flex; align-items:center; gap:10px; padding-right:16px; margin-right:16px; border-right:1px solid var(--border); flex-shrink:0; }
+.mkt-item:last-of-type { border-right:none; margin-right:0; padding-right:0; }
+.mkt-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.3px; margin-bottom:2px; }
+.mkt-price { font-size:14px; font-weight:800; color:var(--text); letter-spacing:-.3px; }
+.mkt-chg { font-size:11px; font-weight:600; white-space:nowrap; }
+.mkt-chg.up   { color:#dc2626; }
+.mkt-chg.dn   { color:#2563eb; }
 .mkt-chg.flat { color:var(--muted); }
 /* 업데이트 날짜 — TOP10 우측 */
 .result-cnt { font-size: 12px; color: var(--muted); }
@@ -370,28 +370,24 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
     <!-- 시장 지수 바 -->
     <div class="mkt-bar" id="mkt-bar" style="margin:12px -16px 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);">
-      <div class="mkt-bar-inner" id="mkt-bar-inner" style="padding:0 16px;">
+      <div id="mkt-bar-inner">
         <!-- 스켈레톤 -->
-        <div class="mkt-senti-row" style="gap:8px;">
-          <div class="skeleton" style="width:44px;height:10px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:80px;height:24px;border-radius:99px;"></div>
-          <div class="skeleton" style="width:56px;height:8px;border-radius:3px;"></div>
+        <div class="mkt-score-row">
+          <div class="skeleton" style="width:200px;height:17px;border-radius:4px;"></div>
+          <div class="skeleton" style="width:48px;height:26px;border-radius:4px;"></div>
         </div>
-        <div class="mkt-idx-row">
-          <div class="mkt-item" style="gap:5px;">
-            <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
-            <div class="skeleton" style="width:72px;height:15px;border-radius:3px;"></div>
-            <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+        <div class="mkt-ticker-row">
+          <div class="mkt-item">
+            <div><div class="skeleton" style="width:36px;height:9px;border-radius:3px;margin-bottom:4px;"></div><div class="skeleton" style="width:72px;height:14px;border-radius:3px;"></div></div>
+            <div class="skeleton" style="width:52px;height:10px;border-radius:3px;"></div>
           </div>
-          <div class="mkt-item" style="gap:5px;">
-            <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
-            <div class="skeleton" style="width:60px;height:15px;border-radius:3px;"></div>
-            <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+          <div class="mkt-item">
+            <div><div class="skeleton" style="width:36px;height:9px;border-radius:3px;margin-bottom:4px;"></div><div class="skeleton" style="width:60px;height:14px;border-radius:3px;"></div></div>
+            <div class="skeleton" style="width:48px;height:10px;border-radius:3px;"></div>
           </div>
-          <div class="mkt-item" style="gap:5px;">
-            <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
-            <div class="skeleton" style="width:52px;height:15px;border-radius:3px;"></div>
-            <div class="skeleton" style="width:40px;height:9px;border-radius:3px;"></div>
+          <div class="mkt-item">
+            <div><div class="skeleton" style="width:44px;height:9px;border-radius:3px;margin-bottom:4px;"></div><div class="skeleton" style="width:52px;height:14px;border-radius:3px;"></div></div>
+            <div class="skeleton" style="width:44px;height:10px;border-radius:3px;"></div>
           </div>
         </div>
       </div>
@@ -931,6 +927,24 @@ function fmtMktNum(v, decimals = 2) {
 function chgClass(v) { return v > 0 ? 'up' : v < 0 ? 'dn' : 'flat'; }
 function chgSign(v)  { return v > 0 ? '+' : ''; }
 
+// 미니 게이지 SVG (score: 0~100)
+function miniGaugeSVG(score) {
+  const cx = 24, cy = 24, r = 18;
+  const angleRad = Math.PI * (1 - score / 100);  // 180°(좌)→0°(우)
+  const nx = (cx + r * Math.cos(angleRad)).toFixed(1);
+  const ny = (cy - r * Math.sin(angleRad)).toFixed(1);
+  const col = score >= 80 ? '#ef4444'
+            : score >= 60 ? '#f59e0b'
+            : score >= 40 ? '#9ca3af'
+            : score >= 20 ? '#60a5fa'
+            :               '#2563eb';
+  return `<svg width="44" height="26" viewBox="0 0 48 28" fill="none" style="flex-shrink:0">
+    <path d="M4 24 A20 20 0 0 0 44 24" stroke="#e5e7eb" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${col}" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="2.5" fill="${col}"/>
+  </svg>`;
+}
+
 async function loadMarket() {
   try {
     const d = await fetch('/api/market').then(r => r.json());
@@ -941,40 +955,45 @@ async function loadMarket() {
     const usd    = d.usdkrw;
     const senti  = d.sentiment || {};
 
-    // 심리 도트 (1~5)
-    const score = senti.score || 3;
-    const dots  = [1,2,3,4,5].map(i =>
-      `<span style="${i <= score ? `background:${senti.color};opacity:${0.4 + i*0.12}` : ''}"></span>`
-    ).join('');
+    // senti.score: 1~5 → 표시 점수 10/30/50/70/90
+    const rawScore = senti.score || 3;
+    const pct = rawScore * 20 - 10;   // 1→10, 3→50, 5→90
 
     const bar = document.getElementById('mkt-bar-inner');
     if (!bar) return;
     bar.innerHTML = `
-      <div class="mkt-senti-row">
-        <span class="mkt-senti-lbl">시장심리</span>
-        <div class="mkt-senti-badge" style="background:${senti.bg||'rgba(107,114,128,.1)'};color:${senti.color||'#6b7280'};">
-          <span>${senti.emoji||'😐'}</span><span>${senti.label||'중립'}</span>
+      <div class="mkt-score-row">
+        <div class="mkt-score-left">
+          <span class="mkt-score-val">마켓스코어 ${pct}점</span>
+          <span class="mkt-score-sep">,</span>
+          <span class="mkt-score-stage" style="color:${senti.color||'#6b7280'}">${senti.label||'중립'} 단계입니다</span>
         </div>
-        <div class="mkt-senti-dots">${dots}</div>
+        ${miniGaugeSVG(pct)}
       </div>
-      <div class="mkt-idx-row">
+      <div class="mkt-ticker-row">
         ${kospi ? `
         <div class="mkt-item">
-          <div class="mkt-label">코스피</div>
-          <div class="mkt-price">${fmtMktNum(kospi.price)}</div>
-          <div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)} (${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</div>
+          <div>
+            <div class="mkt-label">코스피</div>
+            <div class="mkt-price">${fmtMktNum(kospi.price)}</div>
+          </div>
+          <div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)}<br><span style="font-size:10px;">(${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</span></div>
         </div>` : ''}
         ${kosdaq ? `
         <div class="mkt-item">
-          <div class="mkt-label">코스닥</div>
-          <div class="mkt-price">${fmtMktNum(kosdaq.price)}</div>
-          <div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)} (${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</div>
+          <div>
+            <div class="mkt-label">코스닥</div>
+            <div class="mkt-price">${fmtMktNum(kosdaq.price)}</div>
+          </div>
+          <div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)}<br><span style="font-size:10px;">(${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</span></div>
         </div>` : ''}
         ${usd ? `
         <div class="mkt-item">
-          <div class="mkt-label">달러/원</div>
-          <div class="mkt-price">${fmtMktNum(usd.price, 1)}<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:2px;">원</span></div>
-          <div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)} (${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</div>
+          <div>
+            <div class="mkt-label">달러/원</div>
+            <div class="mkt-price">${fmtMktNum(usd.price, 1)}<span style="font-size:11px;color:var(--muted);margin-left:2px;">원</span></div>
+          </div>
+          <div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)}<br><span style="font-size:10px;">(${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</span></div>
         </div>` : ''}
       </div>
     `;
