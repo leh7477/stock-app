@@ -489,6 +489,51 @@ function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
   };
 }
 
+/* ─── 중장기 목표가 (PBR+PER 복합 적정 가격) ────────────────────────
+ * growthScore 0~18을 반영해 적정 PBR(0.8~3.0)·적정 PER(12~35) 산출 후
+ * 투자 스타일(tag)에 따라 가중 혼합
+ * ─────────────────────────────────────────────────────────────────── */
+function calcMidLongTarget(cur, per, pbr, growthScore, tag, ma60) {
+  // 1. PBR 기반 적정가
+  let pbrTarget = null;
+  if (pbr > 0) {
+    const fairPBR = 0.8 + (growthScore / 18) * 2.2;  // 0.8 ~ 3.0
+    pbrTarget = Math.round(cur / pbr * fairPBR);
+  }
+
+  // 2. PER 기반 적정가 (이상치·무의미 PER 제외)
+  let perTarget = null;
+  if (per > 0 && per < 200) {
+    const eps     = cur / per;
+    const fairPER = 12 + (growthScore / 18) * 23;    // 12 ~ 35
+    perTarget = Math.round(eps * fairPER);
+  }
+
+  // 3. 태그별 가중 혼합
+  let price = null;
+  let basis = '';
+  if (pbrTarget && perTarget) {
+    const pbrW = tag === 'value' ? 0.65 : tag === 'growth' ? 0.30 : 0.50;
+    price = Math.round(pbrTarget * pbrW + perTarget * (1 - pbrW));
+    basis = tag === 'growth' ? 'PER 중심 복합' : tag === 'value' ? 'PBR 중심 복합' : 'PBR+PER 복합';
+  } else if (pbrTarget) {
+    price = pbrTarget; basis = 'PBR 기반';
+  } else if (perTarget) {
+    price = perTarget; basis = 'PER 기반';
+  } else if (ma60 > 0) {
+    // 폴백: MA60 × 성장 프리미엄 (PBR·PER 모두 없는 경우)
+    price = Math.round(ma60 * (1 + growthScore / 18 * 0.30));
+    basis = 'MA60 기반';
+  }
+
+  if (!price) return null;
+
+  const upside  = (price - cur) / cur * 100;
+  const horizon = Math.abs(upside) > 30 ? '12개월' : Math.abs(upside) > 15 ? '6~12개월' : '3~6개월';
+
+  return { price, upside: upside.toFixed(1), basis, horizon };
+}
+
 function buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
   const n   = closes.length - 1;
   const cur = closes[n];
@@ -873,6 +918,14 @@ try {
     const score     = liveScore;
     const recommend = calcRecommend(latest.close, ma5arr[n], ma20arr[n], supportNum, resistanceNum, score);
 
+    // 중장기 목표가 — recommend 객체에 추가 (korScore IIFE 이전에 미리 계산)
+    const { total: growthS, secScore: growthSecS, buyScore: growthBuyS } =
+      calcGrowthBonus(sector2, d5FrgnInst2, name, code);
+    const tag = getStockTag(pbr2, per2, sector2, name, code);
+    recommend.midLongTarget = calcMidLongTarget(
+      latest.close, per2, pbr2, growthS, tag, ma60arr[n]
+    );
+
     // 이평선 세부 점수: calcScore 내부 계산값 재활용 (중복 계산 제거)
     const maScore = {
       arrangement: techDetail.arrangement,
@@ -893,11 +946,8 @@ try {
         const { pbrScore: pbrS, perScore: perS, perFinal: perFinalS,
                 supplyScore: supplyS, panicScore: panicS, discScore: discS,
                 drawdown: drawdownPct, isIVExtreme } = ks;
-        // 미래성장 가점 상세 (섹터 등급 + 외인기관 수급)
-        const { total: growthS, secScore: growthSecS, buyScore: growthBuyS } =
-          calcGrowthBonus(sector2, d5FrgnInst2, name, code);
+        // 미래성장 가점 상세 — 위에서 이미 계산된 growthS, growthSecS, growthBuyS, tag 재활용
         const rsiNow = rsiArr[n];
-        const tag    = getStockTag(pbr2, per2, sector2, name, code);
         const growthComment = (tag === 'growth' && per2 > 30)
           ? `이 종목은 [🔥 국장 주도 성장주] 태그에 해당하여, 현재 PER(${per2.toFixed(1)}배)로는 비싸 보이지만 성장 섹터(${growthSecS}점)·외인기관 수급(${growthBuyS}점)을 반영한 [섹터 프리미엄 ${growthS}점]을 부여했습니다.`
           : null;
