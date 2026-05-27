@@ -130,53 +130,57 @@ async function fetchDartCorpMap(krxCodes) {
   return corpMap;
 }
 
-// ─── 현재 시점 기준 최신 분기 보고서 후보 목록 ────────────────────────────
-// 분기 제출 기한: Q1=5/15, 반기=8/14, Q3=11/14, 연간=3/31(다음해)
-// 가장 최신 분기부터 시도 → 없으면 이전 분기 → 최종 fallback 연간
+// ─── 현재 시점 기준 보고서 후보 목록 (우선순위 순) ────────────────────────
+// factor: 분기 누적 EPS → 연간 EPS 환산 배율
+//   Q1(3개월) ×4 / 반기(6개월) ×2 / Q3(9개월) ×(4/3) / 연간(12개월) ×1
+//
+// 우선순위: 최신 분기 연환산 → 직전 회계연도 연간보고서
+//   · 분기 연환산 = 현재 수익 추세 반영 (타사 PER과 유사한 run-rate 기준)
+//   · 연간보고서 = 1~4월처럼 분기 미제출 기간의 안정적 fallback
 function getReportCandidates() {
   const now   = new Date();
   const year  = now.getFullYear();
   const month = now.getMonth() + 1;
-  // 분기 보고서만 시도 — 없으면 analyze.js에서 KIS PER fallback 처리
-  // (연간 사업보고서는 KIS PER과 동일 기준이라 포함 불필요)
-  if (month >= 11) return [
-    { year, code: '11014' },   // Q3 당해 (11월~)
-    { year, code: '11012' },   // 반기 당해
-    { year, code: '11013' },   // Q1 당해
-  ];
-  if (month >= 8) return [
-    { year, code: '11012' },   // 반기 당해 (8월~)
-    { year, code: '11013' },   // Q1 당해
-  ];
-  if (month >= 5) return [
-    { year, code: '11013' },   // Q1 당해 (5월~)
-  ];
-  return [];  // 1~4월: 분기 미확정 → KIS PER 사용
+
+  const candidates = [];
+
+  // ── 분기 보고서 (연환산) ────────────────────────────────────────────────
+  // 제출 기한: Q1=5/15, 반기=8/14, Q3=11/14
+  if (month >= 11) candidates.push({ year, code: '11014', factor: 4/3,  label: `${year}Q3` });
+  if (month >= 8)  candidates.push({ year, code: '11012', factor: 2,    label: `${year}반기` });
+  if (month >= 5)  candidates.push({ year, code: '11013', factor: 4,    label: `${year}Q1` });
+
+  // ── 연간 사업보고서 fallback (3/31 제출 → 4월 이후 확실히 이용 가능) ───
+  // 직전 회계연도 full-year EPS — 변동성 큰 종목의 안전망
+  const annualYear = month >= 4 ? year - 1 : year - 2;
+  candidates.push({ year: annualYear, code: '11011', factor: 1, label: `${annualYear}연간` });
+  // 추가 보험: 2년 전 연간 (annualYear 보고서도 없는 소규모 기업 대비)
+  candidates.push({ year: annualYear - 1, code: '11011', factor: 1, label: `${annualYear-1}연간` });
+
+  return candidates;
 }
 
-// ─── DART 연결재무제표 → EPS 계산 ──────────────────────────────────────────
-// 최신 분기 보고서부터 순서대로 시도, 연간 사업보고서로 fallback
-// EPS = 기본주당이익 직접 조회 (원/주 단위), 없으면 당기순이익÷주식수 계산
-// PER 계산은 analyze.js에서 실시간으로: 현재가 ÷ dart_eps
+// ─── DART 연결재무제표 → 연환산 EPS 계산 ─────────────────────────────────
+// · 분기 보고서: thstrm_amount(YTD 누적) × factor 로 연간 EPS 환산
+// · 연간 보고서: factor=1 (그대로 사용)
+// · EPS = 기본주당이익 직접 조회 → fallback: 당기순이익÷주식수 × factor
+// · PER 계산은 analyze.js에서: 현재가 ÷ dart_eps (연환산 EPS)
 
 async function fetchDartEPS(corpCode) {
   const candidates = getReportCandidates();
-  if (candidates.length === 0) return null;  // 1~4월: 분기 없음 → KIS PER 사용
 
-  for (const { year, code: reprtCode } of candidates) {
+  for (const { year, code: reprtCode, factor } of candidates) {
     try {
       const url = `https://opendart.fss.or.kr/api/fnlttSinglAcntAll.json` +
         `?crtfc_key=${DART_KEY}&corp_code=${corpCode}` +
         `&bsns_year=${year}&reprt_code=${reprtCode}&fs_div=CFS`;
 
       const data = await timedFetch(url).then(r => r.json()).catch(() => null);
-      // status 000이 아니면 이 분기 보고서 없음 → 다음 후보로
-      if (data?.status !== '000') continue;
+      if (data?.status !== '000') continue;  // 해당 보고서 없음 → 다음 후보
 
       const list = data.list || [];
 
       // ── 방법1: 기본주당이익(EPS) 직접 조회 ────────────────────────────────
-      // DART IS/CIS 항목에 "기본주당이익(손실)" 등으로 원/주 단위로 이미 제공됨
       const epsItem = list.find(r =>
         (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
         (r.account_nm?.includes('기본주당이익') ||
@@ -184,12 +188,12 @@ async function fetchDartEPS(corpCode) {
          r.account_nm?.includes('주당순이익'))
       );
       if (epsItem?.thstrm_amount) {
-        const eps = parseInt(String(epsItem.thstrm_amount).replace(/[,\s]/g, '')) || 0;
-        if (eps > 0) return eps;
-        continue;  // 0 또는 음수면 다음 후보 (더 오래된 기간이 양수일 수 있음)
+        const rawEps = parseInt(String(epsItem.thstrm_amount).replace(/[,\s]/g, '')) || 0;
+        if (rawEps > 0) return Math.round(rawEps * factor);  // ← 연환산 적용
+        continue;  // 0 또는 음수 → 다음 후보
       }
 
-      // ── 방법2: 당기순이익(백만원) ÷ 발행주식수 — fallback ─────────────────
+      // ── 방법2: 당기순이익(백만원) ÷ 발행주식수 fallback ──────────────────
       const netIncome = list.find(r =>
         (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
         r.account_nm?.includes('당기순이익') &&
@@ -205,14 +209,13 @@ async function fetchDartEPS(corpCode) {
       const sh         = parseInt(String(shares.thstrm_amount).replace(/[,\s]/g, ''))   || 0;
       if (niMillions <= 0 || sh <= 0) continue;
 
-      // 백만원 × 1,000,000 ÷ 주식수 = 원/주(EPS)
-      const eps = Math.round(niMillions * 1_000_000 / sh);
-      if (eps > 0) return eps;
+      const rawEps = Math.round(niMillions * 1_000_000 / sh);
+      if (rawEps > 0) return Math.round(rawEps * factor);  // ← 연환산 적용
     } catch (_) {
-      continue;  // 네트워크 오류 등 → 다음 후보
+      continue;
     }
   }
-  return null;  // 모든 후보 소진 → EPS 없음
+  return null;  // 모든 후보 소진 → KIS PER fallback
 }
 
 // ─── 메인 ──────────────────────────────────────────────────────────────────
