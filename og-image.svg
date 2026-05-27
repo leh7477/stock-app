@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <!-- 배경 -->
+  <rect width="1200" height="630" fill="#0A1628"/>
+
+  <!-- 배경 장식: 그리드 라인 -->
+  <line x1="0" y1="200" x2="1200" y2="200" stroke="#F6F4EF" stroke-opacity="0.04" stroke-width="1"/>
+  <line x1="0" y1="400" x2="1200" y2="400" stroke="#F6F4EF" stroke-opacity="0.04" stroke-width="1"/>
+  <line x1="300" y1="0" x2="300" y2="630" stroke="#F6F4EF" stroke-opacity="0.04" stroke-width="1"/>
+  <line x1="600" y1="0" x2="600" y2="630" stroke="#F6F4EF" stroke-opacity="0.04" stroke-width="1"/>
+  <line x1="900" y1="0" x2="900" y2="630" stroke="#F6F4EF" stroke-opacity="0.04" stroke-width="1"/>
+
+  <!-- 우측 장식 차트 바 (favicon 모티프) -->
+  <rect x="820" y="310" width="44" height="140" rx="6" fill="#F6F4EF" fill-opacity="0.12"/>
+  <rect x="880" y="260" width="44" height="190" rx="6" fill="#F6F4EF" fill-opacity="0.22"/>
+  <rect x="940" y="190" width="44" height="260" rx="6" fill="#F6F4EF" fill-opacity="0.45"/>
+  <rect x="1000" y="110" width="44" height="340" rx="6" fill="#FACC15"/>
+
+  <!-- 좌측 아이콘 -->
+  <rect x="100" y="195" width="64" height="64" rx="16" fill="#0A1628"/>
+  <rect x="100" y="195" width="64" height="64" rx="16" stroke="#FACC15" stroke-width="2" fill="#111e35"/>
+  <rect x="114" y="231" width="9" height="19" rx="2" fill="#F6F4EF" fill-opacity="0.4"/>
+  <rect x="127" y="226" width="9" height="24" rx="2" fill="#F6F4EF" fill-opacity="0.65"/>
+  <rect x="140" y="219" width="9" height="31" rx="2" fill="#F6F4EF"/>
+  <rect x="153" y="211" width="9" height="39" rx="2" fill="#FACC15"/>
+
+  <!-- 워드마크 -->
+  <text x="180" y="247" font-family="Manrope, Arial Black, system-ui" font-weight="800" font-size="72" letter-spacing="-3.6" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+
+  <!-- 슬로건 -->
+  <text x="100" y="310" font-family="Pretendard, Apple SD Gothic Neo, sans-serif" font-weight="400" font-size="28" fill="#F6F4EF" fill-opacity="0.55" letter-spacing="0.5">나만 알고 싶은 주식 팁</text>
+
+  <!-- 구분선 -->
+  <rect x="100" y="350" width="400" height="1.5" fill="#FACC15" fill-opacity="0.4"/>
+
+  <!-- 기능 태그 -->
+  <rect x="100" y="380" width="158" height="36" rx="18" fill="#FACC15" fill-opacity="0.12"/>
+  <text x="179" y="403" font-family="Pretendard, Apple SD Gothic Neo, sans-serif" font-weight="600" font-size="17" fill="#FACC15" text-anchor="middle">📊 퀀트 스코어</text>
+
+  <rect x="270" y="380" width="148" height="36" rx="18" fill="#F6F4EF" fill-opacity="0.07"/>
+  <text x="344" y="403" font-family="Pretendard, Apple SD Gothic Neo, sans-serif" font-weight="600" font-size="17" fill="#F6F4EF" fill-opacity="0.7" text-anchor="middle">🟢 수급 분석</text>
+
+  <rect x="430" y="380" width="132" height="36" rx="18" fill="#F6F4EF" fill-opacity="0.07"/>
+  <text x="496" y="403" font-family="Pretendard, Apple SD Gothic Neo, sans-serif" font-weight="600" font-size="17" fill="#F6F4EF" fill-opacity="0.7" text-anchor="middle">💎 TOP 10</text>
+
+  <!-- 하단 URL -->
+  <text x="100" y="530" font-family="Manrope, Arial, system-ui" font-weight="700" font-size="24" fill="#FACC15" fill-opacity="0.7" letter-spacing="1">somtip.kr</text>
+</svg>
