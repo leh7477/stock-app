@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>썸팁 · 종목 분석기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
 :root {
@@ -21,18 +21,23 @@
 body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
 .app{max-width:900px;margin:0 auto;padding:0 16px 40px;}
 
-/* ── 헤더 ── */
-.header{padding:14px 0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);position:sticky;top:0;background:#fff;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.06);margin:0 -16px;padding-left:16px;padding-right:16px;}
-.back-btn{width:32px;height:32px;border-radius:50%;background:var(--bg);border:1.5px solid var(--border);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;text-decoration:none;flex-shrink:0;}
-.header h1{font-size:16px;font-weight:600;}
+/* ── somtip 헤더 ─────────────────────────────────────── */
+.site-hdr{background:#0A1628;position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(246,244,239,.08);}
+.site-hdr-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;height:62px;padding:0 20px;gap:18px;}
+.site-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+.site-logo svg{height:28px;width:auto;display:block;}
+.hdr-search{flex:1;display:flex;align-items:center;background:rgba(246,244,239,.08);border:1.5px solid rgba(246,244,239,.12);border-radius:10px;padding:0 12px;gap:8px;transition:border-color .2s,background .2s;position:relative;}
+.hdr-search:focus-within{border-color:rgba(250,204,21,.5);background:rgba(246,244,239,.12);}
+.hdr-search input{flex:1;background:none;border:none;color:#F6F4EF;font-size:14px;font-family:inherit;outline:none;padding:9px 0;}
+.hdr-search input::placeholder{color:rgba(246,244,239,.35);}
+.hdr-search-btn{background:#FACC15;border:none;border-radius:7px;color:#0A1628;padding:5px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.site-nav{display:flex;align-items:center;gap:2px;flex-shrink:0;}
+.site-nav a{font-size:13px;font-weight:500;color:rgba(246,244,239,.6);text-decoration:none;padding:6px 11px;border-radius:7px;transition:.15s;white-space:nowrap;}
+.site-nav a:hover{color:#FACC15;background:rgba(250,204,21,.1);}
+.site-nav a.active{color:#FACC15;}
+@media(max-width:768px){.site-nav{display:none;}.site-hdr-inner{gap:12px;}}
 
-/* ── 검색 ── */
-.search-row{padding:12px 0;display:flex;gap:8px;align-items:flex-start;}
-.search-input-wrap{flex:1;position:relative;}
-.search-input-wrap input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;font-family:inherit;}
-.search-input-wrap input:focus{border-color:var(--blue);background:#fff;}
-.search-input-wrap.open input{border-radius:10px 10px 0 0;border-bottom-color:transparent;}
-.search-row button{background:var(--blue);border:none;border-radius:10px;padding:10px 22px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;height:42px;}
+/* ── 검색 드롭다운 ── */
 .suggest-drop{display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--blue);border-top:none;border-radius:0 0 10px 10px;box-shadow:0 6px 16px rgba(0,0,0,0.1);z-index:200;overflow:hidden;}
 .suggest-item{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;font-size:13px;transition:background .1s;}
 .suggest-item:hover,.suggest-item.active{background:var(--blue-bg);}
@@ -202,22 +207,58 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   .shw-right{text-align:left;}
   #mainChart{height:240px;}
 }
+
+/* ── 사이트 푸터 ─────────────────────────────────────── */
+.site-footer{background:#0A1628;border-top:1px solid rgba(246,244,239,.08);padding:32px 20px 48px;margin-top:32px;}
+.site-footer .f-inner{max-width:900px;margin:0 auto;}
+.site-footer .f-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px;flex-wrap:wrap;}
+.site-footer .f-tagline{font-size:11px;color:rgba(246,244,239,.3);margin-top:7px;letter-spacing:.01em;}
+.site-footer .f-links{display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding-top:4px;}
+.site-footer .f-links a{font-size:12px;color:rgba(246,244,239,.38);text-decoration:none;transition:.15s;}
+.site-footer .f-links a:hover{color:rgba(246,244,239,.85);}
+.site-footer .f-divider{border:none;border-top:1px solid rgba(246,244,239,.07);margin:16px 0;}
+.site-footer .f-disc{font-size:10px;color:rgba(246,244,239,.22);line-height:1.8;}
+.site-footer .f-copy{font-size:10px;color:rgba(246,244,239,.22);margin-top:8px;}
 </style>
 </head>
 <body>
-<div class="app">
-  <div class="header">
-    <a class="back-btn" href="/">←</a>
-    <h1>종목 분석기</h1>
-  </div>
 
-  <div class="search-row">
-    <div class="search-input-wrap" id="search-wrap">
-      <input id="q" type="text" placeholder="종목명 또는 코드 (예: 삼성전자, 005930)" autocomplete="off" />
+<!-- ══ 헤더 ══════════════════════════════════════════ -->
+<header class="site-hdr">
+  <div class="site-hdr-inner">
+    <!-- 워드마크 -->
+    <a href="/" class="site-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="28" style="display:block;">
+        <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+        <g transform="translate(0,148)">
+          <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+          <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+          <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+          <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+        </g>
+      </svg>
+    </a>
+    <!-- 검색 -->
+    <div class="hdr-search" id="search-wrap">
+      <span style="color:rgba(246,244,239,.35);font-size:15px;">🔍</span>
+      <input id="q" type="text" placeholder="종목명 또는 코드 검색" autocomplete="off"/>
       <div class="suggest-drop" id="suggest-drop"></div>
+      <button class="hdr-search-btn" onclick="doSearch()">분석</button>
     </div>
-    <button onclick="doSearch()">분석</button>
+    <!-- 데스크탑 네비 -->
+    <nav class="site-nav">
+      <a href="/">국장 분석기</a>
+      <a href="/analyzer.html" class="active">상세 지표</a>
+      <a href="#">뉴스·공시</a>
+      <a href="#">가이드</a>
+      <a href="#">소개</a>
+    </nav>
   </div>
+</header>
+
+<div class="app">
 
   <div id="state-idle">
     <div style="font-size:40px;margin-bottom:14px;">📊</div>
@@ -422,6 +463,42 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 
   </div>
 </div>
+
+<!-- ══ 사이트 푸터 ══════════════════════════════════════ -->
+<footer class="site-footer">
+  <div class="f-inner">
+    <div class="f-top">
+      <div>
+        <a href="/" style="display:inline-block;text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="22" style="display:block;">
+            <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+            <g transform="translate(0,148)">
+              <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+              <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+              <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+              <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+            </g>
+          </svg>
+        </a>
+        <div class="f-tagline">나만 알고 싶은 주식 팁</div>
+      </div>
+      <div class="f-links">
+        <a href="#">소개</a>
+        <a href="#">가이드</a>
+        <a href="#">이용약관</a>
+        <a href="#">개인정보처리방침</a>
+      </div>
+    </div>
+    <hr class="f-divider">
+    <div class="f-disc">
+      본 서비스는 이동평균선·퀀트 지표 기반 정보 제공 목적이며, 투자 권유가 아닙니다.<br>
+      모든 투자 판단과 책임은 본인에게 있으며, 금융 투자에는 원금 손실 위험이 있습니다.
+    </div>
+    <div class="f-copy">© 2026 somtip. All rights reserved.</div>
+  </div>
+</footer>
 
 <script>
 let mainChart, rsiChart;
