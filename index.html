@@ -173,14 +173,29 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .sec-title { font-size: 14px; font-weight: 700; color: var(--text); }
 .sec-sub { font-size: 11px; color: var(--muted); }
 
-/* ── TOP10 탭 ─────────────────────────────────────────── */
-.t10-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
-.t10-tab { padding:6px 14px; border-radius:99px; font-size:12px; font-weight:600; cursor:pointer; border:1.5px solid var(--border); background:var(--card); color:var(--sub); transition:all .15s; box-shadow:var(--shadow); white-space:nowrap; }
-.t10-tab:hover { border-color:#0A1628; color:#0A1628; }
-.t10-tab.active { background:#0A1628; border-color:#0A1628; color:#FACC15; box-shadow:0 2px 8px rgba(10,22,40,.2); }
+/* ── TOP10 카드 래퍼 ──────────────────────────────────── */
+.t10-wrap { background:var(--card); border:1.5px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:20px; }
 
-/* ── TOP10 세로 리스트 ────────────────────────────────── */
-.t10-list { background:var(--card); border:1.5px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:20px; }
+/* 탭바 (다크 헤더) */
+.t10-tab-bar { background:#0A1628; display:flex; overflow-x:auto; scrollbar-width:none; border-bottom:1px solid rgba(246,244,239,.08); }
+.t10-tab-bar::-webkit-scrollbar { display:none; }
+.t10-tab { padding:14px 18px; font-size:13px; font-weight:600; color:rgba(246,244,239,.45); cursor:pointer; border:none; background:none; position:relative; white-space:nowrap; transition:color .15s; flex-shrink:0; }
+.t10-tab:hover { color:rgba(246,244,239,.8); }
+.t10-tab.active { color:#FACC15; }
+.t10-tab.active::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; background:#FACC15; border-radius:2px 2px 0 0; }
+
+/* 소제목 행 (다크 서브헤더) */
+.t10-sub-row { background:#0f1f38; display:flex; align-items:center; justify-content:space-between; padding:10px 16px; gap:12px; flex-wrap:wrap; border-bottom:1px solid rgba(246,244,239,.07); }
+.t10-h-left {}
+.t10-h-title { font-size:15px; font-weight:700; color:#F6F4EF; }
+.t10-h-desc { font-size:11px; color:rgba(246,244,239,.38); margin-top:3px; }
+.t10-mkt-filter { display:flex; gap:6px; flex-shrink:0; }
+.t10-mkt-btn { padding:5px 14px; border-radius:99px; font-size:12px; font-weight:600; cursor:pointer; border:1.5px solid rgba(246,244,239,.18); background:transparent; color:rgba(246,244,239,.5); transition:.15s; white-space:nowrap; }
+.t10-mkt-btn:hover { border-color:rgba(246,244,239,.5); color:rgba(246,244,239,.85); }
+.t10-mkt-btn.active { background:#FACC15; border-color:#FACC15; color:#0A1628; font-weight:700; }
+
+/* 리스트 */
+.t10-list { }
 .t10-item { display:grid; grid-template-columns:36px 38px 1fr auto 68px; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .12s; }
 .t10-item:last-child { border-bottom:none; }
 .t10-item:hover { background:var(--bg); }
@@ -200,6 +215,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 @media(max-width:500px) {
   .t10-item { grid-template-columns:30px 34px 1fr auto; gap:8px; }
   .t10-i-chg { display:none; }
+  .t10-h-title { font-size:13px; }
 }
 
 /* ── 2026 테마 섹터 ── */
@@ -332,37 +348,50 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <div class="sec-sub" id="top10-date"></div>
     </div>
 
-    <!-- 카테고리 탭 -->
-    <div class="t10-tabs">
-      <button class="t10-tab active" data-tab="buy"      onclick="switchTop10('buy')">💎 추천 매수</button>
-      <button class="t10-tab"        data-tab="score"    onclick="switchTop10('score')">📊 분석 상위</button>
-      <button class="t10-tab"        data-tab="frgnbuy"  onclick="switchTop10('frgnbuy')">🟢 외인 순매수</button>
-      <button class="t10-tab"        data-tab="frgnsell" onclick="switchTop10('frgnsell')">🔴 외인 순매도</button>
-      <button class="t10-tab"        data-tab="volume"   onclick="switchTop10('volume')">📦 거래량</button>
-    </div>
-
-    <!-- 세로 리스트 (스켈레톤) -->
-    <div class="t10-list" id="t10-list">
-      <div class="t10-item" style="cursor:default;">
-        <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
-        <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
-        <div><div class="skeleton" style="width:120px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:70px;height:11px;"></div></div>
-        <div class="skeleton" style="width:56px;height:20px;"></div>
-        <div class="skeleton" style="width:56px;height:14px;"></div>
+    <div class="t10-wrap">
+      <!-- 1단: 카테고리 탭바 -->
+      <div class="t10-tab-bar">
+        <button class="t10-tab active" data-tab="buy"      onclick="switchTop10('buy')">💎 추천 매수</button>
+        <button class="t10-tab"        data-tab="score"    onclick="switchTop10('score')">📊 분석 상위</button>
+        <button class="t10-tab"        data-tab="frgnbuy"  onclick="switchTop10('frgnbuy')">🟢 외인+기관 순매수</button>
+        <button class="t10-tab"        data-tab="frgnsell" onclick="switchTop10('frgnsell')">🔴 외인+기관 순매도</button>
+        <button class="t10-tab"        data-tab="volume"   onclick="switchTop10('volume')">📦 거래대금</button>
       </div>
-      <div class="t10-item" style="cursor:default;">
-        <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
-        <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
-        <div><div class="skeleton" style="width:100px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:60px;height:11px;"></div></div>
-        <div class="skeleton" style="width:56px;height:20px;"></div>
-        <div class="skeleton" style="width:56px;height:14px;"></div>
+      <!-- 2단: 소제목 + 시장 필터 -->
+      <div class="t10-sub-row">
+        <div class="t10-h-left">
+          <div class="t10-h-title" id="t10-h-title">💎 추천 매수</div>
+          <div class="t10-h-desc"  id="t10-h-desc">퀀트 점수 55점+ · MA5 매수권 진입 종목</div>
+        </div>
+        <div class="t10-mkt-filter">
+          <button class="t10-mkt-btn active" data-mkt="" onclick="switchTop10Mkt('')">전체</button>
+          <button class="t10-mkt-btn"        data-mkt="KOSPI"  onclick="switchTop10Mkt('KOSPI')">KOSPI</button>
+          <button class="t10-mkt-btn"        data-mkt="KOSDAQ" onclick="switchTop10Mkt('KOSDAQ')">KOSDAQ</button>
+        </div>
       </div>
-      <div class="t10-item" style="cursor:default;">
-        <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
-        <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
-        <div><div class="skeleton" style="width:140px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:80px;height:11px;"></div></div>
-        <div class="skeleton" style="width:56px;height:20px;"></div>
-        <div class="skeleton" style="width:56px;height:14px;"></div>
+      <!-- 세로 리스트 (스켈레톤) -->
+      <div class="t10-list" id="t10-list">
+        <div class="t10-item" style="cursor:default;">
+          <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+          <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
+          <div><div class="skeleton" style="width:120px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:70px;height:11px;"></div></div>
+          <div class="skeleton" style="width:56px;height:20px;"></div>
+          <div class="skeleton" style="width:56px;height:14px;"></div>
+        </div>
+        <div class="t10-item" style="cursor:default;">
+          <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+          <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
+          <div><div class="skeleton" style="width:100px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:60px;height:11px;"></div></div>
+          <div class="skeleton" style="width:56px;height:20px;"></div>
+          <div class="skeleton" style="width:56px;height:14px;"></div>
+        </div>
+        <div class="t10-item" style="cursor:default;">
+          <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+          <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
+          <div><div class="skeleton" style="width:140px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:80px;height:11px;"></div></div>
+          <div class="skeleton" style="width:56px;height:20px;"></div>
+          <div class="skeleton" style="width:56px;height:14px;"></div>
+        </div>
       </div>
     </div>
 
@@ -692,8 +721,18 @@ function stockMatchesTheme(stock, themeKey) {
 }
 
 // ── TOP10 카드 HTML 생성 ──────────────────────────────
+// ── TOP10 탭 메타데이터 ────────────────────────────────
+const TOP10_META = {
+  buy:      { title:'💎 추천 매수',         desc:'퀀트 점수 55점+ · MA5 매수권 진입 종목' },
+  score:    { title:'📊 종합 분석 상위',     desc:'기술·성장·국장 특화 지표 퀀트 스코어 순위' },
+  frgnbuy:  { title:'🟢 외인+기관 순매수',   desc:'5일간 외국인·기관 합산 순매수 금액 기준' },
+  frgnsell: { title:'🔴 외인+기관 순매도',   desc:'5일간 외국인·기관 합산 순매도 금액 기준' },
+  volume:   { title:'📦 거래대금 상위',      desc:'5일 평균 거래대금 기준 시장 관심 종목' },
+};
+
 // ── TOP10 탭 전환 ──────────────────────────────────────
 let curTop10Tab = 'buy';
+let curTop10Mkt = '';
 let _top10Data  = {};
 
 function switchTop10(tab) {
@@ -701,7 +740,18 @@ function switchTop10(tab) {
   document.querySelectorAll('.t10-tab').forEach(el =>
     el.classList.toggle('active', el.dataset.tab === tab)
   );
+  const m = TOP10_META[tab];
+  document.getElementById('t10-h-title').textContent = m.title;
+  document.getElementById('t10-h-desc').textContent  = m.desc;
   renderTop10Tab(tab);
+}
+
+function switchTop10Mkt(mkt) {
+  curTop10Mkt = mkt;
+  document.querySelectorAll('.t10-mkt-btn').forEach(el =>
+    el.classList.toggle('active', el.dataset.mkt === mkt)
+  );
+  renderTop10Tab(curTop10Tab);
 }
 
 function renderTop10Tab(tab) {
@@ -712,7 +762,9 @@ function renderTop10Tab(tab) {
     frgnsell: _top10Data.top10FrgnSell,
     volume:   _top10Data.top10Volume,
   };
-  document.getElementById('t10-list').innerHTML = makeTop10List(map[tab] || [], tab);
+  let stocks = map[tab] || [];
+  if (curTop10Mkt) stocks = stocks.filter(s => (s.market || '').toUpperCase().includes(curTop10Mkt));
+  document.getElementById('t10-list').innerHTML = makeTop10List(stocks, tab);
 }
 
 function makeTop10List(stocks, tab) {
