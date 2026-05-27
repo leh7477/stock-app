@@ -37,9 +37,10 @@ const MAP = [
            '에스엔유프리시젼','아이씨디','엘에스이브이코리아'] },
 
   { tier:1, eco:'반도체_후공정_패키징',
+    codes:['090460'],  // 비에이치 (코드 기반 — '비에이치' 키워드가 비에이치아이도 잡아서 코드로 대체)
     exact:['하나마이크론','SFA반도체','네패스','네패스아크','심텍','이수페타시스','대덕전자',
            '코리아써키트','해성디에스','넥스플렉스','에이팩트','에이엔피','시그네틱스',
-           '인터플렉스','비에스이','LG이노텍','삼성전기','비에이치','인탑스','에이스테크',
+           '인터플렉스','비에스이','LG이노텍','삼성전기','인탑스','에이스테크',
            '이엘씨','HB테크놀러지','아이엠','아비코전자','유니트론텍','경인전자',
            '대덕','엘엠에스','옵트론텍'] },
 
@@ -287,15 +288,16 @@ const result  = {};
 const classified = new Set();
 
 for (const rule of MAP) {
-  const { tier, eco, exact = [], contains = [] } = rule;
+  const { tier, eco, exact = [], contains = [], codes = [] } = rule;
   if (!result[tier]) result[tier] = {};
   if (!result[tier][eco]) result[tier][eco] = [];
 
   for (const stock of stocks) {
     if (classified.has(stock.code)) continue;
-    const exactMatch = exact.some(kw => stock.name === kw || stock.name.includes(kw));
+    const exactMatch    = exact.some(kw => stock.name === kw || stock.name.includes(kw));
     const containsMatch = contains.some(kw => stock.name.includes(kw));
-    if (exactMatch || containsMatch) {
+    const codeMatch     = codes.includes(stock.code); // 코드 기반 정밀 매칭
+    if (exactMatch || containsMatch || codeMatch) {
       result[tier][eco].push({ code: stock.code, name: stock.name, market: stock.market });
       classified.add(stock.code);
     }
