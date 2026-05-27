@@ -52,10 +52,25 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .site-nav a.active { color:#FACC15; }
 @media (max-width:768px) { .site-nav { display:none; } .site-hdr-inner { gap:12px; } }
 
-/* ── 기준일 배지 ──── */
-.date-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 0 4px; }
-.date-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: 99px; padding: 4px 12px; box-shadow: var(--shadow); }
-.date-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+/* ── 시장 지수 바 ─────────────────────────────────── */
+.mkt-bar { background:var(--card); border-bottom:1px solid var(--border); overflow-x:auto; scrollbar-width:none; }
+.mkt-bar::-webkit-scrollbar { display:none; }
+.mkt-bar-inner { display:flex; align-items:stretch; padding:0 16px; max-width:900px; margin:0 auto; min-height:52px; }
+.mkt-item { display:flex; flex-direction:column; justify-content:center; padding:8px 18px 8px 0; margin-right:18px; border-right:1px solid var(--border); flex-shrink:0; gap:2px; }
+.mkt-item:last-of-type { border-right:none; }
+.mkt-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; }
+.mkt-price { font-size:15px; font-weight:800; color:var(--text); letter-spacing:-.3px; }
+.mkt-chg { font-size:11px; font-weight:600; }
+.mkt-chg.up   { color:#dc2626; }   /* 한국 증시: 오름=빨강 */
+.mkt-chg.dn   { color:#2563eb; }   /* 내림=파랑 */
+.mkt-chg.flat { color:var(--muted); }
+/* 심리 섹션 */
+.mkt-senti { display:flex; flex-direction:column; justify-content:center; gap:3px; padding:8px 0 8px 18px; margin-left:auto; flex-shrink:0; align-items:flex-end; }
+.mkt-senti-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; }
+.mkt-senti-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:700; white-space:nowrap; }
+.mkt-senti-dots { display:flex; gap:3px; align-items:center; }
+.mkt-senti-dots span { width:7px; height:7px; border-radius:2px; background:var(--border); transition:.2s; }
+/* 업데이트 날짜 — TOP10 우측 */
 .result-cnt { font-size: 12px; color: var(--muted); }
 
 /* ── 필터 탭 ────────── */
@@ -336,14 +351,35 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
     <!-- 검색 결과 -->
     <div id="search-result" class="search-result"></div>
 
-    <!-- 기준일 + 필터 -->
-    <div class="date-bar">
-      <div class="date-badge"><div class="date-dot"></div><span id="base-date">데이터 불러오는 중…</span></div>
+    <!-- 시장 지수 바 -->
+    <div class="mkt-bar" id="mkt-bar" style="margin:12px -16px 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);">
+      <div class="mkt-bar-inner" id="mkt-bar-inner" style="padding:0 16px;">
+        <!-- 스켈레톤 -->
+        <div class="mkt-item" style="gap:5px;">
+          <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:72px;height:15px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+        </div>
+        <div class="mkt-item" style="gap:5px;">
+          <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:60px;height:15px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+        </div>
+        <div class="mkt-item" style="gap:5px;border-right:none;">
+          <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:52px;height:15px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:40px;height:9px;border-radius:3px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 종목 수 -->
+    <div style="display:flex;justify-content:flex-end;padding:6px 0 0;">
       <div class="result-cnt" id="result-cnt"></div>
     </div>
 
     <!-- TOP10 -->
-    <div class="sec-hdr" style="margin-bottom:10px;margin-top:4px;">
+    <div class="sec-hdr" style="margin-bottom:10px;margin-top:8px;">
       <div class="sec-title">⭐ TOP 10</div>
       <div class="sec-sub" id="top10-date"></div>
     </div>
@@ -837,7 +873,80 @@ function makeTop10List(stocks, tab) {
 function renderTop10All(data, dateStr) {
   _top10Data = data;
   renderTop10Tab(curTop10Tab);
-  if (dateStr) document.getElementById('top10-date').textContent = dateStr + ' 기준';
+  // updatedAt(워크플로우 실행시각) > baseDate 순으로 우선 표시
+  const updated = data.updatedAt || data.baseDate;
+  if (updated) {
+    let label = '';
+    try {
+      const d = new Date(updated);
+      if (!isNaN(d)) {
+        const mo  = d.getMonth() + 1;
+        const day = d.getDate();
+        const hh  = String(d.getHours()).padStart(2,'0');
+        const mm  = String(d.getMinutes()).padStart(2,'0');
+        label = `${mo}/${day} ${hh}:${mm} 업데이트`;
+      } else {
+        label = updated + ' 기준';
+      }
+    } catch(_) { label = updated + ' 기준'; }
+    document.getElementById('top10-date').textContent = label;
+  }
+}
+
+// ── 시장 지수 바 ───────────────────────────────────────
+function fmtMktNum(v, decimals = 2) {
+  if (v == null) return '—';
+  return v.toLocaleString('ko-KR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+function chgClass(v) { return v > 0 ? 'up' : v < 0 ? 'dn' : 'flat'; }
+function chgSign(v)  { return v > 0 ? '+' : ''; }
+
+async function loadMarket() {
+  try {
+    const d = await fetch('/api/market').then(r => r.json());
+    if (!d.success) return;
+
+    const kospi  = d.kospi;
+    const kosdaq = d.kosdaq;
+    const usd    = d.usdkrw;
+    const senti  = d.sentiment || {};
+
+    // 심리 도트 (1~5)
+    const score = senti.score || 3;
+    const dots  = [1,2,3,4,5].map(i =>
+      `<span style="${i <= score ? `background:${senti.color};opacity:${0.4 + i*0.12}` : ''}"></span>`
+    ).join('');
+
+    const bar = document.getElementById('mkt-bar-inner');
+    if (!bar) return;
+    bar.innerHTML = `
+      ${kospi ? `
+      <div class="mkt-item">
+        <div class="mkt-label">코스피</div>
+        <div class="mkt-price">${fmtMktNum(kospi.price)}</div>
+        <div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)} (${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</div>
+      </div>` : ''}
+      ${kosdaq ? `
+      <div class="mkt-item">
+        <div class="mkt-label">코스닥</div>
+        <div class="mkt-price">${fmtMktNum(kosdaq.price)}</div>
+        <div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)} (${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</div>
+      </div>` : ''}
+      ${usd ? `
+      <div class="mkt-item" style="border-right:none;">
+        <div class="mkt-label">달러/원</div>
+        <div class="mkt-price">${fmtMktNum(usd.price, 1)}<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:2px;">원</span></div>
+        <div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)} (${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</div>
+      </div>` : ''}
+      <div class="mkt-senti">
+        <div class="mkt-senti-label">시장 심리</div>
+        <div class="mkt-senti-badge" style="background:${senti.bg||'rgba(107,114,128,.1)'};color:${senti.color||'#6b7280'};">
+          <span>${senti.emoji||'😐'}</span><span>${senti.label||'중립'}</span>
+        </div>
+        <div class="mkt-senti-dots">${dots}</div>
+      </div>
+    `;
+  } catch(_) {}
 }
 
 // ── 2026 테마 섹터 렌더 ───────────────────────────────
@@ -1047,7 +1156,7 @@ async function loadData(append = false) {
     const cached = loadCache(cacheKey);
     if (cached) {
       allStocks = cached.stocks || [];
-      renderTop10All(cached, cached.baseDate);
+      renderTop10All(cached, cached.updatedAt || cached.baseDate);
     }
   }
 
@@ -1074,7 +1183,7 @@ async function loadData(append = false) {
 
     if (!append) {
       allStocks = data.stocks || [];
-      renderTop10All(data, data.baseDate);
+      renderTop10All(data, data.updatedAt || data.baseDate);
       // 테마 보고 있으면 테마 재렌더
       if (curTheme) renderThemeStocks(curTheme);
       // 종목 섹션이 열려있으면 목록 재렌더
@@ -1116,10 +1225,7 @@ function renderStocks(data, append = false) {
   if (!append) allStocks = stocks;
   else         allStocks = [...allStocks, ...stocks];
 
-  const dateEl = document.getElementById('base-date');
-  if (dateEl && data.baseDate) {
-    dateEl.textContent = `전일 종가 기준 · ${data.baseDate}`;
-  }
+  // (base-date 제거됨 — TOP10 날짜는 renderTop10All에서 updatedAt으로 표시)
 
   const listEl = document.getElementById('stock-list');
   const html   = allStocks.map(s => cardHTML(s)).join('');
@@ -1283,6 +1389,7 @@ document.addEventListener('click', e => {
 renderThemeSectors();
 loadData();
 loadStockNames();
+loadMarket();
 </script>
 </body>
 </html>
