@@ -567,7 +567,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 </footer>
 
 <script>
-let mainChart, rsiChart;
+let mainChart, rsiChart, radarChart;
 
 function show(state) {
   ['idle','loading','result','error'].forEach(s => {
@@ -1320,13 +1320,12 @@ function renderRadarChart(ks) {
     `<div>${lbl(dims[2])}</div><div style="text-align:right">${lbl(dims[3])}</div>`;
 
   // ECharts — axisName 없이 polygon만 렌더링
-  let chart = echarts.getInstanceByDom(container);
-  if (!chart) chart = echarts.init(container, null, { renderer: 'svg' });
+  if (!radarChart) radarChart = echarts.init(container, null, { renderer: 'svg' });
 
   const isDark    = document.body.classList.contains('dark');
   const axisColor = isDark ? 'rgba(255,255,255,.18)' : 'rgba(107,114,128,.2)';
 
-  chart.setOption({
+  radarChart.setOption({
     animation: true,
     animationDuration: 600,
     radar: {
@@ -1534,7 +1533,7 @@ function renderResult(data) {
 
   renderCharts(data);
   show('result');
-  setTimeout(()=>{ mainChart?.resize(); rsiChart?.resize(); }, 100);
+  setTimeout(()=>{ mainChart?.resize(); rsiChart?.resize(); radarChart?.resize(); }, 100);
 }
 
 function renderAIOpinion(data) {
@@ -1709,7 +1708,7 @@ qEl.addEventListener('keydown', e => {
 
 document.addEventListener('click', e => { if (!wrapEl.contains(e.target)) closeDrop(); });
 
-window.addEventListener('resize', ()=>{ mainChart?.resize(); rsiChart?.resize(); });
+window.addEventListener('resize', ()=>{ mainChart?.resize(); rsiChart?.resize(); radarChart?.resize(); });
 
 // URL 파라미터로 바로 검색
 const urlQ = new URLSearchParams(location.search).get('q');
