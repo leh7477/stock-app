@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>썸팁 지표 가이드 · 주식 지표 읽는 법</title>
+<meta name="description" content="퀀트 점수·이동평균선·RSI·볼린저 밴드·투자자 수급·국장 특화 점수·시장 심리 지수까지 — 썸팁 지표를 쉽게 읽는 법을 알려드립니다.">
+<link rel="canonical" href="https://somtip.kr/guide.html">
+<!-- Open Graph -->
+<meta property="og:type"        content="website">
+<meta property="og:site_name"   content="썸팁">
+<meta property="og:title"       content="썸팁 지표 가이드 · 주식 지표 읽는 법">
+<meta property="og:description" content="퀀트 점수·이평선·RSI·볼린저 밴드·수급·시장 심리까지 한눈에 — 썸팁 지표 가이드.">
+<meta property="og:url"         content="https://somtip.kr/guide.html">
+<meta property="og:image"       content="https://somtip.kr/og-image.svg">
+<!-- Twitter Card -->
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="썸팁 지표 가이드 · 주식 지표 읽는 법">
+<meta name="twitter:description" content="퀀트 점수·이평선·RSI·볼린저 밴드·수급·시장 심리까지 한눈에 — 썸팁 지표 가이드.">
+<meta name="twitter:image"       content="https://somtip.kr/og-image.svg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5512272233044941" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f2f4f8; --card:#fff; --border:rgba(0,0,0,.07);
+  --text:#111827; --sub:#374151; --muted:#9ca3af;
+  --green:#16a34a; --green-bg:rgba(22,163,74,.08);
+  --red:#dc2626;   --red-bg:rgba(220,38,38,.08);
+  --blue:#2563eb;  --blue-bg:rgba(37,99,235,.08);
+  --amber:#d97706; --amber-bg:rgba(217,119,6,.08);
+  --navy:#0A1628; --yellow:#FACC15; --cream:#F6F4EF;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 0 1px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* ── 헤더 ── */
+.site-hdr{background:#0A1628;position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(246,244,239,.08);}
+.site-hdr-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;height:62px;padding:0 20px;gap:18px;}
+.site-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+.site-logo svg{height:28px;width:auto;display:block;}
+.site-nav{display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:auto;}
+.site-nav a{font-size:13px;font-weight:500;color:rgba(246,244,239,.6);text-decoration:none;padding:6px 11px;border-radius:7px;transition:.15s;white-space:nowrap;}
+.site-nav a:hover{color:#FACC15;background:rgba(250,204,21,.1);}
+.site-nav a.active{color:#FACC15;}
+@media(max-width:768px){.site-nav{display:none;}}
+
+/* ── 히어로 ── */
+.hero{background:linear-gradient(135deg,#0A1628 0%,#0f2040 60%,#1a2d50 100%);padding:60px 20px 52px;text-align:center;}
+.hero-inner{max-width:660px;margin:0 auto;}
+.hero-tag{display:inline-block;background:rgba(250,204,21,.15);color:#FACC15;font-size:12px;font-weight:700;padding:5px 16px;border-radius:99px;border:1px solid rgba(250,204,21,.3);margin-bottom:18px;letter-spacing:.04em;}
+.hero h1{font-size:clamp(24px,4.5vw,38px);font-weight:800;color:#F6F4EF;line-height:1.28;margin-bottom:14px;}
+.hero h1 em{color:#FACC15;font-style:normal;}
+.hero p{font-size:15px;color:rgba(246,244,239,.6);line-height:1.8;max-width:500px;margin:0 auto;}
+
+/* ── 목차 ── */
+.toc{background:#0A1628;border-bottom:1px solid rgba(246,244,239,.07);overflow-x:auto;scrollbar-width:none;}
+.toc::-webkit-scrollbar{display:none;}
+.toc-inner{display:flex;gap:4px;padding:0 20px;max-width:900px;margin:0 auto;}
+.toc-btn{font-size:12px;font-weight:600;color:rgba(246,244,239,.45);padding:12px 14px;border:none;background:none;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;transition:.15s;}
+.toc-btn:hover{color:rgba(246,244,239,.85);}
+.toc-btn.active{color:#FACC15;border-bottom-color:#FACC15;}
+
+/* ── 본문 ── */
+.page{max-width:900px;margin:0 auto;padding:0 20px 80px;}
+
+/* ── 섹션 ── */
+.guide-section{margin-top:52px;scroll-margin-top:80px;}
+.gs-label{font-size:11px;font-weight:700;color:#FACC15;text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;}
+.gs-title{font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.gs-desc{font-size:14px;color:var(--sub);line-height:1.85;margin-bottom:16px;}
+
+/* ── 카드 ── */
+.g-card{background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:22px 20px;box-shadow:var(--shadow);margin-bottom:10px;}
+.g-card + .g-card{margin-top:0;}
+
+/* ── 점수 등급 테이블 ── */
+.grade-list{display:flex;flex-direction:column;gap:8px;}
+.grade-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;}
+.grade-badge{font-size:13px;font-weight:800;min-width:52px;text-align:center;}
+.grade-label{font-size:13px;font-weight:700;flex:1;}
+.grade-desc{font-size:12px;color:var(--muted);flex:2;line-height:1.5;}
+
+/* ── MA 시각화 ── */
+.ma-visual{display:flex;flex-direction:column;gap:6px;margin:14px 0;}
+.ma-line{display:flex;align-items:center;gap:12px;}
+.ma-dot{width:28px;height:4px;border-radius:99px;flex-shrink:0;}
+.ma-info{font-size:13px;}
+.ma-info strong{font-weight:700;}
+.ma-info span{color:var(--muted);font-size:12px;margin-left:4px;}
+
+/* ── 신호 아이템 ── */
+.signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;}
+.signal-card{border-radius:12px;padding:14px 16px;}
+.signal-icon{font-size:24px;margin-bottom:8px;}
+.signal-name{font-size:14px;font-weight:700;margin-bottom:4px;}
+.signal-text{font-size:12px;line-height:1.6;}
+@media(max-width:500px){.signal-grid{grid-template-columns:1fr;}}
+
+/* ── RSI 바 ── */
+.rsi-bar-wrap{position:relative;margin:16px 0 8px;}
+.rsi-bar-bg{height:16px;border-radius:99px;background:linear-gradient(90deg,#2563eb 0%,#60a5fa 20%,#d1fae5 35%,#86efac 50%,#fde68a 65%,#fb923c 80%,#dc2626 100%);position:relative;}
+.rsi-zone{position:absolute;top:24px;font-size:10px;font-weight:700;white-space:nowrap;transform:translateX(-50%);}
+.rsi-label-row{display:flex;justify-content:space-between;margin-top:28px;font-size:11px;color:var(--muted);}
+
+/* ── 볼린저 ── */
+.boll-cases{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.boll-case{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;border-radius:12px;border-left:3px solid;}
+.boll-case-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.boll-case-name{font-size:13px;font-weight:700;margin-bottom:2px;}
+.boll-case-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+
+/* ── 수급 테이블 ── */
+.supply-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:12px;}
+.supply-table th{background:#f7f8fc;font-weight:700;padding:9px 12px;text-align:left;border-bottom:1.5px solid var(--border);font-size:11px;color:var(--muted);}
+.supply-table td{padding:10px 12px;border-bottom:1px solid var(--border);line-height:1.5;}
+.supply-table tr:last-child td{border-bottom:none;}
+
+/* ── 심리 단계 ── */
+.senti-steps{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.senti-step{display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:12px;}
+.senti-emoji{font-size:22px;flex-shrink:0;width:36px;text-align:center;}
+.senti-name{font-size:14px;font-weight:700;min-width:70px;}
+.senti-range{font-size:12px;color:var(--muted);min-width:80px;}
+.senti-tip{font-size:12px;line-height:1.5;flex:1;}
+
+/* ── 국장특화 항목 ── */
+.kor-items{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.kor-item{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;background:var(--bg);border-radius:10px;}
+.kor-item-label{font-size:12px;font-weight:700;min-width:84px;flex-shrink:0;margin-top:1px;}
+.kor-item-desc{font-size:12px;color:var(--sub);line-height:1.6;}
+
+/* ── 팁 박스 ── */
+.tip-box{display:flex;align-items:flex-start;gap:10px;background:rgba(250,204,21,.07);border:1.5px solid rgba(250,204,21,.25);border-radius:12px;padding:13px 15px;margin-top:14px;}
+.tip-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.tip-text{font-size:12px;color:var(--sub);line-height:1.7;}
+.tip-text strong{color:var(--text);font-weight:700;}
+
+/* ── 면책 ── */
+.disclaimer{font-size:11px;color:var(--muted);text-align:center;padding:28px 0 0;line-height:1.8;border-top:1px solid var(--border);margin-top:48px;}
+
+/* ── 푸터 ── */
+.site-footer{background:#0A1628;border-top:1px solid rgba(246,244,239,.08);padding:32px 20px 48px;margin-top:32px;}
+.site-footer .f-inner{max-width:900px;margin:0 auto;}
+.site-footer .f-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px;flex-wrap:wrap;}
+.site-footer .f-tagline{font-size:11px;color:rgba(246,244,239,.3);margin-top:7px;}
+.site-footer .f-links{display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding-top:4px;}
+.site-footer .f-links a{font-size:12px;color:rgba(246,244,239,.38);text-decoration:none;transition:.15s;}
+.site-footer .f-links a:hover{color:rgba(246,244,239,.85);}
+.site-footer .f-divider{border:none;border-top:1px solid rgba(246,244,239,.07);margin:16px 0;}
+.site-footer .f-disc{font-size:10px;color:rgba(246,244,239,.22);line-height:1.8;}
+.site-footer .f-copy{font-size:10px;color:rgba(246,244,239,.22);margin-top:8px;}
+</style>
+</head>
+<body>
+
+<!-- ══ 헤더 ══════════════════════════════════════════ -->
+<header class="site-hdr">
+  <div class="site-hdr-inner">
+    <a href="/" class="site-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="28" style="display:block;">
+        <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+        <g transform="translate(0,148)">
+          <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+          <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+          <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+          <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+        </g>
+      </svg>
+    </a>
+    <nav class="site-nav">
+      <a href="/">국장 분석기</a>
+      <a href="/analyzer.html">상세 지표</a>
+      <a href="/?tab=news">뉴스·공시</a>
+      <a href="/guide.html" class="active">가이드</a>
+      <a href="/about.html">소개</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ══ 히어로 ══════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-tag">📖 지표 가이드</div>
+    <h1>숫자가 뭘 뜻하는지<br><em>이제 제대로 알고 보세요</em></h1>
+    <p>썸팁에서 쓰이는 퀀트 점수·이동평균선·RSI 등 모든 지표를<br>초보자도 이해할 수 있게 설명해 드립니다.</p>
+  </div>
+</div>
+
+<!-- ══ 목차 ══════════════════════════════════════════ -->
+<nav class="toc">
+  <div class="toc-inner">
+    <button class="toc-btn active" onclick="scrollTo('quant')">📊 퀀트 점수</button>
+    <button class="toc-btn" onclick="scrollTo('ma')">📈 이동평균선</button>
+    <button class="toc-btn" onclick="scrollTo('cross')">✖ 골든·데드크로스</button>
+    <button class="toc-btn" onclick="scrollTo('rsi')">⚡ RSI</button>
+    <button class="toc-btn" onclick="scrollTo('boll')">🎯 볼린저 밴드</button>
+    <button class="toc-btn" onclick="scrollTo('supply')">🟢 투자자 수급</button>
+    <button class="toc-btn" onclick="scrollTo('kor')">🇰🇷 국장 특화 점수</button>
+    <button class="toc-btn" onclick="scrollTo('senti')">🌡 시장 심리</button>
+  </div>
+</nav>
+
+<!-- ══ 본문 ══════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- ① 퀀트 점수 -->
+  <section class="guide-section" id="sec-quant">
+    <div class="gs-label">01 · Quant Score</div>
+    <div class="gs-title">📊 퀀트 점수</div>
+    <div class="gs-desc">썸팁의 핵심 지표입니다. 기술지표(70점)와 국장 특화 지표(30점)를 합산한 <strong>0~100점</strong> 종합 점수로, 숫자가 높을수록 매수에 유리한 상태입니다.</div>
+    <div class="g-card">
+      <div class="grade-list">
+        <div class="grade-row" style="background:rgba(234,179,8,.1);">
+          <div class="grade-badge" style="color:#d97706;">80점+</div>
+          <div class="grade-label" style="color:#d97706;">⭐ 최상위 종목</div>
+          <div class="grade-desc">이평선 정배열 + 수급 + 밸류 모두 최상. 강력 관심 구간.</div>
+        </div>
+        <div class="grade-row" style="background:var(--blue-bg);">
+          <div class="grade-badge" style="color:var(--blue);">60~79</div>
+          <div class="grade-label" style="color:var(--blue);">매수 유리</div>
+          <div class="grade-desc">전반적으로 긍정적인 신호. 추가 확인 후 진입 검토.</div>
+        </div>
+        <div class="grade-row" style="background:var(--green-bg);">
+          <div class="grade-badge" style="color:var(--green);">40~59</div>
+          <div class="grade-label" style="color:var(--green);">관심 종목</div>
+          <div class="grade-desc">일부 긍정 신호 있음. 눌림목·추세 확인 후 판단 권장.</div>
+        </div>
+        <div class="grade-row" style="background:var(--bg);">
+          <div class="grade-badge" style="color:var(--muted);">40 미만</div>
+          <div class="grade-label" style="color:var(--muted);">매수 비추천</div>
+          <div class="grade-desc">이평선 역배열 또는 하락 추세. 진입보다 관망이 유리.</div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text"><strong>점수만 보지 마세요.</strong> 같은 70점이라도 상승 추세 초입인지, 과열 이후 조정 구간인지가 중요합니다. RSI·볼린저 밴드와 함께 보세요.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② 이동평균선 -->
+  <section class="guide-section" id="sec-ma">
+    <div class="gs-label">02 · Moving Average</div>
+    <div class="gs-title">📈 이동평균선 (MA)</div>
+    <div class="gs-desc">최근 N일간의 <strong>평균 주가를 선으로 이은 것</strong>입니다. 주가의 방향성과 흐름을 보여주는 가장 기본적인 지표입니다.</div>
+    <div class="g-card">
+      <div class="ma-visual">
+        <div class="ma-line">
+          <div class="ma-dot" style="background:#d97706;"></div>
+          <div class="ma-info"><strong>MA5 (5일선)</strong><span>— 최근 5거래일 평균. 단기 흐름 파악.</span></div>
+        </div>
+        <div class="ma-line">
+          <div class="ma-dot" style="background:#2563eb;"></div>
+          <div class="ma-info"><strong>MA20 (20일선)</strong><span>— 약 1개월 평균. 중기 추세 확인.</span></div>
+        </div>
+        <div class="ma-line">
+          <div class="ma-dot" style="background:#7c3aed;"></div>
+          <div class="ma-info"><strong>MA60 (60일선)</strong><span>— 약 3개월 평균. 장기 추세 기준선.</span></div>
+        </div>
+      </div>
+      <div style="height:1px;background:var(--border);margin:14px 0;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:var(--green-bg);border-radius:12px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px;">✅ 정배열</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.6;">주가 &gt; MA5 &gt; MA20 &gt; MA60<br>단기·중기·장기 모두 상승 중.<br><strong>가장 이상적인 상태.</strong></div>
+        </div>
+        <div style="background:var(--red-bg);border-radius:12px;padding:14px 16px;">
+          <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:6px;">❌ 역배열</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.6;">MA60 &gt; MA20 &gt; MA5 &gt; 주가<br>하락 추세가 굳어진 상태.<br><strong>진입 전 반드시 확인 필요.</strong></div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text">주가가 MA20 위에 있으면 <strong>중기 상승 추세</strong>, 아래에 있으면 <strong>중기 하락 추세</strong>로 봅니다. MA60은 기관·외국인이 중요하게 보는 선입니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ③ 골든크로스 / 데드크로스 -->
+  <section class="guide-section" id="sec-cross">
+    <div class="gs-label">03 · Cross Signal</div>
+    <div class="gs-title">✖ 골든크로스 / 데드크로스</div>
+    <div class="gs-desc">단기 이평선이 장기 이평선을 <strong>교차할 때</strong> 발생하는 추세 전환 신호입니다. 국내 증시에서 기관·개인 모두 가장 많이 참고하는 신호 중 하나입니다.</div>
+    <div class="g-card">
+      <div class="signal-grid">
+        <div class="signal-card" style="background:var(--green-bg);">
+          <div class="signal-icon">🟢</div>
+          <div class="signal-name" style="color:var(--green);">골든크로스</div>
+          <div class="signal-text" style="color:var(--sub);">MA5가 MA20을 <strong>아래에서 위로</strong> 돌파.<br>단기 상승 전환 신호.<br>거래량이 함께 늘면 신뢰도 상승.</div>
+        </div>
+        <div class="signal-card" style="background:var(--red-bg);">
+          <div class="signal-icon">🔴</div>
+          <div class="signal-name" style="color:var(--red);">데드크로스</div>
+          <div class="signal-text" style="color:var(--sub);">MA5가 MA20을 <strong>위에서 아래로</strong> 하락.<br>단기 하락 전환 신호.<br>보유 종목 점검이 필요한 시점.</div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text">골든크로스는 <strong>이미 상당히 오른 이후</strong>에 발생하는 경우도 많습니다. RSI가 이미 70 이상이라면 추격보다 눌림목을 기다리는 게 유리할 수 있습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ④ RSI -->
+  <section class="guide-section" id="sec-rsi">
+    <div class="gs-label">04 · RSI</div>
+    <div class="gs-title">⚡ RSI (상대강도지수)</div>
+    <div class="gs-desc">최근 14일간 <strong>상승 폭 vs 하락 폭의 비율</strong>로 계산하는 모멘텀 지표입니다. 0~100 사이 값으로, 주가가 얼마나 과열 또는 과매도 상태인지 보여줍니다.</div>
+    <div class="g-card">
+      <div class="rsi-bar-wrap">
+        <div class="rsi-bar-bg"></div>
+        <div class="rsi-zone" style="left:15%;">과매도<br>30 이하</div>
+        <div class="rsi-zone" style="left:50%;">중립<br>30~70</div>
+        <div class="rsi-zone" style="left:85%;">과매수<br>70 이상</div>
+        <div class="rsi-label-row">
+          <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 14px;background:var(--blue-bg);border-radius:10px;">
+          <span style="font-size:18px;">📉</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:3px;">RSI 30 이하 — 과매도</div>
+            <div style="font-size:12px;color:var(--sub);line-height:1.6;">단기적으로 너무 많이 팔린 상태. 반등 가능성 있음. 단, 추세가 살아있다면 더 내릴 수 있으니 반드시 이평선 확인 병행.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 14px;background:var(--green-bg);border-radius:10px;">
+          <span style="font-size:18px;">✅</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:3px;">RSI 52~68 — 이상적 구간</div>
+            <div style="font-size:12px;color:var(--sub);line-height:1.6;">과열도 과매도도 아닌 건강한 상승 흐름. 썸팁이 가장 높은 점수를 주는 구간입니다.</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:11px 14px;background:var(--red-bg);border-radius:10px;">
+          <span style="font-size:18px;">🔥</span>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:3px;">RSI 70 이상 — 과매수</div>
+            <div style="font-size:12px;color:var(--sub);line-height:1.6;">단기 급등으로 과열된 상태. 신규 진입보다 관망, 기존 보유자는 부분 익절 고려.</div>
+          </div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text">RSI는 <strong>혼자 쓰면 가짜 신호가 많습니다.</strong> 강한 상승 추세에서는 RSI가 70 이상을 유지하며 계속 오를 수 있습니다. 반드시 이평선·볼린저 밴드와 같이 판단하세요.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑤ 볼린저 밴드 -->
+  <section class="guide-section" id="sec-boll">
+    <div class="gs-label">05 · Bollinger Bands</div>
+    <div class="gs-title">🎯 볼린저 밴드</div>
+    <div class="gs-desc">MA20(중간선)을 기준으로 <strong>위아래로 표준편차 2배 범위</strong>를 그린 밴드입니다. 주가의 변동성과 이탈 여부를 판단하는 데 사용합니다.</div>
+    <div class="g-card">
+      <div style="background:var(--bg);border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:12px;color:var(--sub);line-height:1.8;">
+        <strong>상단 밴드</strong> = MA20 + (표준편차 × 2) &nbsp;—&nbsp; 저항 구간<br>
+        <strong>중간 밴드</strong> = MA20 &nbsp;—&nbsp; 중심선<br>
+        <strong>하단 밴드</strong> = MA20 − (표준편차 × 2) &nbsp;—&nbsp; 지지 구간<br>
+        <span style="color:var(--muted);font-size:11px;">밴드 폭이 좁을수록(스퀴즈) 조만간 큰 변동성이 올 가능성이 높습니다.</span>
+      </div>
+      <div class="boll-cases">
+        <div class="boll-case" style="background:var(--green-bg);border-left-color:var(--green);">
+          <span class="boll-case-icon">🚀</span>
+          <div>
+            <div class="boll-case-name" style="color:var(--green);">스퀴즈 후 상방 돌파</div>
+            <div class="boll-case-desc">밴드가 좁아진 뒤(스퀴즈) 상단 밴드를 돌파 + 거래량 급증. 강한 상승 신호. 썸팁 볼린저 최고점.</div>
+          </div>
+        </div>
+        <div class="boll-case" style="background:var(--amber-bg);border-left-color:var(--amber);">
+          <span class="boll-case-icon">⚠️</span>
+          <div>
+            <div class="boll-case-name" style="color:var(--amber);">상단 밴드 접촉 (과열 경고)</div>
+            <div class="boll-case-desc">주가가 상단 밴드에 닿으면 단기 과열 신호. 거래량이 줄면서 밴드 내로 복귀하면 조정 가능성.</div>
+          </div>
+        </div>
+        <div class="boll-case" style="background:var(--blue-bg);border-left-color:var(--blue);">
+          <span class="boll-case-icon">🛡</span>
+          <div>
+            <div class="boll-case-name" style="color:var(--blue);">하단 밴드 지지</div>
+            <div class="boll-case-desc">주가가 하단 밴드에서 반등. 매수 관점에서 주목할 구간. RSI 30 이하와 함께 나오면 신뢰도 상승.</div>
+          </div>
+        </div>
+        <div class="boll-case" style="background:var(--red-bg);border-left-color:var(--red);">
+          <span class="boll-case-icon">📉</span>
+          <div>
+            <div class="boll-case-name" style="color:var(--red);">하단 밴드 하방 붕괴</div>
+            <div class="boll-case-desc">주가가 하단 밴드 아래로 이탈. 강한 하락 신호. 추세가 살아있다면 추가 하락 위험.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑥ 투자자 수급 -->
+  <section class="guide-section" id="sec-supply">
+    <div class="gs-label">06 · Investor Supply</div>
+    <div class="gs-title">🟢 투자자 수급</div>
+    <div class="gs-desc">외국인·기관·개인 투자자가 특정 기간 동안 해당 종목을 <strong>얼마나 사고 팔았는지</strong>를 나타냅니다. 스마트머니(외인·기관)의 방향을 추적하는 핵심 지표입니다.</div>
+    <div class="g-card">
+      <table class="supply-table">
+        <thead>
+          <tr>
+            <th>투자자</th>
+            <th>특징</th>
+            <th>해석 포인트</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>외국인</strong></td>
+            <td style="color:var(--sub);">글로벌 기관·헤지펀드 등 외국계 자금</td>
+            <td style="color:var(--sub);">연속 순매수 시 주가 강세 신호. 특히 대형주에서 영향력이 큼.</td>
+          </tr>
+          <tr>
+            <td><strong>기관</strong></td>
+            <td style="color:var(--sub);">연기금·자산운용사·보험사 등</td>
+            <td style="color:var(--sub);">연기금 매수는 장기적 신뢰 신호. 프로그램 매매 포함.</td>
+          </tr>
+          <tr>
+            <td><strong>개인</strong></td>
+            <td style="color:var(--sub);">일반 개인 투자자</td>
+            <td style="color:var(--sub);">외인·기관이 팔 때 개인이 받는 구조는 단기 하락 위험 신호.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="height:1px;background:var(--border);margin:14px 0;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:var(--green-bg);border-radius:10px;padding:13px 14px;">
+          <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:5px;">✅ 외인+기관 동반 순매수</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.6;">스마트머니 유입 신호. 5일 이상 지속되면 강력한 매수 근거.</div>
+        </div>
+        <div style="background:var(--red-bg);border-radius:10px;padding:13px 14px;">
+          <div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:5px;">⚠️ 외인+기관 동반 순매도</div>
+          <div style="font-size:12px;color:var(--sub);line-height:1.6;">스마트머니 이탈. 개인만 매수 중이라면 단기 하락 위험.</div>
+        </div>
+      </div>
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text">썸팁은 <strong>5일·20일 누적 순매수</strong>를 기준으로 수급 점수를 산정합니다. 당일 하루만의 수급보다 5일 이상 흐름이 훨씬 신뢰도가 높습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑦ 국장 특화 점수 -->
+  <section class="guide-section" id="sec-kor">
+    <div class="gs-label">07 · Korea Market Score</div>
+    <div class="gs-title">🇰🇷 국장 특화 점수</div>
+    <div class="gs-desc">한국 증시에 특화된 밸류에이션·수급·공시 지표를 합산한 <strong>최대 30점</strong> 점수입니다. 퀀트 점수 100점 중 30점을 차지합니다.</div>
+    <div class="g-card">
+      <div class="kor-items">
+        <div class="kor-item">
+          <div class="kor-item-label" style="color:var(--blue);">📦 PBR<br><span style="font-size:10px;color:var(--muted);">최대 8점</span></div>
+          <div class="kor-item-desc"><strong>주가순자산비율.</strong> 1배 이하면 장부가보다 싸다는 뜻. 국내 증시는 PBR이 낮은 종목이 많아 저평가 판단의 핵심 지표입니다. PBR 0.5배 이하 → 8점 만점.</div>
+        </div>
+        <div class="kor-item">
+          <div class="kor-item-label" style="color:var(--amber);">💰 PER·섹터<br><span style="font-size:10px;color:var(--muted);">최대 14점</span></div>
+          <div class="kor-item-desc"><strong>주가수익비율.</strong> 낮을수록 이익 대비 주가가 저렴. 단, 반도체·방산·바이오 등 성장 섹터는 PER이 높더라도 섹터 가점(최대 14점)을 받을 수 있습니다.</div>
+        </div>
+        <div class="kor-item">
+          <div class="kor-item-label" style="color:var(--green);">🧲 수급<br><span style="font-size:10px;color:var(--muted);">최대 4점</span></div>
+          <div class="kor-item-desc">외인+기관 5일 순매수 양수 시 4점 부여. 스마트머니 유입 여부를 점수에 반영.</div>
+        </div>
+        <div class="kor-item">
+          <div class="kor-item-label" style="color:var(--red);">😱 공포점수<br><span style="font-size:10px;color:var(--muted);">최대 +4점</span></div>
+          <div class="kor-item-desc">RSI 과매도 + 고점 대비 낙폭이 클수록 보너스 점수 부여. 공포 클라이맥스 구간에서의 역발상 매수 기회를 점수화한 것입니다.</div>
+        </div>
+        <div class="kor-item">
+          <div class="kor-item-label" style="color:var(--blue);">📋 공시모멘텀<br><span style="font-size:10px;color:var(--muted);">±2점</span></div>
+          <div class="kor-item-desc">최근 30일 DART 공시에서 호재(계약 체결·흑자 전환 등) 감지 시 +2점, 악재(적자·소송 등) 감지 시 -2점 반영.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ⑧ 시장 심리 -->
+  <section class="guide-section" id="sec-senti">
+    <div class="gs-label">08 · Market Sentiment</div>
+    <div class="gs-title">🌡 시장 심리 지수</div>
+    <div class="gs-desc">KOSPI·KOSDAQ 평균 등락률을 기반으로 시장 전체의 <strong>분위기를 5단계</strong>로 나타냅니다. 상단 시장 바에서 실시간으로 확인할 수 있습니다.</div>
+    <div class="g-card">
+      <div class="senti-steps">
+        <div class="senti-step" style="background:rgba(239,68,68,.08);">
+          <span class="senti-emoji">😱</span>
+          <span class="senti-name" style="color:#dc2626;">극도 공포</span>
+          <span class="senti-range" style="color:#dc2626;">-2% 이하</span>
+          <span class="senti-tip" style="color:var(--sub);">시장 전체 급락. 공포가 극에 달한 상태. 역발상 매수 기회가 될 수 있으나 추세 확인 필수.</span>
+        </div>
+        <div class="senti-step" style="background:rgba(249,115,22,.08);">
+          <span class="senti-emoji">😰</span>
+          <span class="senti-name" style="color:#ea580c;">공포</span>
+          <span class="senti-range" style="color:#ea580c;">-2%~-0.5%</span>
+          <span class="senti-tip" style="color:var(--sub);">시장 하락세. 매수보다 관망이 유리한 분위기.</span>
+        </div>
+        <div class="senti-step" style="background:rgba(107,114,128,.07);">
+          <span class="senti-emoji">😐</span>
+          <span class="senti-name" style="color:#6b7280;">중립</span>
+          <span class="senti-range" style="color:#6b7280;">-0.5%~+0.5%</span>
+          <span class="senti-tip" style="color:var(--sub);">방향성 없이 횡보. 종목별 차별화 장세.</span>
+        </div>
+        <div class="senti-step" style="background:rgba(34,197,94,.08);">
+          <span class="senti-emoji">😊</span>
+          <span class="senti-name" style="color:#16a34a;">탐욕</span>
+          <span class="senti-range" style="color:#16a34a;">+0.5%~+2%</span>
+          <span class="senti-tip" style="color:var(--sub);">전반적 상승 분위기. 긍정적 투자 심리. 퀀트 점수 높은 종목 집중 탐색 구간.</span>
+        </div>
+        <div class="senti-step" style="background:rgba(234,179,8,.08);">
+          <span class="senti-emoji">🔥</span>
+          <span class="senti-name" style="color:#d97706;">과열</span>
+          <span class="senti-range" style="color:#d97706;">+2% 이상</span>
+          <span class="senti-tip" style="color:var(--sub);">시장 전체 급등. 단기 과열 신호. 신규 추격 매수보다 눌림목 대기 전략이 유리.</span>
+        </div>
+      </div>
+      <div class="tip-box">
+        <span class="tip-icon">💡</span>
+        <div class="tip-text">시장 심리와 개별 종목 점수를 함께 보세요. <strong>시장이 공포일 때 퀀트 점수 높은 종목</strong>을 담는 것이 썸팁의 핵심 전략입니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="disclaimer">
+    본 가이드는 투자 권유가 아닌 지표 이해를 돕기 위한 교육 목적 자료입니다.<br>
+    모든 투자 판단과 책임은 본인에게 있으며, 금융 투자에는 원금 손실 위험이 있습니다.
+  </div>
+
+</div><!-- /page -->
+
+<!-- ══ 푸터 ══════════════════════════════════════════ -->
+<footer class="site-footer">
+  <div class="f-inner">
+    <div class="f-top">
+      <div>
+        <a href="/" style="display:inline-block;text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="22" style="display:block;">
+            <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+            <g transform="translate(0,148)">
+              <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+              <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+              <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+              <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+            </g>
+          </svg>
+        </a>
+        <div class="f-tagline">나만 알고 싶은 주식 팁</div>
+      </div>
+      <div class="f-links">
+        <a href="/about.html">소개</a>
+        <a href="/guide.html">가이드</a>
+        <a href="#">이용약관</a>
+        <a href="/privacy.html">개인정보처리방침</a>
+      </div>
+    </div>
+    <hr class="f-divider">
+    <div class="f-disc">
+      본 서비스는 이동평균선·퀀트 지표 기반 정보 제공 목적이며, 투자 권유가 아닙니다.<br>
+      모든 투자 판단과 책임은 본인에게 있으며, 금융 투자에는 원금 손실 위험이 있습니다.
+    </div>
+    <div class="f-copy">© 2026 somtip. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+function scrollTo(id) {
+  const el = document.getElementById('sec-' + id);
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+  document.querySelectorAll('.toc-btn').forEach(b =>
+    b.classList.toggle('active', b.getAttribute('onclick').includes("'" + id + "'"))
+  );
+}
+
+// 스크롤 시 목차 활성화
+const sections = ['quant','ma','cross','rsi','boll','supply','kor','senti'];
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id.replace('sec-', '');
+      document.querySelectorAll('.toc-btn').forEach(b =>
+        b.classList.toggle('active', b.getAttribute('onclick').includes("'" + id + "'"))
+      );
+    }
+  });
+}, { rootMargin: '-20% 0px -60% 0px' });
+
+sections.forEach(id => {
+  const el = document.getElementById('sec-' + id);
+  if (el) observer.observe(el);
+});
+</script>
+
+</body>
+</html>
