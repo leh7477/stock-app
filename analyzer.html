@@ -219,9 +219,15 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .ai-disc{font-size:10px;color:var(--muted);text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
 
 /* ── 레이더 차트 ── */
-.radar-wrap{position:relative;width:100%;height:240px;}
-#r-radar-chart{width:100%;height:100%;}
-.rl{position:absolute;font-size:10px;font-weight:700;color:var(--muted);white-space:nowrap;line-height:1;pointer-events:none;}
+.radar-grid{width:100%;}
+.rg-top{text-align:center;font-size:10px;font-weight:700;color:var(--muted);line-height:1.3;padding-bottom:2px;}
+.rg-mid{display:flex;align-items:center;}
+.rg-label{font-size:10px;font-weight:700;color:var(--muted);line-height:1.3;flex-shrink:0;width:48px;}
+.rg-label.left{text-align:right;padding-right:6px;}
+.rg-label.right{text-align:left;padding-left:6px;}
+#r-radar-chart{flex:1;height:180px;min-width:0;}
+.rg-bot{display:flex;justify-content:space-between;padding:2px 54px 0;font-size:10px;font-weight:700;color:var(--muted);line-height:1.3;}
+.rg-val{display:block;font-size:12px;}
 .radar-dims{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px;}
 .rdim{text-align:center;background:var(--bg);border-radius:8px;padding:5px 2px;}
 .rdim-name{display:block;font-size:9px;color:var(--muted);margin-bottom:2px;}
@@ -396,8 +402,14 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
         <!-- 종합 지표 레이더 차트 -->
         <div class="dl-card">
           <div class="dl-title">📡 종합 지표 레이더</div>
-          <div class="radar-wrap" id="r-radar-wrap">
-            <div id="r-radar-chart"></div>
+          <div class="radar-grid">
+            <div class="rg-top" id="r-rl-top"></div>
+            <div class="rg-mid">
+              <div class="rg-label left" id="r-rl-left"></div>
+              <div id="r-radar-chart"></div>
+              <div class="rg-label right" id="r-rl-right"></div>
+            </div>
+            <div class="rg-bot" id="r-rl-bot"></div>
           </div>
           <div class="radar-dims" id="r-radar-dims"></div>
         </div>
@@ -1262,8 +1274,7 @@ function renderChecklist(checklist) {
 ────────────────────────────────────────────────────────────── */
 function renderRadarChart(ks) {
   const container = document.getElementById('r-radar-chart');
-  const wrap      = document.getElementById('r-radar-wrap');
-  if (!container || !wrap || !ks) return;
+  if (!container || !ks) return;
 
   const growthScore = ks.growthScore     ?? 0;
   const pbrScore    = ks.pbrScore        ?? 0;
@@ -1273,7 +1284,6 @@ function renderRadarChart(ks) {
   const panicScore  = ks.panicScore      ?? 0;
   const discScore   = ks.disclosureScore ?? 0;
 
-  // 각 축 0-100 정규화
   const g = Math.round(growthScore / 18 * 100);
   const v = Math.round(pbrScore    / 8  * 100);
   const p = Math.round(perFinal    / 14 * 100);
@@ -1282,7 +1292,7 @@ function renderRadarChart(ks) {
     supplyScore / 4 * 60 + panicScore / 4 * 25 + (discScore + 2) / 4 * 15
   ));
 
-  // 축 순서: 성장성(상단) → 저평가(좌) → 수익성(좌하) → 기술적(우하) → 수급(우) — 반시계 방향
+  // 반시계 방향 Pentagon: 성장성=상단, 저평가=좌, 수익성=좌하, 기술적=우하, 수급=우
   const dims = [
     { name: '성장성', val: g },
     { name: '저평가', val: v },
@@ -1291,7 +1301,25 @@ function renderRadarChart(ks) {
     { name: '수급',   val: s },
   ];
 
-  // ECharts — 축 이름 비활성화 (HTML 오버레이로 대체)
+  // 라벨 HTML 생성 헬퍼
+  const lbl = (d) => {
+    const col = d.val >= 70 ? '#22c55e' : d.val >= 40 ? '#f59e0b' : '#ef4444';
+    return `${d.name}<span class="rg-val" style="color:${col}">${d.val}</span>`;
+  };
+
+  // 그리드 셀에 라벨 주입
+  // dims 순서: [0]성장성=위, [1]저평가=좌, [2]수익성=좌하, [3]기술적=우하, [4]수급=우
+  const topEl   = document.getElementById('r-rl-top');
+  const leftEl  = document.getElementById('r-rl-left');
+  const rightEl = document.getElementById('r-rl-right');
+  const botEl   = document.getElementById('r-rl-bot');
+  if (topEl)   topEl.innerHTML   = lbl(dims[0]);
+  if (leftEl)  leftEl.innerHTML  = lbl(dims[1]);
+  if (rightEl) rightEl.innerHTML = lbl(dims[4]);
+  if (botEl)   botEl.innerHTML   =
+    `<div>${lbl(dims[2])}</div><div style="text-align:right">${lbl(dims[3])}</div>`;
+
+  // ECharts — axisName 없이 polygon만 렌더링
   let chart = echarts.getInstanceByDom(container);
   if (!chart) chart = echarts.init(container, null, { renderer: 'svg' });
 
@@ -1303,11 +1331,11 @@ function renderRadarChart(ks) {
     animationDuration: 600,
     radar: {
       indicator:   dims.map(d => ({ name: d.name, max: 100 })),
-      center:      ['50%', '54%'],
-      radius:      '44%',
+      center:      ['50%', '50%'],
+      radius:      '75%',
       splitNumber: 4,
       shape:       'polygon',
-      axisName:    { show: false },           // 라벨 HTML 오버레이로 처리
+      axisName:    { show: false },
       splitArea:   { areaStyle: { color: ['rgba(250,204,21,.07)', 'rgba(250,204,21,.03)',
                                           'rgba(250,204,21,.07)', 'rgba(250,204,21,.03)'] } },
       splitLine:   { lineStyle: { color: axisColor } },
@@ -1327,29 +1355,7 @@ function renderRadarChart(ks) {
     }],
   }, true);
 
-  // ── HTML 오버레이 라벨 (pentagon 각 꼭짓점 방향에 맞게 배치) ──────────
-  // 반시계 방향 Pentagon: 성장성=상단, 저평가=좌, 수익성=좌하, 기술적=우하, 수급=우
-  const overlays = [
-    { idx: 0, style: 'top:4px;left:0;right:0;text-align:center;' },          // 성장성 — 상단 중앙
-    { idx: 1, style: 'top:37%;left:4px;' },                                   // 저평가 — 좌측
-    { idx: 2, style: 'bottom:6px;left:5%;' },                                 // 수익성 — 좌하
-    { idx: 3, style: 'bottom:6px;right:5%;text-align:right;' },               // 기술적 — 우하
-    { idx: 4, style: 'top:37%;right:4px;text-align:right;' },                 // 수급   — 우측
-  ];
-
-  // 기존 오버레이 제거 후 재생성
-  wrap.querySelectorAll('.rl').forEach(el => el.remove());
-  overlays.forEach(o => {
-    const d   = dims[o.idx];
-    const col = d.val >= 70 ? '#22c55e' : d.val >= 40 ? '#f59e0b' : '#ef4444';
-    const div = document.createElement('div');
-    div.className = 'rl';
-    div.style.cssText = o.style;
-    div.innerHTML = `${d.name}<br><span style="color:${col};font-size:11px;">${d.val}</span>`;
-    wrap.appendChild(div);
-  });
-
-  // 하단 딤 수치 칩 (동일 정보를 다른 형태로 보강)
+  // 하단 딤 수치 칩
   const dimEl = document.getElementById('r-radar-dims');
   if (dimEl) {
     dimEl.innerHTML = dims.map(d => {
