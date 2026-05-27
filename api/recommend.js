@@ -83,36 +83,48 @@ export default async function handler(req, res) {
 
     const all = payload.stocks || [];
 
-    // ── 5종류 Top10 (필터 무관, 전체 기준 / ETF·레버리지 제외) ──────────────
+    // ── 5종류 Top (필터 무관, 전체 기준 / ETF·레버리지 제외) ──────────────
     const pureStocks = all.filter(s => !isETF(s));
 
+    // KOSPI/KOSDAQ 각각 N개씩 뽑아 합치는 헬퍼 (전체 탭용 전체 + 시장 탭용 보장)
+    const mergeByMarket = (sorted, n = 15) => {
+      const kospi  = sorted.filter(s => (s.market || '').includes('KOSPI')).slice(0, n);
+      const kosdaq = sorted.filter(s => (s.market || '').includes('KOSDAQ')).slice(0, n);
+      const seen   = new Set();
+      const merged = [...kospi, ...kosdaq].filter(s => seen.has(s.code) ? false : seen.add(s.code));
+      return merged.sort((a, b) => sorted.indexOf(a) - sorted.indexOf(b)); // 원래 정렬 유지
+    };
+
     // 분석 상위
-    const top10Score = pureStocks.slice(0, 30);
+    const top10Score = mergeByMarket(pureStocks);
 
     // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간) → 점수 내림차순
-    const top10Buy = pureStocks
-      .filter(s => s.ma5 && s.price && s.score >= 55
-                && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
-      .slice(0, 30);
+    const top10Buy = mergeByMarket(
+      pureStocks.filter(s => s.ma5 && s.price && s.score >= 55
+                          && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
+    );
 
     // 외인+기관 합산 순매수 상위 (5일 누적, 금액 기준)
     const d5NetBuy = s => ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
-    const top10FrgnBuy = pureStocks
-      .filter(s => d5NetBuy(s) > 0)
-      .sort((a, b) => (d5NetBuy(b) * (b.price || 0)) - (d5NetBuy(a) * (a.price || 0)))
-      .slice(0, 30);
+    const top10FrgnBuy = mergeByMarket(
+      pureStocks
+        .filter(s => d5NetBuy(s) > 0)
+        .sort((a, b) => (d5NetBuy(b) * (b.price || 0)) - (d5NetBuy(a) * (a.price || 0)))
+    );
 
     // 외인+기관 합산 순매도 상위 (5일 누적, 금액 기준, 절댓값 큰 순)
-    const top10FrgnSell = pureStocks
-      .filter(s => d5NetBuy(s) < 0)
-      .sort((a, b) => (d5NetBuy(a) * (a.price || 0)) - (d5NetBuy(b) * (b.price || 0)))
-      .slice(0, 30);
+    const top10FrgnSell = mergeByMarket(
+      pureStocks
+        .filter(s => d5NetBuy(s) < 0)
+        .sort((a, b) => (d5NetBuy(a) * (a.price || 0)) - (d5NetBuy(b) * (b.price || 0)))
+    );
 
     // 거래량 상위 (5일 평균 거래대금 기준)
-    const top10Volume = pureStocks
-      .filter(s => (s.avgVol5 || s.volume || 0) > 0)
-      .sort((a, b) => ((b.avgVol5 || b.volume || 0) * (b.price || 0)) - ((a.avgVol5 || a.volume || 0) * (a.price || 0)))
-      .slice(0, 30);
+    const top10Volume = mergeByMarket(
+      pureStocks
+        .filter(s => (s.avgVol5 || s.volume || 0) > 0)
+        .sort((a, b) => ((b.avgVol5 || b.volume || 0) * (b.price || 0)) - ((a.avgVol5 || a.volume || 0) * (a.price || 0)))
+    );
 
     // 인기 섹터 집계 (전체 종목 기준)
     const sectorMap = {};
