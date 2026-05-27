@@ -1422,6 +1422,12 @@ renderThemeSectors();
 loadData();
 loadStockNames();
 loadMarket();
+
+// URL 파라미터로 탭 초기화 (예: /?tab=news)
+(function() {
+  const tab = new URLSearchParams(location.search).get('tab');
+  if (tab === 'news') switchTab('news');
+})();
 </script>
 
 </body>
