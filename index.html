@@ -46,46 +46,6 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* ── 레이아웃 ──────── */
 .wrap { max-width: 900px; margin: 0 auto; padding: 0 16px 80px; }
 
-/* ── 사이드 배너 광고 ─────────────────────────────────────
-   콘텐츠(900px) + 좌우 여백(160px+20px 각) = 최소 1260px 이상 뷰포트에서만 표시
-   승인 후: <ins class="adsbygoogle" ...> 코드를 .side-ad-inner 안에 삽입
-────────────────────────────────────────────────────────── */
-.side-ad {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 160px;
-  z-index: 30;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-.side-ad-l { left:  calc(50% - 450px - 180px); }
-.side-ad-r { right: calc(50% - 450px - 180px); }
-.side-ad-inner {
-  width: 160px;
-  min-height: 600px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-/* 광고 미승인 시 빈 공간 표시 안 함 */
-.side-ad-inner:empty { display: none; }
-/* 광고 레이블 */
-.side-ad-label {
-  font-size: 10px;
-  color: var(--muted);
-  letter-spacing: .5px;
-  text-transform: uppercase;
-}
-/* 뷰포트가 좁으면 완전히 숨김 */
-@media (max-width: 1280px) { .side-ad { display: none !important; } }
-
 /* ── somtip 헤더 ─────────────────────────────────────── */
 .site-hdr { background:#0A1628; position:sticky; top:0; z-index:50; border-bottom:1px solid rgba(246,244,239,.08); }
 .site-hdr-inner { max-width:1100px; margin:0 auto; display:flex; align-items:center; height:62px; padding:0 20px; gap:18px; }
@@ -1447,31 +1407,5 @@ loadStockNames();
 loadMarket();
 </script>
 
-<!-- ── 사이드 배너 (1280px+ 뷰포트에서만 표시) ─────────── -->
-<!-- AdSense 승인 후 .side-ad-inner 안에 ins 광고 코드 삽입  -->
-<div class="side-ad side-ad-l" aria-hidden="true">
-  <div class="side-ad-label">AD</div>
-  <div class="side-ad-inner">
-    <!-- 승인 후 아래 주석 해제하고 data-ad-slot 값 입력
-    <ins class="adsbygoogle"
-         style="display:inline-block;width:160px;height:600px"
-         data-ad-client="ca-pub-5512272233044941"
-         data-ad-slot="YOUR_SLOT_ID"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    -->
-  </div>
-</div>
-<div class="side-ad side-ad-r" aria-hidden="true">
-  <div class="side-ad-label">AD</div>
-  <div class="side-ad-inner">
-    <!-- 승인 후 아래 주석 해제하고 data-ad-slot 값 입력
-    <ins class="adsbygoogle"
-         style="display:inline-block;width:160px;height:600px"
-         data-ad-client="ca-pub-5512272233044941"
-         data-ad-slot="YOUR_SLOT_ID"></ins>
-    <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
-    -->
-  </div>
-</div>
 </body>
 </html>
