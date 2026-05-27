@@ -846,6 +846,7 @@ function renderGrowthScore(ks) {
     per = 0, perScore = 0,
     growthScore = 0, growthSector = 0, growthBuy = 0,
     perFinal = 0, tag = 'neutral', growthComment = null,
+    perSource = 'kis', dartEps = null,
   } = ks;
 
   const sectorScore  = growthSector ?? 0;   // 섹터 등급 점수 (0~14)
@@ -869,9 +870,15 @@ function renderGrowthScore(ks) {
     ? `<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✅ PER 대신 적용 중</span>`
     : `<span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">ℹ️ PER 점수 사용 중 (${perScore}점 ≥ ${sectorScore}점)</span>`;
 
+  const perSrcBadge = perSource === 'dart'
+    ? `<span style="background:rgba(34,197,94,0.12);color:#16a34a;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:5px;">📊 DART 분기EPS</span>`
+    : `<span style="background:var(--card2);color:var(--muted);font-size:9px;font-weight:600;padding:1px 6px;border-radius:99px;margin-left:5px;">📋 KIS PER</span>`;
+  const dartEpsNote = (perSource === 'dart' && dartEps)
+    ? ` (EPS ${dartEps.toLocaleString()}원 기준)`
+    : '';
   const perRef = per > 0
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배 기준 점수: <b>${perScore}</b>점 / 섹터 가점: <b>${sectorScore}</b>점 + 수급: <b>${buyScore}</b>점 = <b style="color:${gc}">${totalGrowth}</b>점 합산</div>`
-    : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 섹터 <b style="color:${gc}">${sectorScore}</b>점 + 수급 <b style="color:${gc}">${buyScore}</b>점 적용</div>`;
+    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배${dartEpsNote} 기준 점수: <b>${perScore}</b>점 / 섹터 가점: <b>${sectorScore}</b>점 + 수급: <b>${buyScore}</b>점 = <b style="color:${gc}">${totalGrowth}</b>점 합산 ${perSrcBadge}</div>`
+    : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 섹터 <b style="color:${gc}">${sectorScore}</b>점 + 수급 <b style="color:${gc}">${buyScore}</b>점 적용 ${perSrcBadge}</div>`;
 
   const commentHtml = growthComment ? `
     <div style="margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
