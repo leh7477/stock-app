@@ -105,7 +105,12 @@ export default async function handler(req, res) {
     );
 
     // 외인+기관 합산 순매수 상위 (5일 누적, 금액 기준)
-    const d5NetBuy = s => ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
+    // ※ investorSupply.d5 가 있으면 무조건 그 값 사용 (합이 0이어도 frgnBuyQty로 폴백 안 함)
+    const d5NetBuy = s => {
+      const d5 = s.investorSupply?.d5;
+      if (d5 != null) return (d5.foreign || 0) + (d5.inst || 0);
+      return s.frgnBuyQty || 0;  // investorSupply 없는 종목 단일일 폴백
+    };
     const top10FrgnBuy = mergeByMarket(
       pureStocks
         .filter(s => d5NetBuy(s) > 0)

@@ -597,14 +597,14 @@ async function processStock(token, stock) {
         ).then(r => r.json()).catch(() => null);
 
         const rows = Array.isArray(invRaw?.output) ? invRaw.output : [];
-        if (rows.length >= 5) {
+        if (rows.length >= 1) {  // 1개 이상이면 있는 데이터로 집계 (KOSDAQ 소형주 포함)
           const sumN   = (arr, f) => arr.reduce((s, d) => s + parseNum(d[f] || '0'), 0);
           const fmtBsop = d => { const dt = d?.stck_bsop_date; return dt ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : ''; };
-          const rows5  = rows.slice(0, 5);
+          const rows5  = rows.slice(0, Math.min(5, rows.length));
           const rows20 = rows.slice(0, Math.min(20, rows.length));
           investorSupply = {
-            d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'prsn_ntby_qty'),  from: fmtBsop(rows5[rows5.length-1]),  to: fmtBsop(rows5[0]) },
-            d20: { foreign: sumN(rows20,'frgn_ntby_qty'), inst: sumN(rows20,'orgn_ntby_qty'), personal: sumN(rows20,'prsn_ntby_qty'), from: fmtBsop(rows20[rows20.length-1]), to: fmtBsop(rows20[0]) },
+            d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'prsn_ntby_qty'),  days: rows5.length,  from: fmtBsop(rows5[rows5.length-1]),  to: fmtBsop(rows5[0]) },
+            d20: { foreign: sumN(rows20,'frgn_ntby_qty'), inst: sumN(rows20,'orgn_ntby_qty'), personal: sumN(rows20,'prsn_ntby_qty'), days: rows20.length, from: fmtBsop(rows20[rows20.length-1]), to: fmtBsop(rows20[0]) },
           };
         }
       } catch (_) {}
