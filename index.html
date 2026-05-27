@@ -67,24 +67,26 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .site-nav a.active { color:#FACC15; }
 @media (max-width:768px) { .site-nav { display:none; } .site-hdr-inner { gap:12px; } }
 
-/* ── 시장 지수 바 ─────────────────────────────────── */
+/* ── 시장 지수 바 (2단) ───────────────────────────── */
 .mkt-bar { background:var(--card); border-bottom:1px solid var(--border); overflow-x:auto; scrollbar-width:none; }
 .mkt-bar::-webkit-scrollbar { display:none; }
-.mkt-bar-inner { display:flex; align-items:stretch; padding:0 16px; max-width:900px; margin:0 auto; min-height:52px; }
-.mkt-item { display:flex; flex-direction:column; justify-content:center; padding:8px 18px 8px 0; margin-right:18px; border-right:1px solid var(--border); flex-shrink:0; gap:2px; }
-.mkt-item:last-of-type { border-right:none; }
+.mkt-bar-inner { display:flex; flex-direction:column; padding:0 16px; max-width:900px; margin:0 auto; }
+/* 1단: 시장심리 */
+.mkt-senti-row { display:flex; align-items:center; gap:8px; padding:7px 0 6px; border-bottom:1px solid var(--border); }
+.mkt-senti-lbl { font-size:11px; font-weight:700; color:var(--muted); letter-spacing:.3px; flex-shrink:0; }
+.mkt-senti-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:700; white-space:nowrap; }
+.mkt-senti-dots { display:flex; gap:3px; align-items:center; }
+.mkt-senti-dots span { width:7px; height:7px; border-radius:2px; background:var(--border); transition:.2s; }
+/* 2단: 지수 */
+.mkt-idx-row { display:flex; align-items:stretch; }
+.mkt-item { display:flex; flex-direction:column; justify-content:center; padding:8px 16px 8px 0; margin-right:16px; border-right:1px solid var(--border); flex-shrink:0; gap:2px; }
+.mkt-item:last-of-type { border-right:none; margin-right:0; }
 .mkt-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; }
 .mkt-price { font-size:15px; font-weight:800; color:var(--text); letter-spacing:-.3px; }
 .mkt-chg { font-size:11px; font-weight:600; }
 .mkt-chg.up   { color:#dc2626; }   /* 한국 증시: 오름=빨강 */
 .mkt-chg.dn   { color:#2563eb; }   /* 내림=파랑 */
 .mkt-chg.flat { color:var(--muted); }
-/* 심리 섹션 */
-.mkt-senti { display:flex; flex-direction:column; justify-content:center; gap:3px; padding:8px 0 8px 18px; margin-left:auto; flex-shrink:0; align-items:flex-end; }
-.mkt-senti-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; }
-.mkt-senti-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:700; white-space:nowrap; }
-.mkt-senti-dots { display:flex; gap:3px; align-items:center; }
-.mkt-senti-dots span { width:7px; height:7px; border-radius:2px; background:var(--border); transition:.2s; }
 /* 업데이트 날짜 — TOP10 우측 */
 .result-cnt { font-size: 12px; color: var(--muted); }
 
@@ -370,20 +372,27 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
     <div class="mkt-bar" id="mkt-bar" style="margin:12px -16px 0;border-radius:12px;overflow:hidden;border:1px solid var(--border);">
       <div class="mkt-bar-inner" id="mkt-bar-inner" style="padding:0 16px;">
         <!-- 스켈레톤 -->
-        <div class="mkt-item" style="gap:5px;">
-          <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:72px;height:15px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+        <div class="mkt-senti-row" style="gap:8px;">
+          <div class="skeleton" style="width:44px;height:10px;border-radius:3px;"></div>
+          <div class="skeleton" style="width:80px;height:24px;border-radius:99px;"></div>
+          <div class="skeleton" style="width:56px;height:8px;border-radius:3px;"></div>
         </div>
-        <div class="mkt-item" style="gap:5px;">
-          <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:60px;height:15px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
-        </div>
-        <div class="mkt-item" style="gap:5px;border-right:none;">
-          <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:52px;height:15px;border-radius:3px;"></div>
-          <div class="skeleton" style="width:40px;height:9px;border-radius:3px;"></div>
+        <div class="mkt-idx-row">
+          <div class="mkt-item" style="gap:5px;">
+            <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
+            <div class="skeleton" style="width:72px;height:15px;border-radius:3px;"></div>
+            <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+          </div>
+          <div class="mkt-item" style="gap:5px;">
+            <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
+            <div class="skeleton" style="width:60px;height:15px;border-radius:3px;"></div>
+            <div class="skeleton" style="width:54px;height:9px;border-radius:3px;"></div>
+          </div>
+          <div class="mkt-item" style="gap:5px;">
+            <div class="skeleton" style="width:36px;height:9px;border-radius:3px;"></div>
+            <div class="skeleton" style="width:52px;height:15px;border-radius:3px;"></div>
+            <div class="skeleton" style="width:40px;height:9px;border-radius:3px;"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -888,24 +897,30 @@ function makeTop10List(stocks, tab) {
 function renderTop10All(data, dateStr) {
   _top10Data = data;
   renderTop10Tab(curTop10Tab);
-  // updatedAt(워크플로우 실행시각) > baseDate 순으로 우선 표시
-  const updated = data.updatedAt || data.baseDate;
-  if (updated) {
-    let label = '';
-    try {
-      const d = new Date(updated);
+  // baseDate(거래일) 우선 표시 — updatedAt은 UTC 기준이라 KST로 변환
+  const baseDate  = data.baseDate;
+  const updatedAt = data.updatedAt;
+  let label = '';
+  try {
+    if (baseDate) {
+      // "2026-05-27" → "2026.05.27 기준"
+      const parts = String(baseDate).split('-');
+      label = parts.length === 3
+        ? `${parts[0]}.${parts[1]}.${parts[2]} 기준`
+        : baseDate + ' 기준';
+    } else if (updatedAt) {
+      // ISO 타임스탬프 → KST 날짜만 표시
+      const d = new Date(updatedAt);
       if (!isNaN(d)) {
-        const mo  = d.getMonth() + 1;
-        const day = d.getDate();
-        const hh  = String(d.getHours()).padStart(2,'0');
-        const mm  = String(d.getMinutes()).padStart(2,'0');
-        label = `${mo}/${day} ${hh}:${mm} 업데이트`;
-      } else {
-        label = updated + ' 기준';
+        const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+        const y  = kst.getUTCFullYear();
+        const mo = String(kst.getUTCMonth() + 1).padStart(2, '0');
+        const dy = String(kst.getUTCDate()).padStart(2, '0');
+        label = `${y}.${mo}.${dy} 기준`;
       }
-    } catch(_) { label = updated + ' 기준'; }
-    document.getElementById('top10-date').textContent = label;
-  }
+    }
+  } catch(_) {}
+  if (label) document.getElementById('top10-date').textContent = label;
 }
 
 // ── 시장 지수 바 ───────────────────────────────────────
@@ -935,30 +950,32 @@ async function loadMarket() {
     const bar = document.getElementById('mkt-bar-inner');
     if (!bar) return;
     bar.innerHTML = `
-      ${kospi ? `
-      <div class="mkt-item">
-        <div class="mkt-label">코스피</div>
-        <div class="mkt-price">${fmtMktNum(kospi.price)}</div>
-        <div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)} (${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</div>
-      </div>` : ''}
-      ${kosdaq ? `
-      <div class="mkt-item">
-        <div class="mkt-label">코스닥</div>
-        <div class="mkt-price">${fmtMktNum(kosdaq.price)}</div>
-        <div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)} (${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</div>
-      </div>` : ''}
-      ${usd ? `
-      <div class="mkt-item" style="border-right:none;">
-        <div class="mkt-label">달러/원</div>
-        <div class="mkt-price">${fmtMktNum(usd.price, 1)}<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:2px;">원</span></div>
-        <div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)} (${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</div>
-      </div>` : ''}
-      <div class="mkt-senti">
-        <div class="mkt-senti-label">시장 심리</div>
+      <div class="mkt-senti-row">
+        <span class="mkt-senti-lbl">시장심리</span>
         <div class="mkt-senti-badge" style="background:${senti.bg||'rgba(107,114,128,.1)'};color:${senti.color||'#6b7280'};">
           <span>${senti.emoji||'😐'}</span><span>${senti.label||'중립'}</span>
         </div>
         <div class="mkt-senti-dots">${dots}</div>
+      </div>
+      <div class="mkt-idx-row">
+        ${kospi ? `
+        <div class="mkt-item">
+          <div class="mkt-label">코스피</div>
+          <div class="mkt-price">${fmtMktNum(kospi.price)}</div>
+          <div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)} (${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</div>
+        </div>` : ''}
+        ${kosdaq ? `
+        <div class="mkt-item">
+          <div class="mkt-label">코스닥</div>
+          <div class="mkt-price">${fmtMktNum(kosdaq.price)}</div>
+          <div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)} (${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</div>
+        </div>` : ''}
+        ${usd ? `
+        <div class="mkt-item">
+          <div class="mkt-label">달러/원</div>
+          <div class="mkt-price">${fmtMktNum(usd.price, 1)}<span style="font-size:11px;font-weight:500;color:var(--muted);margin-left:2px;">원</span></div>
+          <div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)} (${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</div>
+        </div>` : ''}
       </div>
     `;
   } catch(_) {}
