@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>썸팁 · 소개</title>
+<meta name="description" content="somtip은 국내 주식 투자자를 위한 무료 퀀트 분석 플랫폼입니다.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f2f4f8; --card:#fff; --border:rgba(0,0,0,.07);
+  --text:#111827; --sub:#374151; --muted:#9ca3af;
+  --green:#16a34a; --blue:#2563eb; --amber:#d97706;
+  --navy:#0A1628; --yellow:#FACC15; --cream:#F6F4EF;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 0 1px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* ── 헤더 ── */
+.site-hdr{background:#0A1628;position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(246,244,239,.08);}
+.site-hdr-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;height:62px;padding:0 20px;gap:18px;}
+.site-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+.site-logo svg{height:28px;width:auto;display:block;}
+.site-nav{display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:auto;}
+.site-nav a{font-size:13px;font-weight:500;color:rgba(246,244,239,.6);text-decoration:none;padding:6px 11px;border-radius:7px;transition:.15s;white-space:nowrap;}
+.site-nav a:hover{color:#FACC15;background:rgba(250,204,21,.1);}
+.site-nav a.active{color:#FACC15;}
+@media(max-width:768px){.site-nav{display:none;}}
+
+/* ── 히어로 ── */
+.hero{background:linear-gradient(135deg,#0A1628 0%,#0f2040 60%,#1a2d50 100%);padding:72px 20px 64px;text-align:center;}
+.hero-inner{max-width:680px;margin:0 auto;}
+.hero-logo{display:flex;justify-content:center;margin-bottom:24px;}
+.hero-tag{display:inline-block;background:rgba(250,204,21,.15);color:#FACC15;font-size:12px;font-weight:700;padding:5px 16px;border-radius:99px;border:1px solid rgba(250,204,21,.3);margin-bottom:20px;letter-spacing:.04em;}
+.hero h1{font-size:clamp(26px,5vw,42px);font-weight:800;color:#F6F4EF;line-height:1.25;margin-bottom:16px;}
+.hero h1 em{color:#FACC15;font-style:normal;}
+.hero p{font-size:15px;color:rgba(246,244,239,.6);line-height:1.8;max-width:520px;margin:0 auto 32px;}
+.hero-cta{display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;}
+.btn-primary{background:#FACC15;color:#0A1628;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;transition:.15s;}
+.btn-primary:hover{background:#fde047;}
+.btn-ghost{background:rgba(246,244,239,.08);color:#F6F4EF;font-weight:600;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;border:1.5px solid rgba(246,244,239,.2);transition:.15s;}
+.btn-ghost:hover{background:rgba(246,244,239,.15);}
+
+/* ── 본문 ── */
+.page{max-width:900px;margin:0 auto;padding:0 20px 80px;}
+
+/* ── 섹션 ── */
+.section{margin-top:56px;}
+.sec-label{font-size:11px;font-weight:700;color:#FACC15;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;}
+.sec-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:10px;}
+.sec-desc{font-size:14px;color:var(--sub);line-height:1.8;max-width:680px;}
+
+/* ── 기능 카드 그리드 ── */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;margin-top:24px;}
+.feat-card{background:var(--card);border:1.5px solid var(--border);border-radius:16px;padding:22px 20px;box-shadow:var(--shadow);transition:.15s;}
+.feat-card:hover{border-color:#0A1628;box-shadow:0 4px 16px rgba(10,22,40,.1);}
+.feat-icon{font-size:28px;margin-bottom:12px;}
+.feat-name{font-size:15px;font-weight:700;margin-bottom:6px;}
+.feat-text{font-size:13px;color:var(--sub);line-height:1.7;}
+
+/* ── 점수 체계 ── */
+.score-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:24px;}
+.score-card{background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:18px;box-shadow:var(--shadow);}
+.score-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.score-card-name{font-size:14px;font-weight:700;}
+.score-card-pts{font-size:20px;font-weight:800;}
+.score-item{font-size:12px;color:var(--sub);padding:4px 0;border-bottom:1px solid var(--border);line-height:1.5;}
+.score-item:last-child{border-bottom:none;}
+.score-item::before{content:'·  ';color:var(--muted);}
+
+/* ── 등급 표 ── */
+.grade-list{display:flex;flex-direction:column;gap:10px;margin-top:20px;max-width:480px;}
+.grade-row{display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--card);border:1.5px solid var(--border);border-radius:12px;box-shadow:var(--shadow);}
+.grade-badge{font-size:13px;font-weight:700;padding:3px 12px;border-radius:99px;white-space:nowrap;}
+.grade-desc{font-size:13px;color:var(--sub);}
+
+/* ── 데이터 출처 ── */
+.source-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:20px;}
+.source-card{background:var(--card);border:1.5px solid var(--border);border-radius:12px;padding:16px;box-shadow:var(--shadow);display:flex;align-items:flex-start;gap:12px;}
+.source-icon{width:36px;height:36px;border-radius:9px;background:#0A1628;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.source-name{font-size:13px;font-weight:700;margin-bottom:3px;}
+.source-text{font-size:11px;color:var(--muted);line-height:1.5;}
+
+/* ── 면책 ── */
+.disclaimer-box{background:#fff8e6;border:1.5px solid rgba(217,119,6,.2);border-radius:14px;padding:20px 22px;margin-top:24px;}
+.disclaimer-box p{font-size:13px;color:#78350f;line-height:1.8;}
+.disclaimer-box strong{font-weight:700;}
+
+/* ── 푸터 ── */
+.site-footer{background:#0A1628;border-top:1px solid rgba(246,244,239,.08);padding:32px 20px 48px;margin-top:40px;}
+.site-footer .f-inner{max-width:900px;margin:0 auto;}
+.site-footer .f-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px;flex-wrap:wrap;}
+.site-footer .f-tagline{font-size:11px;color:rgba(246,244,239,.3);margin-top:7px;}
+.site-footer .f-links{display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding-top:4px;}
+.site-footer .f-links a{font-size:12px;color:rgba(246,244,239,.38);text-decoration:none;transition:.15s;}
+.site-footer .f-links a:hover{color:rgba(246,244,239,.85);}
+.site-footer .f-divider{border:none;border-top:1px solid rgba(246,244,239,.07);margin:16px 0;}
+.site-footer .f-disc{font-size:10px;color:rgba(246,244,239,.22);line-height:1.8;}
+.site-footer .f-copy{font-size:10px;color:rgba(246,244,239,.22);margin-top:8px;}
+
+@media(max-width:600px){
+  .hero{padding:48px 16px 40px;}
+  .feat-grid,.score-grid{grid-template-columns:1fr;}
+  .source-list{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ 헤더 ══ -->
+<header class="site-hdr">
+  <div class="site-hdr-inner">
+    <a href="/" class="site-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="28" style="display:block;">
+        <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+        <g transform="translate(0,148)">
+          <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+          <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+          <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+          <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+        </g>
+      </svg>
+    </a>
+    <nav class="site-nav">
+      <a href="/">국장 분석기</a>
+      <a href="/analyzer.html">상세 지표</a>
+      <a href="#">뉴스·공시</a>
+      <a href="#">가이드</a>
+      <a href="/about.html" class="active">소개</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ══ 히어로 ══ -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="64" height="64">
+        <rect width="100" height="100" rx="24" fill="#0A1628"/>
+        <rect x="22" y="50" width="12" height="32" rx="2" fill="#F6F4EF" fill-opacity="0.35"/>
+        <rect x="38" y="42" width="12" height="40" rx="2" fill="#F6F4EF" fill-opacity="0.55"/>
+        <rect x="54" y="30" width="12" height="52" rx="2" fill="#F6F4EF"/>
+        <rect x="70" y="18" width="12" height="64" rx="2" fill="#FACC15"/>
+      </svg>
+    </div>
+    <div class="hero-tag">나만 알고 싶은 주식 팁</div>
+    <h1>국내 주식, <em>데이터로</em><br>더 명확하게 보다</h1>
+    <p>somtip은 이동평균선·퀀트 지표·투자자 수급을 자동으로 분석해<br>
+    복잡한 차트 없이도 종목의 현재 상태를 한눈에 파악할 수 있게 도와줍니다.</p>
+    <div class="hero-cta">
+      <a href="/" class="btn-primary">국장 분석기 바로가기</a>
+      <a href="/analyzer.html" class="btn-ghost">종목 상세 분석</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 본문 ══ -->
+<div class="page">
+
+  <!-- 왜 만들었나 -->
+  <section class="section">
+    <div class="sec-label">About somtip</div>
+    <div class="sec-title">왜 만들었나요?</div>
+    <div class="sec-desc">
+      주식 투자를 할 때 가장 번거로운 건 <strong>수십 개의 지표를 직접 계산하고 해석하는 일</strong>이었어요.
+      이평선 배열은 좋은데 RSI가 과매수인지, 외인이 사고 있는데 기관은 팔고 있는 건지 —
+      각각의 정보가 흩어져 있어 한 번에 판단하기 어려웠습니다.<br><br>
+      somtip은 매일 국내 상장 종목 전체를 자동으로 분석해 <strong>퀀트 종합점수 하나</strong>로 요약합니다.
+      점수가 높을수록 현재 기술적 흐름이 좋고 수급도 우호적인 종목입니다.
+      물론 점수가 전부는 아니지만, 어디서부터 시작할지 방향을 잡는 데 도움이 됩니다.
+    </div>
+  </section>
+
+  <!-- 주요 기능 -->
+  <section class="section">
+    <div class="sec-label">Features</div>
+    <div class="sec-title">주요 기능</div>
+    <div class="feat-grid">
+      <div class="feat-card">
+        <div class="feat-icon">⭐</div>
+        <div class="feat-name">TOP 10 랭킹</div>
+        <div class="feat-text">매일 장 마감 후 전종목을 분석해 추천 매수·분석 상위·외인+기관 순매수·순매도·거래대금 기준으로 상위 10종목을 보여줍니다. KOSPI/KOSDAQ 필터도 지원합니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📊</div>
+        <div class="feat-name">퀀트 종합점수</div>
+        <div class="feat-text">이평선 배열·이격도·RSI·MACD·볼린저밴드·OBV·거래량 등 7가지 기술 지표를 합산해 100점 만점으로 환산합니다. 80점 이상이면 최상위 종목입니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📈</div>
+        <div class="feat-name">가격 차트 + RSI</div>
+        <div class="feat-text">60일 캔들 차트에 5·20·60일 이동평균선을 함께 표시합니다. 하단 RSI 차트로 과매수·과매도 구간을 직관적으로 확인할 수 있습니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🏦</div>
+        <div class="feat-name">투자자 수급 분석</div>
+        <div class="feat-text">5일·20일 외국인·기관·개인 순매수 현황을 나란히 보여줍니다. 외인과 기관이 동시에 사들이는 종목은 강한 상승 모멘텀을 가질 수 있습니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🇰🇷</div>
+        <div class="feat-name">국장 특화 지표</div>
+        <div class="feat-text">52주 신고가 돌파, 외인 지분 한도 소진율, 공매도 비율, 대주주 지분율 등 국내 시장에 특화된 지표를 별도 점수로 분석합니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🌱</div>
+        <div class="feat-name">미래성장 가점</div>
+        <div class="feat-text">DART 분기 EPS 기반 PER 점수, 반도체·방산·바이오 등 성장 섹터 가점, 외인+기관 수급 보너스를 합산해 성장주 여부를 평가합니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📋</div>
+        <div class="feat-name">매매 전략 체크리스트</div>
+        <div class="feat-text">현재 매수·관망·매도 중 어느 구간인지, 진입 근거와 리스크 요인을 체크리스트 형식으로 정리해 줍니다.</div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📰</div>
+        <div class="feat-name">공시 · 뉴스</div>
+        <div class="feat-text">DART 최근 1개월 공시와 경제 뉴스를 함께 제공합니다. 종목 분석 화면에서는 해당 종목의 최근 공시를 직접 확인할 수 있습니다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 점수 체계 -->
+  <section class="section">
+    <div class="sec-label">Scoring System</div>
+    <div class="sec-title">점수 체계</div>
+    <div class="sec-desc">퀀트 종합점수는 세 가지 영역의 점수를 합산합니다. 각 지표는 매일 장 마감 후 자동으로 계산됩니다.</div>
+    <div class="score-grid">
+      <div class="score-card">
+        <div class="score-card-top">
+          <div class="score-card-name">📊 기술지표</div>
+          <div class="score-card-pts" style="color:#2563eb;">70점</div>
+        </div>
+        <div class="score-item">이평선 정배열 (5·20·60·120일)</div>
+        <div class="score-item">이격도 (현재가 vs 이평선)</div>
+        <div class="score-item">RSI (14일, 과매수·과매도)</div>
+        <div class="score-item">MACD 시그널 크로스</div>
+        <div class="score-item">거래량 증가 여부</div>
+        <div class="score-item">OBV (거래량 누적 추세)</div>
+        <div class="score-item">볼린저밴드 위치</div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-top">
+          <div class="score-card-name">🇰🇷 국장특화</div>
+          <div class="score-card-pts" style="color:#16a34a;">30점</div>
+        </div>
+        <div class="score-item">52주 신고가 돌파</div>
+        <div class="score-item">외인 지분 한도 소진율</div>
+        <div class="score-item">공매도 비율 낮음</div>
+        <div class="score-item">대주주 지분율 안정</div>
+        <div class="score-item">시가총액 규모 가점</div>
+      </div>
+      <div class="score-card">
+        <div class="score-card-top">
+          <div class="score-card-name">🌱 미래성장</div>
+          <div class="score-card-pts" style="color:#d97706;">18점</div>
+        </div>
+        <div class="score-item">DART 분기EPS 기반 PER 점수</div>
+        <div class="score-item">섹터 등급 (반도체·방산 최고)</div>
+        <div class="score-item">외인+기관 5일 순매수</div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:14px;">점수 등급 기준</div>
+      <div class="grade-list">
+        <div class="grade-row">
+          <span class="grade-badge" style="background:rgba(234,179,8,.15);color:#b45309;">⭐ 80 ~ 100점</span>
+          <span class="grade-desc">최상위 종목 — 기술·수급 모두 강한 상태</span>
+        </div>
+        <div class="grade-row">
+          <span class="grade-badge" style="background:rgba(37,99,235,.1);color:#2563eb;">📈 60 ~ 79점</span>
+          <span class="grade-desc">매수 유리 — 추세 양호, 관심 필요</span>
+        </div>
+        <div class="grade-row">
+          <span class="grade-badge" style="background:rgba(22,163,74,.1);color:#16a34a;">👀 40 ~ 59점</span>
+          <span class="grade-desc">관심 종목 — 일부 지표 긍정적</span>
+        </div>
+        <div class="grade-row">
+          <span class="grade-badge" style="background:rgba(156,163,175,.1);color:#6b7280;">⏸ 0 ~ 39점</span>
+          <span class="grade-desc">매수 비추천 — 추세 약하거나 하락 국면</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 데이터 출처 -->
+  <section class="section">
+    <div class="sec-label">Data Sources</div>
+    <div class="sec-title">데이터 출처</div>
+    <div class="sec-desc">somtip은 공신력 있는 공공 데이터와 증권사 API를 활용합니다. 모든 데이터는 전일 종가 기준이며 매일 자동 업데이트됩니다.</div>
+    <div class="source-list">
+      <div class="source-card">
+        <div class="source-icon">📡</div>
+        <div>
+          <div class="source-name">한국투자증권 KIS API</div>
+          <div class="source-text">현재가, 60일 가격 히스토리, 투자자 수급, 재무 지표(PER·PBR·EPS), 외인 지분율</div>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">🏛️</div>
+        <div>
+          <div class="source-name">DART (전자공시시스템)</div>
+          <div class="source-text">분기·반기·연간 EPS 데이터 (연 3회 자동 업데이트), 최근 공시 목록</div>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">📊</div>
+        <div>
+          <div class="source-name">KRX (한국거래소)</div>
+          <div class="source-text">전체 상장 종목 리스트, 종목 코드, 시장 구분(KOSPI/KOSDAQ)</div>
+        </div>
+      </div>
+      <div class="source-card">
+        <div class="source-icon">⚡</div>
+        <div>
+          <div class="source-name">Upstash Redis</div>
+          <div class="source-text">분석 결과 캐싱 — 빠른 응답을 위해 전종목 분석 데이터를 저장</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 면책 고지 -->
+  <section class="section">
+    <div class="sec-label">Disclaimer</div>
+    <div class="sec-title">투자 유의사항</div>
+    <div class="disclaimer-box">
+      <p>
+        <strong>본 서비스는 투자 정보 제공을 목적으로 하며, 투자 권유가 아닙니다.</strong><br>
+        somtip의 모든 분석 결과는 과거 데이터에 기반한 기술적·통계적 지표이며,
+        미래의 수익을 보장하지 않습니다. 주식 투자에는 원금 손실 위험이 있으며,
+        모든 투자 판단과 그에 따른 결과는 전적으로 투자자 본인의 책임입니다.<br><br>
+        본 서비스의 데이터는 전일 종가 기준으로 매일 업데이트되며, 실시간 데이터가 아닙니다.
+        투자 결정 전 반드시 추가적인 정보 확인 및 전문가 상담을 권장합니다.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<!-- ══ 푸터 ══ -->
+<footer class="site-footer">
+  <div class="f-inner">
+    <div class="f-top">
+      <div>
+        <a href="/" style="display:inline-block;text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="22" style="display:block;">
+            <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+            <g transform="translate(0,148)">
+              <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+              <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+              <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+              <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+            </g>
+          </svg>
+        </a>
+        <div class="f-tagline">나만 알고 싶은 주식 팁</div>
+      </div>
+      <div class="f-links">
+        <a href="/about.html">소개</a>
+        <a href="#">가이드</a>
+        <a href="#">이용약관</a>
+        <a href="#">개인정보처리방침</a>
+      </div>
+    </div>
+    <hr class="f-divider">
+    <div class="f-disc">
+      본 서비스는 이동평균선·퀀트 지표 기반 정보 제공 목적이며, 투자 권유가 아닙니다.<br>
+      모든 투자 판단과 책임은 본인에게 있으며, 금융 투자에는 원금 손실 위험이 있습니다.
+    </div>
+    <div class="f-copy">© 2026 somtip. All rights reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>
