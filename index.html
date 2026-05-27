@@ -955,9 +955,8 @@ async function loadMarket() {
     const usd    = d.usdkrw;
     const senti  = d.sentiment || {};
 
-    // senti.score: 1~5 → 표시 점수 10/30/50/70/90
-    const rawScore = senti.score || 3;
-    const pct = rawScore * 20 - 10;   // 1→10, 3→50, 5→90
+    // senti.score: 0~100 연속값 (api/market.js calcSentiment)
+    const pct = typeof senti.score === 'number' ? senti.score : 50;
 
     const bar = document.getElementById('mkt-bar-inner');
     if (!bar) return;
