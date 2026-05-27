@@ -1170,15 +1170,19 @@ function renderStrategy(rec) {
     const mltSign   = mltUp >= 0 ? '+' : '';
     const mltLabel  = mltUp >= 15 ? '📈 상승 여력 있음' : mltUp >= 0 ? '📊 소폭 상승 여력' : '⚠️ 고평가 구간';
     midLongHtml = `
-      <div class="s-item full" style="border-left:3px solid ${mltColor};padding-left:13px;">
-        <div class="s-label">🏹 중장기 목표가 <span style="font-size:9px;color:var(--muted);font-weight:400;">${mlt.horizon} 기준 · ${mlt.basis}</span></div>
-        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-          <div class="s-val" style="color:${mltColor};">${mlt.price.toLocaleString()}<span class="s-unit">원</span></div>
-          <span style="font-size:12px;font-weight:600;color:${mltColor};">${mltSign}${mlt.upside}%</span>
-          <span style="font-size:11px;color:var(--muted);">${mltLabel}</span>
-        </div>
+      <div class="s-item" style="border-left:3px solid ${mltColor};padding-left:13px;">
+        <div class="s-label">🏹 중장기 목표가 <span style="font-size:9px;color:var(--muted);font-weight:400;">${mlt.horizon} · ${mlt.basis}</span></div>
+        <div class="s-val" style="color:${mltColor};">${mlt.price.toLocaleString()}<span class="s-unit">원</span></div>
+        <div class="s-sub">${mltSign}${mlt.upside}% · ${mltLabel}</div>
       </div>`;
   }
+
+  const stopHtml = `
+      <div class="s-item">
+        <div class="s-label">🛑 손절가</div>
+        <div class="s-val" style="color:var(--red);">${rec.stop.toLocaleString()}<span class="s-unit">원</span></div>
+        <div class="s-sub">예상 손실 -${rec.lossPct}% · 이탈 시 추가 하락 위험</div>
+      </div>`;
 
   el.innerHTML = `
     <div class="strategy-grid">
@@ -1192,14 +1196,8 @@ function renderStrategy(rec) {
         <div class="s-val" style="color:#3b82f6;">${rec.target.toLocaleString()}<span class="s-unit">원</span></div>
         <div class="s-sub">기대 수익 +${rec.gainPct}%</div>
       </div>
-      ${midLongHtml}
-      <div class="s-item full">
-        <div class="s-label">🛑 손절가 (리스크 관리)</div>
-        <div class="s-val" style="color:var(--red);">${rec.stop.toLocaleString()}<span class="s-unit">원</span>
-          <span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:6px;">예상 손실 -${rec.lossPct}%</span>
-        </div>
-        <div class="s-sub">지지선 기준 · 이 가격 이탈 시 추가 하락 위험</div>
-      </div>
+      ${stopHtml}
+      ${midLongHtml || ''}
     </div>
     <div class="strategy-note">※ 이동평균·PBR·PER 기반 기계적 기준선이며, 실제 매매 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
 }
