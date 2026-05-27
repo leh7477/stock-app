@@ -764,7 +764,7 @@ function renderTop10Tab(tab) {
   };
   let stocks = map[tab] || [];
   if (curTop10Mkt) stocks = stocks.filter(s => (s.market || '').toUpperCase().includes(curTop10Mkt));
-  document.getElementById('t10-list').innerHTML = makeTop10List(stocks, tab);
+  document.getElementById('t10-list').innerHTML = makeTop10List(stocks.slice(0, 10), tab);
 }
 
 function makeTop10List(stocks, tab) {
