@@ -170,55 +170,34 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .sec-title { font-size: 14px; font-weight: 700; color: var(--text); }
 .sec-sub { font-size: 11px; color: var(--muted); }
 
-/* ── TOP10 5줄 ── */
-.t10-row { margin-bottom: 14px; }
-.t10-row-hdr {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 8px;
-}
-.t10-row-label { font-size: 13px; font-weight: 700; color: var(--text); }
-.t10-row-more  { font-size: 11px; color: var(--muted); }
+/* ── TOP10 탭 ─────────────────────────────────────────── */
+.t10-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.t10-tab { padding:6px 14px; border-radius:99px; font-size:12px; font-weight:600; cursor:pointer; border:1.5px solid var(--border); background:var(--card); color:var(--sub); transition:all .15s; box-shadow:var(--shadow); white-space:nowrap; }
+.t10-tab:hover { border-color:#0A1628; color:#0A1628; }
+.t10-tab.active { background:#0A1628; border-color:#0A1628; color:#FACC15; box-shadow:0 2px 8px rgba(10,22,40,.2); }
 
-/* ── 가로 스크롤 래퍼 (화살표 포함) ── */
-.top10-wrap {
-  position: relative;
+/* ── TOP10 세로 리스트 ────────────────────────────────── */
+.t10-list { background:var(--card); border:1.5px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:var(--shadow); margin-bottom:20px; }
+.t10-item { display:grid; grid-template-columns:36px 38px 1fr auto 68px; align-items:center; gap:10px; padding:13px 16px; border-bottom:1px solid var(--border); cursor:pointer; transition:background .12s; }
+.t10-item:last-child { border-bottom:none; }
+.t10-item:hover { background:var(--bg); }
+.t10-i-rank { text-align:center; font-size:18px; line-height:1; }
+.t10-i-rank.num { font-size:13px; font-weight:700; color:var(--muted); }
+.t10-i-av { width:36px; height:36px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; color:#fff; flex-shrink:0; }
+.t10-i-name { font-size:14px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.t10-i-meta { display:flex; align-items:center; gap:5px; margin-top:3px; flex-wrap:wrap; }
+.t10-i-code { font-size:11px; color:var(--muted); }
+.t10-i-sig { font-size:10px; font-weight:600; padding:1px 7px; border-radius:99px; background:rgba(22,163,74,.1); color:var(--green); white-space:nowrap; }
+.t10-i-metric { text-align:right; }
+.t10-i-mval { font-size:16px; font-weight:700; line-height:1.2; }
+.t10-i-msub { font-size:10px; color:var(--muted); margin-top:2px; }
+.t10-i-bar { width:56px; height:4px; background:var(--bg); border-radius:99px; overflow:hidden; margin-top:5px; margin-left:auto; }
+.t10-i-bar-fill { height:100%; border-radius:99px; transition:width .5s; }
+.t10-i-chg { text-align:right; font-size:13px; font-weight:600; }
+@media(max-width:500px) {
+  .t10-item { grid-template-columns:30px 34px 1fr auto; gap:8px; }
+  .t10-i-chg { display:none; }
 }
-.top10-wrap::after {
-  content: '';
-  position: absolute; top: 0; right: 0; bottom: 6px; width: 36px;
-  background: linear-gradient(to right, transparent, var(--bg));
-  pointer-events: none; border-radius: 0 14px 14px 0;
-}
-.top10-scroll {
-  display: flex; gap: 10px;
-  overflow-x: auto; overflow-y: visible;
-  padding-bottom: 6px; padding-right: 32px;
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-.top10-scroll::-webkit-scrollbar { height: 4px; }
-.top10-scroll::-webkit-scrollbar-track { background: transparent; }
-.top10-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
-
-.top10-card {
-  flex-shrink: 0; width: 136px;
-  background: var(--card); border: 1.5px solid var(--border); border-radius: 14px;
-  padding: 13px 12px; cursor: pointer; box-shadow: var(--shadow);
-  transition: border-color .15s, box-shadow .15s;
-  display: flex; flex-direction: column; gap: 6px;
-}
-.top10-card:hover { border-color: var(--blue); box-shadow: 0 2px 12px rgba(37,99,235,.1); }
-.top10-rank { font-size: 11px; font-weight: 700; color: var(--muted); }
-.top10-rank.gold   { color: #d97706; }
-.top10-rank.silver { color: #6b7280; }
-.top10-rank.bronze { color: #92400e; }
-.top10-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.top10-big  { font-size: 20px; font-weight: 700; line-height: 1.1; }
-.top10-sub  { font-size: 10px; color: var(--muted); }
-.top10-chg  { font-size: 11px; font-weight: 600; }
-.top10-tag  { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 99px; width: fit-content; }
 
 /* ── 2026 테마 섹터 ── */
 .sector-grid { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -344,80 +323,44 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <div class="result-cnt" id="result-cnt"></div>
     </div>
 
-    <!-- TOP10 5줄 -->
-    <div class="sec-hdr" style="margin-bottom:12px;margin-top:4px;">
+    <!-- TOP10 -->
+    <div class="sec-hdr" style="margin-bottom:10px;margin-top:4px;">
       <div class="sec-title">⭐ TOP 10</div>
       <div class="sec-sub" id="top10-date"></div>
     </div>
 
-    <div class="t10-row">
-      <div class="t10-row-hdr">
-        <span class="t10-row-label">💎 추천 매수</span>
-        <span class="t10-row-more">점수 ≥55 · MA5 매수권</span>
-      </div>
-      <div class="top10-wrap"><div class="top10-scroll" id="t10-buy">
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-      </div></div>
+    <!-- 카테고리 탭 -->
+    <div class="t10-tabs">
+      <button class="t10-tab active" data-tab="buy"      onclick="switchTop10('buy')">💎 추천 매수</button>
+      <button class="t10-tab"        data-tab="score"    onclick="switchTop10('score')">📊 분석 상위</button>
+      <button class="t10-tab"        data-tab="frgnbuy"  onclick="switchTop10('frgnbuy')">🟢 외인 순매수</button>
+      <button class="t10-tab"        data-tab="frgnsell" onclick="switchTop10('frgnsell')">🔴 외인 순매도</button>
+      <button class="t10-tab"        data-tab="volume"   onclick="switchTop10('volume')">📦 거래량</button>
     </div>
 
-    <div class="t10-row">
-      <div class="t10-row-hdr">
-        <span class="t10-row-label">📊 분석 상위</span>
-        <span class="t10-row-more">퀀트 스코어 순</span>
+    <!-- 세로 리스트 (스켈레톤) -->
+    <div class="t10-list" id="t10-list">
+      <div class="t10-item" style="cursor:default;">
+        <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+        <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
+        <div><div class="skeleton" style="width:120px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:70px;height:11px;"></div></div>
+        <div class="skeleton" style="width:56px;height:20px;"></div>
+        <div class="skeleton" style="width:56px;height:14px;"></div>
       </div>
-      <div class="top10-wrap"><div class="top10-scroll" id="t10-score">
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-      </div></div>
-    </div>
-
-    <div class="t10-row">
-      <div class="t10-row-hdr">
-        <span class="t10-row-label">🟢 외인+기관 순매수</span>
-        <span class="t10-row-more">5일 외인·기관 합산 순매수 금액 순</span>
+      <div class="t10-item" style="cursor:default;">
+        <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+        <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
+        <div><div class="skeleton" style="width:100px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:60px;height:11px;"></div></div>
+        <div class="skeleton" style="width:56px;height:20px;"></div>
+        <div class="skeleton" style="width:56px;height:14px;"></div>
       </div>
-      <div class="top10-wrap"><div class="top10-scroll" id="t10-frgnbuy">
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-      </div></div>
-    </div>
-
-    <div class="t10-row">
-      <div class="t10-row-hdr">
-        <span class="t10-row-label">🔴 외인+기관 순매도</span>
-        <span class="t10-row-more">5일 외인·기관 합산 순매도 금액 순</span>
+      <div class="t10-item" style="cursor:default;">
+        <div class="skeleton" style="width:28px;height:28px;border-radius:6px;"></div>
+        <div class="skeleton" style="width:36px;height:36px;border-radius:9px;"></div>
+        <div><div class="skeleton" style="width:140px;height:14px;margin-bottom:6px;"></div><div class="skeleton" style="width:80px;height:11px;"></div></div>
+        <div class="skeleton" style="width:56px;height:20px;"></div>
+        <div class="skeleton" style="width:56px;height:14px;"></div>
       </div>
-      <div class="top10-wrap"><div class="top10-scroll" id="t10-frgnsell">
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-      </div></div>
-    </div>
-
-    <div class="t10-row">
-      <div class="t10-row-hdr">
-        <span class="t10-row-label">📦 거래량 상위</span>
-        <span class="t10-row-more">당일 거래량 순</span>
-      </div>
-      <div class="top10-wrap"><div class="top10-scroll" id="t10-volume">
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-        <div class="skeleton" style="width:136px;height:108px;border-radius:14px;flex-shrink:0;"></div>
-      </div></div>
     </div>
 
     <!-- 2026 테마 섹터 -->
@@ -746,55 +689,99 @@ function stockMatchesTheme(stock, themeKey) {
 }
 
 // ── TOP10 카드 HTML 생성 ──────────────────────────────
-function makeTop10Cards(stocks, tab) {
-  if (!stocks?.length) return '<div style="color:var(--muted);font-size:12px;padding:8px 4px;">데이터 없음</div>';
-  const rankEmoji = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
-  const rankCls   = i => i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+// ── TOP10 탭 전환 ──────────────────────────────────────
+let curTop10Tab = 'buy';
+let _top10Data  = {};
+
+function switchTop10(tab) {
+  curTop10Tab = tab;
+  document.querySelectorAll('.t10-tab').forEach(el =>
+    el.classList.toggle('active', el.dataset.tab === tab)
+  );
+  renderTop10Tab(tab);
+}
+
+function renderTop10Tab(tab) {
+  const map = {
+    buy:      _top10Data.top10Buy,
+    score:    _top10Data.top10Score || _top10Data.top10,
+    frgnbuy:  _top10Data.top10FrgnBuy,
+    frgnsell: _top10Data.top10FrgnSell,
+    volume:   _top10Data.top10Volume,
+  };
+  document.getElementById('t10-list').innerHTML = makeTop10List(map[tab] || [], tab);
+}
+
+function makeTop10List(stocks, tab) {
+  if (!stocks?.length) return '<div style="color:var(--muted);font-size:13px;padding:28px;text-align:center;">데이터 없음</div>';
+  const fmtAmt = v => {
+    const a = Math.abs(v);
+    if (a >= 1e12) return (v / 1e12).toFixed(1) + '조';
+    if (a >= 1e8)  return Math.round(v / 1e8).toLocaleString() + '억';
+    return Math.round(v / 1e4).toLocaleString() + '만';
+  };
+  const rankIcon = i => ['🥇','🥈','🥉'][i] || '';
   return stocks.map((s, i) => {
     const up     = (s.chgRate || 0) >= 0;
-    const chgClr = up ? '#dc2626' : '#2563eb';
+    const chgClr = up ? 'var(--red)' : 'var(--blue)';
     const chgTxt = (up ? '+' : '') + (s.chgRate || 0).toFixed(2) + '%';
-    const sc     = scoreColor(s.score || 0);
-    let bigLine = '', subLine = '', tagHtml = '';
-    if (tab === 'buy') {
-      bigLine = `<div class="top10-big" style="color:${sc}">${s.score}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>`;
-      tagHtml = `<div class="top10-tag" style="background:rgba(22,163,74,0.1);color:var(--green)">매수권 ✓</div>`;
-    } else if (tab === 'score') {
-      bigLine = `<div class="top10-big" style="color:${sc}">${s.score}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>`;
+    const sc     = s.score || 0;
+    const scClr  = scoreColor(sc);
+    const av     = avColor(s.name);
+    const rankHtml = i < 3
+      ? `<div class="t10-i-rank">${rankIcon(i)}</div>`
+      : `<div class="t10-i-rank num">${i + 1}</div>`;
+
+    let metricHtml = '';
+    if (tab === 'buy' || tab === 'score') {
+      metricHtml = `<div class="t10-i-metric">
+        <div class="t10-i-mval" style="color:${scClr}">${sc}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>
+        <div class="t10-i-bar"><div class="t10-i-bar-fill" style="width:${sc}%;background:${scClr}"></div></div>
+      </div>`;
     } else if (tab === 'frgnbuy') {
-      const fmtAmt = v => { const a = Math.abs(v); return a >= 1e12 ? (v/1e12).toFixed(1)+'조' : a >= 1e8 ? Math.round(v/1e8).toLocaleString()+'억' : Math.round(v/1e4).toLocaleString()+'만'; };
-      const net5 = ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
-      const amt5 = net5 * (s.price || 0);
-      bigLine = `<div class="top10-big" style="color:var(--red)">+${fmtAmt(amt5)}</div>`;
-      subLine = `<div class="top10-sub">5일 외인+기관</div>`;
+      const net5 = (s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0) || s.frgnBuyQty || 0;
+      metricHtml = `<div class="t10-i-metric">
+        <div class="t10-i-mval" style="color:var(--red)">+${fmtAmt(net5 * (s.price || 0))}</div>
+        <div class="t10-i-msub">5일 외인+기관</div>
+      </div>`;
     } else if (tab === 'frgnsell') {
-      const fmtAmt = v => { const a = Math.abs(v); return a >= 1e12 ? (v/1e12).toFixed(1)+'조' : a >= 1e8 ? Math.round(v/1e8).toLocaleString()+'억' : Math.round(v/1e4).toLocaleString()+'만'; };
-      const net5 = ((s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0)) || (s.frgnBuyQty || 0);
-      const amt5 = Math.abs(net5 * (s.price || 0));
-      bigLine = `<div class="top10-big" style="color:var(--blue)">-${fmtAmt(amt5)}</div>`;
-      subLine = `<div class="top10-sub">5일 외인+기관</div>`;
+      const net5 = (s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0) || s.frgnBuyQty || 0;
+      metricHtml = `<div class="t10-i-metric">
+        <div class="t10-i-mval" style="color:var(--blue)">-${fmtAmt(Math.abs(net5 * (s.price || 0)))}</div>
+        <div class="t10-i-msub">5일 외인+기관</div>
+      </div>`;
     } else if (tab === 'volume') {
-      const fmtAmt = v => { const a = Math.abs(v); return a >= 1e12 ? (v/1e12).toFixed(1)+'조' : a >= 1e8 ? Math.round(v/1e8).toLocaleString()+'억' : Math.round(v/1e4).toLocaleString()+'만'; };
-      const avgAmt = (s.avgVol5 || s.volume || 0) * (s.price || 0);
-      bigLine = `<div class="top10-big" style="color:var(--blue)">${fmtAmt(avgAmt)}</div>`;
-      subLine = `<div class="top10-sub">5일 평균 거래대금</div>`;
+      const amt = (s.avgVol5 || s.volume || 0) * (s.price || 0);
+      metricHtml = `<div class="t10-i-metric">
+        <div class="t10-i-mval" style="color:var(--blue)">${fmtAmt(amt)}</div>
+        <div class="t10-i-msub">5일 평균 거래대금</div>
+      </div>`;
     }
-    return `<div class="top10-card" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
-      <div class="top10-rank ${rankCls(i)}">${rankEmoji(i)}</div>
-      <div class="top10-name" title="${s.name}">${s.name}</div>
-      ${bigLine}${subLine}${tagHtml}
-      <div class="top10-chg" style="color:${chgClr}">${chgTxt}</div>
+
+    const sigBadge = tab === 'buy' ? `<span class="t10-i-sig">매수권 ✓</span>` : '';
+    const priceTxt = s.price ? s.price.toLocaleString() + '원' : '';
+
+    return `<div class="t10-item" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
+      ${rankHtml}
+      <div class="t10-i-av" style="background:${av}">${s.name.charAt(0)}</div>
+      <div style="min-width:0;">
+        <div class="t10-i-name" title="${s.name}">${s.name}</div>
+        <div class="t10-i-meta">
+          <span class="t10-i-code">${s.code}</span>
+          ${sigBadge}
+          ${priceTxt ? `<span class="t10-i-code">${priceTxt}</span>` : ''}
+        </div>
+      </div>
+      ${metricHtml}
+      <div class="t10-i-chg" style="color:${chgClr}">${chgTxt}</div>
     </div>`;
   }).join('');
 }
 
-// ── TOP10 전체 5줄 렌더 ───────────────────────────────
+// ── TOP10 전체 렌더 ────────────────────────────────────
 function renderTop10All(data, dateStr) {
-  document.getElementById('t10-buy')     .innerHTML = makeTop10Cards(data.top10Buy      || [], 'buy');
-  document.getElementById('t10-score')   .innerHTML = makeTop10Cards(data.top10Score    || data.top10 || [], 'score');
-  document.getElementById('t10-frgnbuy') .innerHTML = makeTop10Cards(data.top10FrgnBuy  || [], 'frgnbuy');
-  document.getElementById('t10-frgnsell').innerHTML = makeTop10Cards(data.top10FrgnSell || [], 'frgnsell');
-  document.getElementById('t10-volume')  .innerHTML = makeTop10Cards(data.top10Volume   || [], 'volume');
+  _top10Data = data;
+  renderTop10Tab(curTop10Tab);
   if (dateStr) document.getElementById('top10-date').textContent = dateStr + ' 기준';
 }
 
