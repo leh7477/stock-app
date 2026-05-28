@@ -132,11 +132,11 @@ async function fetchDartCorpMap(krxCodes) {
 
 // ─── 현재 시점 기준 보고서 후보 목록 (우선순위 순) ────────────────────────
 // factor: 분기 누적 EPS → 연간 EPS 환산 배율
-//   Q1(3개월) ×4 / 반기(6개월) ×2 / Q3(9개월) ×(4/3) / 연간(12개월) ×1
+//   연간(12개월) ×1 / Q3(9개월) ×(4/3) / 반기(6개월) ×2 / Q1(3개월) ×4
 //
-// 우선순위: 최신 분기 연환산 → 직전 회계연도 연간보고서
-//   · 분기 연환산 = 현재 수익 추세 반영 (타사 PER과 유사한 run-rate 기준)
-//   · 연간보고서 = 1~4월처럼 분기 미제출 기간의 안정적 fallback
+// 우선순위: 직전 회계연도 연간보고서 → 최신 분기 연환산
+//   · 연간보고서 = 네이버·HTS 등 국내 금융사이트 PER 기준과 동일 (trailing annual)
+//   · 분기 연환산 = 연간 보고서 없는 종목(신규상장 등)의 fallback
 function getReportCandidates() {
   const now   = new Date();
   const year  = now.getFullYear();
@@ -144,17 +144,18 @@ function getReportCandidates() {
 
   const candidates = [];
 
-  // ── 분기 보고서 (연환산) ────────────────────────────────────────────────
+  // ── 1순위: 직전 회계연도 연간 사업보고서 ────────────────────────────────
+  // 3/31 제출 → 4월 이후 확실히 이용 가능 / 네이버 PER 기준과 동일
+  const annualYear = month >= 4 ? year - 1 : year - 2;
+  candidates.push({ year: annualYear, code: '11011', factor: 1, label: `${annualYear}연간` });
+
+  // ── 2순위: 최신 분기 연환산 (연간 없는 종목 fallback) ────────────────────
   // 제출 기한: Q1=5/15, 반기=8/14, Q3=11/14
   if (month >= 11) candidates.push({ year, code: '11014', factor: 4/3,  label: `${year}Q3` });
   if (month >= 8)  candidates.push({ year, code: '11012', factor: 2,    label: `${year}반기` });
   if (month >= 5)  candidates.push({ year, code: '11013', factor: 4,    label: `${year}Q1` });
 
-  // ── 연간 사업보고서 fallback (3/31 제출 → 4월 이후 확실히 이용 가능) ───
-  // 직전 회계연도 full-year EPS — 변동성 큰 종목의 안전망
-  const annualYear = month >= 4 ? year - 1 : year - 2;
-  candidates.push({ year: annualYear, code: '11011', factor: 1, label: `${annualYear}연간` });
-  // 추가 보험: 2년 전 연간 (annualYear 보고서도 없는 소규모 기업 대비)
+  // ── 3순위: 2년 전 연간 (annualYear 보고서도 없는 소규모 기업 대비) ────────
   candidates.push({ year: annualYear - 1, code: '11011', factor: 1, label: `${annualYear-1}연간` });
 
   return candidates;
