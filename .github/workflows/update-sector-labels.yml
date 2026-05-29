@@ -1,0 +1,39 @@
+name: 테마 섹터 분류 (매주 월요일)
+
+on:
+  schedule:
+    # 매주 월요일 KST 17:00 (UTC 08:00) — update-stocks(16:00) 완료 후 실행
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+    # 수동 실행 가능 (GitHub Actions 탭 → Run workflow)
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 테마 섹터 분류 실행
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: python scripts/update-sector-labels.py
+
+# ──────────────────────────────────────────────────────────────────
+# 실행 주기: 매주 월요일 1회 (KST 17:00 — 주간 MA 분석 완료 후)
+# 소요 시간: ~3~5분 (Gemini 배치 분류 × ~17배치)
+# 저장 키:   sector_labels (TTL 8일 — 다음 월요일 갱신 전까지 유지)
+# 사용처:    analyzer.html 섹터 뱃지, 추후 섹터 랭킹 페이지
+# ──────────────────────────────────────────────────────────────────

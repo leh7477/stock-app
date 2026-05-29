@@ -231,6 +231,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .market-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.03em;}
 .market-badge.kospi{background:rgba(220,38,38,0.1);color:#dc2626;}
 .market-badge.kosdaq{background:rgba(37,99,235,0.1);color:#2563eb;}
+.sector-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;letter-spacing:.03em;background:rgba(124,58,237,0.1);color:#7c3aed;}
 .mktcap-text{font-size:12px;color:var(--muted);}
 
 /* ── AI 의견 ── */
@@ -424,6 +425,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
         <div class="stock-name" id="r-name"></div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;">
           <span class="market-badge" id="r-market-badge"></span>
+          <span class="sector-badge" id="r-theme-sector" style="display:none;"></span>
           <span class="stock-code" id="r-code"></span>
           <span class="mktcap-text" id="r-mktcap"></span>
         </div>
@@ -1794,6 +1796,9 @@ function renderResult(data) {
     mbEl.style.display = 'none';
   }
   document.getElementById('r-mktcap').textContent = stock.marketCap ? '시총 ' + stock.marketCap : '';
+  const tsEl = document.getElementById('r-theme-sector');
+  if (stock.themeSector) { tsEl.textContent = stock.themeSector; tsEl.style.display = ''; }
+  else { tsEl.style.display = 'none'; }
 
   const isUp = parseFloat(stock.chgRate) >= 0;
   const priceEl = document.getElementById('r-price');

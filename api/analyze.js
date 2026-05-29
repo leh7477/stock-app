@@ -939,6 +939,18 @@ try {
   }
 } catch (_) {}
     
+    // 테마 섹터 레이블 (update-sector-labels.py 가 주 1회 저장)
+    let themeSector = null;
+    try {
+      const slRaw = await timedFetch(`${_redisUrl}/get/sector_labels`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (slRaw.result) {
+        const slMap = JSON.parse(slRaw.result);
+        themeSector = slMap[code] || null;
+      }
+    } catch (_) {}
+
     // AI 브리핑 뉴스 가점/감점 (daily_newsletter 생성 시 저장)
     let newsBoost = null;
     try {
@@ -1084,7 +1096,7 @@ try {
 
     res.status(200).json({
       success: true,
-      stock: { name, code, market, marketCap, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume },
+      stock: { name, code, market, marketCap, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume, themeSector },
       history,
       indicators: { ma5:wMA5, ma20:wMA20, ma60:wMA60, rsi:wRSI, bollUpper:wBoll.upper, bollMid:wBoll.mid, bollLower:wBoll.lower },
       analysis,
