@@ -62,7 +62,27 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .site-nav a { font-size:13px; font-weight:500; color:rgba(246,244,239,.6); text-decoration:none; padding:6px 11px; border-radius:7px; transition:.15s; white-space:nowrap; }
 .site-nav a:hover { color:#FACC15; background:rgba(250,204,21,.1); }
 .site-nav a.active { color:#FACC15; }
-@media (max-width:768px) { .site-nav { display:none; } .site-hdr-inner { gap:12px; } }
+@media (max-width:768px) { .site-nav { display:none; } .site-hdr-inner { gap:8px; } .search-box { display:none; } }
+
+/* ── 모바일 아이콘 버튼 ── */
+.mob-icon-btn { display:none; width:36px; height:36px; background:none; border:none; cursor:pointer; color:rgba(246,244,239,.7); align-items:center; justify-content:center; flex-shrink:0; border-radius:8px; transition:.15s; position:relative; }
+.mob-icon-btn:hover { background:rgba(246,244,239,.1); color:#F6F4EF; }
+.mob-icon-btn .red-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; background:#ef4444; border-radius:50%; border:1.5px solid #0A1628; }
+@media (max-width:768px) { .mob-icon-btn { display:flex; } }
+
+/* ── 모바일 검색 오버레이 ── */
+.mob-search-bar { display:none; position:fixed; top:0; left:0; right:0; background:#0A1628; z-index:200; padding:13px 14px; align-items:center; gap:10px; border-bottom:1px solid rgba(246,244,239,.12); }
+.mob-search-bar.open { display:flex; }
+.mob-search-back { background:none; border:none; color:rgba(246,244,239,.7); font-size:20px; cursor:pointer; padding:0 4px; flex-shrink:0; line-height:1; }
+.mob-search-bar input { flex:1; background:rgba(246,244,239,.08); border:1.5px solid rgba(250,204,21,.4); border-radius:10px; padding:9px 14px; color:#F6F4EF; font-size:14px; font-family:inherit; outline:none; }
+.mob-search-bar button.go { background:#FACC15; border:none; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:700; color:#0A1628; cursor:pointer; flex-shrink:0; }
+
+/* ── 모바일 네비 드로어 ── */
+.mob-nav-drawer { display:none; position:fixed; top:62px; left:0; right:0; bottom:0; background:#0A1628; z-index:150; overflow-y:auto; }
+.mob-nav-drawer.open { display:block; }
+.mob-nav-drawer a { display:flex; align-items:center; padding:16px 24px; font-size:15px; font-weight:500; color:rgba(246,244,239,.75); text-decoration:none; border-bottom:1px solid rgba(246,244,239,.06); gap:10px; }
+.mob-nav-drawer a:hover, .mob-nav-drawer a.active { color:#FACC15; background:rgba(250,204,21,.05); }
+.mob-nav-drawer a .nav-badge { font-size:10px; font-weight:700; background:#ef4444; color:#fff; padding:1px 6px; border-radius:99px; }
 
 /* ── 시장 지수 바 (리디자인) ─────────────────────── */
 .mkt-bar { background:var(--card); border-bottom:1px solid var(--border); overflow:hidden; }
@@ -375,8 +395,36 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <a href="/guide.html">가이드</a>
       <a href="/about.html">소개</a>
     </nav>
+    <!-- 모바일 아이콘 -->
+    <button class="mob-icon-btn" onclick="openMobSearch()" aria-label="검색">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+    <button class="mob-icon-btn" id="mob-menu-btn" onclick="toggleMobMenu()" aria-label="메뉴">
+      <svg id="mob-menu-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <span class="red-dot"></span>
+    </button>
   </div>
 </header>
+
+<!-- 모바일 검색 오버레이 -->
+<div class="mob-search-bar" id="mob-search-bar">
+  <button class="mob-search-back" onclick="closeMobSearch()">←</button>
+  <input id="mob-search-input" type="text" placeholder="종목명·코드·초성 검색" autocomplete="off"
+    oninput="mobSearchInput(this.value)"
+    onkeydown="if(event.key==='Enter') mobGo()">
+  <button class="go" onclick="mobGo()">분석</button>
+  <div id="mob-search-dropdown" class="search-dropdown" style="top:54px;left:58px;right:60px;"></div>
+</div>
+
+<!-- 모바일 네비 드로어 -->
+<nav class="mob-nav-drawer" id="mob-nav-drawer">
+  <a href="/" class="active">🏠 국장 분석기</a>
+  <a href="/analyzer.html">📊 상세 지표</a>
+  <a href="#" onclick="switchTab('news');closeMobMenu();return false;">📰 뉴스·공시</a>
+  <a href="/today.html">✨ AI 브리핑 <span class="nav-badge">NEW</span></a>
+  <a href="/guide.html">📖 가이드</a>
+  <a href="/about.html">💡 소개</a>
+</nav>
 
 <!-- ══ AI 브리핑 스트립 ══ -->
 <div id="briefing-strip" style="display:none;background:linear-gradient(90deg,#0A1628,#0f2040);border-bottom:1px solid rgba(250,204,21,.22);">
@@ -1616,6 +1664,59 @@ fetch('/api/daily').then(r=>r.json()).then(d=>{
 })();
 
 fetch('/api/track?page=index').catch(function(){});
+
+// ── 모바일 검색 ──
+function openMobSearch() {
+  document.getElementById('mob-search-bar').classList.add('open');
+  document.getElementById('mob-nav-drawer').classList.remove('open');
+  updateMenuIcon(false);
+  setTimeout(() => document.getElementById('mob-search-input').focus(), 80);
+}
+function closeMobSearch() {
+  document.getElementById('mob-search-bar').classList.remove('open');
+  document.getElementById('mob-search-dropdown').innerHTML = '';
+}
+function mobSearchInput(val) {
+  // 기존 데스크탑 입력창에 동기화해서 드롭다운 재활용
+  const d = document.getElementById('search-input');
+  d.value = val;
+  d.dispatchEvent(new Event('input'));
+  // 드롭다운 복사
+  setTimeout(() => {
+    const src = document.getElementById('search-dropdown');
+    const dst = document.getElementById('mob-search-dropdown');
+    dst.innerHTML = src.innerHTML;
+    dst.style.display = src.style.display;
+    dst.querySelectorAll('[onclick]').forEach(el => {
+      const fn = el.getAttribute('onclick');
+      el.setAttribute('onclick', fn + '; closeMobSearch()');
+    });
+  }, 120);
+}
+function mobGo() {
+  const q = document.getElementById('mob-search-input').value.trim();
+  if (!q) return;
+  document.getElementById('search-input').value = q;
+  closeMobSearch();
+  searchStock();
+}
+
+// ── 모바일 메뉴 ──
+function toggleMobMenu() {
+  const drawer = document.getElementById('mob-nav-drawer');
+  const open = drawer.classList.toggle('open');
+  closeMobSearch();
+  updateMenuIcon(open);
+}
+function closeMobMenu() {
+  document.getElementById('mob-nav-drawer').classList.remove('open');
+  updateMenuIcon(false);
+}
+function updateMenuIcon(open) {
+  document.getElementById('mob-menu-icon').innerHTML = open
+    ? '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
+    : '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';
+}
 </script>
 
 </body>
