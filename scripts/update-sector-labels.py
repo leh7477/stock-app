@@ -13,7 +13,7 @@ import requests
 import logging
 from google import genai
 from google.genai.errors import ClientError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed, before_sleep_log
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential, before_sleep_log
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -22,11 +22,10 @@ KV_URL     = os.environ["KV_REST_API_URL"]
 KV_TOKEN   = os.environ["KV_REST_API_TOKEN"]
 GEMINI_KEY = os.environ["GEMINI_API_KEY"]
 
-BATCH_SIZE    = 80    # 요청당 종목 수 (토큰 절약)
-BATCH_DELAY   = 12.0  # 배치 간 대기(초) — 분당 5회 이하 유지
-RETRY_WAIT    = 65    # 429 발생 시 대기(초)
-TIMEOUT       = 30
-TTL_95D       = 95 * 24 * 3600
+BATCH_SIZE  = 80    # 요청당 종목 수 (토큰 절약)
+BATCH_DELAY = 12.0  # 배치 간 대기(초) — 분당 5회 이하 유지
+TIMEOUT     = 30
+TTL_95D     = 95 * 24 * 3600
 
 
 # ─── Redis ───────────────────────────────────────────────────────────────────
@@ -49,18 +48,21 @@ def redis_set(key, value, ttl_sec):
     )
 
 
-# ─── Gemini 배치 분류 (429 시 65초 후 재시도 × 3회) ─────────────────────────
+# ─── Gemini 배치 분류 ────────────────────────────────────────────────────────
 
-def _is_429(exc):
-    return isinstance(exc, ClientError) and '429' in str(exc)
+def _is_retryable(exc: BaseException) -> bool:
+    msg = str(exc)
+    return isinstance(exc, ClientError) and (
+        "429" in msg or "RESOURCE_EXHAUSTED" in msg or "rateLimitExceeded" in msg
+    ) and "PerDay" not in msg and "DAILY" not in msg.upper()
 
 
 @retry(
-    retry=retry_if_exception_type(ClientError),
-    wait=wait_fixed(RETRY_WAIT),
-    stop=stop_after_attempt(3),
-    before_sleep=before_sleep_log(log, logging.WARNING),
+    retry=retry_if_exception(_is_retryable),
+    wait=wait_exponential(multiplier=2, min=60, max=300),
+    stop=stop_after_attempt(4),
     reraise=True,
+    before_sleep=before_sleep_log(log, logging.WARNING),
 )
 def classify_batch(client, stocks: list) -> dict:
     """종목 리스트 → {code: 테마명} dict 반환"""
@@ -83,7 +85,7 @@ def classify_batch(client, stocks: list) -> dict:
 - 테마명은 12자 이내
 - 반드시 JSON 형식으로만 응답: {{"종목코드": "테마명", ...}}"""
 
-    resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+    resp = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
     text = resp.text.strip()
 
     m = re.search(r"\{[\s\S]+\}", text)
