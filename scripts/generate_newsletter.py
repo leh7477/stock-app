@@ -118,10 +118,23 @@ def _generate(client: genai.Client, prompt: str) -> str:
 
 # ─── Redis 저장 ──────────────────────────────────────────────────────────────
 
-def save_to_redis(payload: dict, kv_url: str, kv_token: str):
-    body = json.dumps([
+def save_to_redis(payload: dict, kv_url: str, kv_token: str, sentiment_score: int | None = None):
+    pipeline = [
         ["SET", "daily_newsletter", json.dumps(payload, ensure_ascii=False), "EX", str(26 * 3600)]
-    ])
+    ]
+    if sentiment_score is not None:
+        kst_date = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d")
+        senti_payload = json.dumps({
+            "score":    sentiment_score,
+            "source":   "ai_briefing",
+            "note":     payload.get("date", ""),
+            "date":     kst_date,
+            "storedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }, ensure_ascii=False)
+        pipeline.append(["SET", "market_sentiment", senti_payload, "EX", str(26 * 3600)])
+        pipeline.append(["DEL", "market_v4"])  # 마켓스코어 캐시 무효화
+        log.info(f"[sentiment] 점수 저장: {sentiment_score}")
+    body = json.dumps(pipeline)
     resp = requests.post(
         f"{kv_url}/pipeline",
         headers={"Authorization": f"Bearer {kv_token}", "Content-Type": "application/json"},
@@ -206,7 +219,13 @@ def run():
 
 ---
 
-[HTML 출력 형식 — 마크다운·코드블록·추가 설명 없이 순수 HTML만 출력]
+[HTML 출력 형식 — 마크다운·코드블록·추가 설명 없이 순수 HTML만 출력, 마지막 줄에 반드시 심리 점수 태그 추가]
+
+HTML 출력이 모두 끝난 후 맨 마지막 줄에 아래 형식으로 오늘 국장 전체 투자심리 점수를 정수로 출력해라.
+(0=극도의 공포·폭락, 25=약세, 50=중립, 75=강세, 100=극도의 탐욕·급등)
+<!--SENTIMENT:점수-->
+
+[HTML 출력 형식]
 
 <h1 class="nl-headline">[Main Headline]</h1>
 <p class="nl-meta">{today} · 썸팁 국장 브리핑</p>
@@ -262,6 +281,17 @@ def run():
         lines = html.split("\n")
         html  = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
 
+    # 심리 점수 파싱 및 HTML에서 제거
+    import re
+    sentiment_score = None
+    m = re.search(r'<!--SENTIMENT:(\d+)-->', html)
+    if m:
+        sentiment_score = max(0, min(100, int(m.group(1))))
+        html = html[:m.start()].rstrip()
+        log.info(f"[sentiment] 파싱 완료: {sentiment_score}")
+    else:
+        log.warning("[sentiment] 점수 태그 없음")
+
     log.info(f"[gemini] 생성 완료 ({len(html)}자)")
 
     payload = {
@@ -270,7 +300,7 @@ def run():
         "dateIso":     today_iso,
         "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
-    save_to_redis(payload, kv_url, kv_token)
+    save_to_redis(payload, kv_url, kv_token, sentiment_score)
     log.info("=== 완료 ===")
 
 
