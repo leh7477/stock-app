@@ -384,6 +384,16 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
   </div>
 </header>
 
+<!-- ══ 오늘의 브리핑 스트립 ══ -->
+<div id="briefing-strip" style="display:none;background:linear-gradient(90deg,#0A1628,#0f2040);border-bottom:1px solid rgba(250,204,21,.22);">
+  <a href="/today.html" style="display:flex;align-items:center;gap:10px;max-width:1100px;margin:0 auto;padding:7px 20px;text-decoration:none;">
+    <span style="flex-shrink:0;font-size:10px;font-weight:700;color:#FACC15;background:rgba(250,204,21,.14);padding:2px 8px;border-radius:99px;border:1px solid rgba(250,204,21,.28);white-space:nowrap;">📰 오늘의 브리핑</span>
+    <span id="brief-hl" style="flex:1;font-size:12px;color:rgba(246,244,239,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
+    <span id="brief-date" style="flex-shrink:0;font-size:11px;color:rgba(246,244,239,.35);white-space:nowrap;"></span>
+    <span style="flex-shrink:0;font-size:11px;font-weight:600;color:#FACC15;white-space:nowrap;">자세히 →</span>
+  </a>
+</div>
+
 <!-- ══ 메인 ══════════════════════════════════════════ -->
 <div class="wrap">
 
@@ -1596,6 +1606,17 @@ renderThemeSectors();
 loadData();
 loadStockNames();
 loadMarket();
+
+// ── 오늘의 브리핑 스트립 ──
+fetch('/api/daily').then(r=>r.json()).then(d=>{
+  if(!d.success||!d.html) return;
+  const tmp=document.createElement('div'); tmp.innerHTML=d.html;
+  const h1=tmp.querySelector('.nl-headline,h1');
+  if(!h1) return;
+  document.getElementById('brief-hl').textContent=h1.textContent.trim();
+  document.getElementById('brief-date').textContent=d.date||'';
+  document.getElementById('briefing-strip').style.display='block';
+}).catch(()=>{});
 
 // URL 파라미터로 탭 초기화 (예: /?tab=news)
 (function() {
