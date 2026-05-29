@@ -18,7 +18,7 @@ from tenacity import (
     retry,
     retry_if_exception,
     stop_after_attempt,
-    wait_fixed,
+    wait_exponential,
     before_sleep_log,
 )
 import logging
@@ -30,25 +30,34 @@ log = logging.getLogger(__name__)
 # ─── 429 종류 구분 ────────────────────────────────────────────────────────────
 
 def _is_daily_quota(exc: BaseException) -> bool:
-    """일일 한도 초과(PerDay) 여부 — 재시도해도 당일 내 해결 불가"""
-    return isinstance(exc, ClientError) and "PerDay" in str(exc)
+    """일일 한도 초과 여부 — 재시도해도 당일 내 해결 불가"""
+    msg = str(exc)
+    return isinstance(exc, ClientError) and (
+        "PerDay" in msg or "DAILY" in msg.upper() or "daily" in msg
+    )
 
 def _is_rpm_limit(exc: BaseException) -> bool:
-    """분당 요청 한도 초과 — 70초 대기 후 재시도 가능
-    단, 일일 한도 초과는 제외"""
-    return isinstance(exc, ClientError) and "429" in str(exc) and not _is_daily_quota(exc)
+    """요청 속도 제한 (RPM / RESOURCE_EXHAUSTED) — 대기 후 재시도 가능"""
+    msg = str(exc)
+    return isinstance(exc, ClientError) and (
+        "429" in msg
+        or "RESOURCE_EXHAUSTED" in msg
+        or "rateLimitExceeded" in msg
+        or "quota" in msg.lower()
+    ) and not _is_daily_quota(exc)
 
 
 # ─── Gemini 호출 (RPM 재시도 포함) ───────────────────────────────────────────
 
 @retry(
     retry=retry_if_exception(_is_rpm_limit),
-    wait=wait_fixed(70),            # RPM 429 → 70초 대기 (분당 제한 갱신 여유)
-    stop=stop_after_attempt(3),     # 최대 3회 시도 (원본 1회 + 재시도 2회)
+    wait=wait_exponential(multiplier=2, min=60, max=300),  # 60s → 120s → 240s → 300s
+    stop=stop_after_attempt(4),
     reraise=True,
     before_sleep=before_sleep_log(log, logging.WARNING),
 )
 def _generate(client: genai.Client, prompt: str) -> str:
+    import time; time.sleep(3)  # 호출 전 3초 딜레이 (연속 호출 방지)
     response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=prompt,
