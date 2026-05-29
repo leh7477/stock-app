@@ -58,7 +58,10 @@ function parseNaver(d) {
   const price      = parseFloat(String(d.closePrice || d.currentPrice || '0').replace(/,/g,''));
   const chg        = parseFloat(String(d.compareToPreviousClosePrice || '0').replace(/,/g,''));
   const chgRate    = parseFloat(String(d.fluctuationsRatio || '0').replace(/,/g,''));
-  const tradeAmt   = parseFloat(String(d.totalTradeAmount || d.tradeAmount || '0').replace(/,/g,''));
+  // Naver 지수 API 필드명: totalTradeAmount / accumulatedTradingValue / tradeAmount 순 시도
+  const tradeAmt   = parseFloat(String(
+    d.totalTradeAmount || d.accumulatedTradingValue || d.tradeAmount || '0'
+  ).replace(/,/g,''));
   if (!price) return null;
   return { price, change: chg, changeRate: chgRate, tradeAmount: tradeAmt || 0 };
 }
@@ -98,15 +101,69 @@ async function redisGet(key, url, token) {
   } catch { return null; }
 }
 
-// ─── supply 캐시 ──────────────────────────────────────────────────────────────
+// ─── supply: Redis 캐시 우선, 없으면 KIS 직접 호출 ──────────────────────────
 
-async function readSupplyCache(url, token) {
-  if (!url || !token) return null;
+async function fetchSupply(kvUrl, kvToken) {
+  if (!kvUrl || !kvToken) return null;
+
+  // 1. Redis 캐시 확인
   try {
-    const raw = await timedFetch(`${url}/get/supply_cache`, {
-      headers: { Authorization:`Bearer ${token}` },
+    const raw = await timedFetch(`${kvUrl}/get/supply_cache`, {
+      headers: { Authorization:`Bearer ${kvToken}` },
     }).then(r => r.json());
-    return raw.result ? JSON.parse(raw.result) : null;
+    if (raw.result) return JSON.parse(raw.result);
+  } catch { /* fall through */ }
+
+  // 2. KIS API 직접 호출 (캐시 없을 때)
+  const kisKey    = process.env.KIS_APP_KEY;
+  const kisSecret = process.env.KIS_APP_SECRET;
+  if (!kisKey || !kisSecret) return null;
+
+  try {
+    // KIS 토큰: Redis에서 가져오거나 새로 발급
+    const ktRaw = await timedFetch(`${kvUrl}/get/kis_token`, {
+      headers: { Authorization:`Bearer ${kvToken}` },
+    }).then(r => r.json()).catch(() => ({}));
+
+    let kisToken = ktRaw.result || null;
+
+    if (!kisToken) {
+      const td = await timedFetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
+        method:  'POST',
+        headers: { 'Content-Type':'application/json; charset=utf-8' },
+        body:    JSON.stringify({ grant_type:'client_credentials', appkey:kisKey, appsecret:kisSecret }),
+      }).then(r => r.json());
+      kisToken = td.access_token;
+      if (kisToken) {
+        await redisPipeline([['SET','kis_token', kisToken, 'EX','82800']], kvUrl, kvToken).catch(()=>{});
+      }
+    }
+    if (!kisToken) return null;
+
+    const data = await timedFetch(
+      'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor' +
+      '?fid_cond_mrkt_div_code=J&fid_input_iscd=0001',
+      { headers: {
+        Authorization: `Bearer ${kisToken}`,
+        appkey:    kisKey,
+        appsecret: kisSecret,
+        tr_id:     'FHKST01010900',
+        'Content-Type': 'application/json',
+      }}
+    ).then(r => r.json());
+
+    const output     = data?.output;
+    const foreignNet = parseInt(output?.frgn_ntby_qty || 0);
+    const instNet    = parseInt(output?.orgn_ntby_qty  || 0);
+    if (foreignNet === 0 && instNet === 0) return null;  // 장외 or 오류
+
+    const supply = { foreignNet, instNet };
+    // 캐시 저장 (25시간 — 다음 영업일까지 유효)
+    await redisPipeline(
+      [['SET','supply_cache', JSON.stringify(supply), 'EX','90000']],
+      kvUrl, kvToken
+    ).catch(()=>{});
+    return supply;
   } catch { return null; }
 }
 
@@ -269,7 +326,7 @@ export default async function handler(req, res) {
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/USDKRW%3DX?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
-      readSupplyCache(kvUrl, kvToken),
+      fetchSupply(kvUrl, kvToken),
       kvUrl && kvToken ? redisGet(SENTI_KEY, kvUrl, kvToken) : null,
       kvUrl && kvToken ? redisGet(HIST_KEY,  kvUrl, kvToken).then(d => d || []) : [],
     ]);
