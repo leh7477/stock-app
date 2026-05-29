@@ -1,16 +1,17 @@
 """
 썸팁 국장 브리핑 생성 스크립트
-- Gemini 2.0 Flash + Google Search Grounding
+- Python이 먼저 뉴스·시세를 수집 → Gemini에 단 1회만 요청 (AFC/Function Calling 없음)
 - 매일 08:00 KST (UTC 23:00 전날) GitHub Actions 실행
 - 결과를 Upstash Redis(daily_newsletter)에 저장
-- 429 RPM(분당) 초과 → 70초 대기 후 최대 3회 재시도
-- 429 일일(Daily) 한도 초과 → 즉시 포기 (재시도 무의미)
 """
 
 import os
 import json
 import datetime
+import time
+import xml.etree.ElementTree as ET
 import requests
+import logging
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
@@ -21,49 +22,94 @@ from tenacity import (
     wait_exponential,
     before_sleep_log,
 )
-import logging
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 
-# ─── 429 종류 구분 ────────────────────────────────────────────────────────────
+# ─── 뉴스 수집 ───────────────────────────────────────────────────────────────
 
-def _is_daily_quota(exc: BaseException) -> bool:
-    """일일 한도 초과 여부 — 재시도해도 당일 내 해결 불가"""
-    msg = str(exc)
-    return isinstance(exc, ClientError) and (
-        "PerDay" in msg or "DAILY" in msg.upper() or "daily" in msg
+def fetch_news() -> str:
+    """Google News RSS에서 한국 증시 최신 뉴스 15건 수집"""
+    url = (
+        "https://news.google.com/rss/search"
+        "?q=코스피+코스닥+주식시장+증시&hl=ko&gl=KR&ceid=KR:ko"
     )
+    try:
+        resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        resp.raise_for_status()
+        root = ET.fromstring(resp.content)
+        items = root.findall(".//item")[:15]
+        lines = []
+        for item in items:
+            title   = item.findtext("title",   "").strip()
+            pubdate = item.findtext("pubDate", "").strip()
+            if title:
+                lines.append(f"- {title}  [{pubdate}]")
+        result = "\n".join(lines)
+        log.info(f"[news] {len(lines)}건 수집 완료")
+        return result or "(뉴스 수집 결과 없음)"
+    except Exception as e:
+        log.warning(f"[news] 수집 실패: {e}")
+        return "(뉴스 수집 실패)"
 
-def _is_rpm_limit(exc: BaseException) -> bool:
-    """요청 속도 제한 (RPM / RESOURCE_EXHAUSTED) — 대기 후 재시도 가능"""
+
+# ─── 시장 데이터 수집 ─────────────────────────────────────────────────────────
+
+def fetch_market() -> str:
+    """Yahoo Finance에서 KOSPI·KOSDAQ·나스닥·S&P500 최근 종가 수집"""
+    symbols = {
+        "KOSPI":  "^KS11",
+        "KOSDAQ": "^KQ11",
+        "나스닥":  "^IXIC",
+        "S&P500": "^GSPC",
+    }
+    lines = []
+    for name, sym in symbols.items():
+        try:
+            url  = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=5d"
+            data = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"}).json()
+            result = data["chart"]["result"][0]
+            closes = result["indicators"]["quote"][0]["close"]
+            valid  = [c for c in closes if c is not None]
+            if len(valid) >= 2:
+                prev, last = valid[-2], valid[-1]
+                chg = (last - prev) / prev * 100
+                sign = "+" if chg >= 0 else ""
+                lines.append(f"- {name}: {last:,.2f}  전일대비 {sign}{chg:.2f}%")
+            elif valid:
+                lines.append(f"- {name}: {valid[-1]:,.2f}")
+        except Exception as e:
+            log.warning(f"[market] {name} 수집 실패: {e}")
+
+    result = "\n".join(lines)
+    log.info(f"[market] {len(lines)}개 지수 수집 완료")
+    return result or "(시장 데이터 수집 실패)"
+
+
+# ─── Gemini 단발 호출 (재시도 포함) ──────────────────────────────────────────
+
+def _is_retryable(exc: BaseException) -> bool:
     msg = str(exc)
     return isinstance(exc, ClientError) and (
-        "429" in msg
-        or "RESOURCE_EXHAUSTED" in msg
-        or "rateLimitExceeded" in msg
-        or "quota" in msg.lower()
-    ) and not _is_daily_quota(exc)
+        "429" in msg or "RESOURCE_EXHAUSTED" in msg or "rateLimitExceeded" in msg
+    ) and "PerDay" not in msg and "DAILY" not in msg.upper()
 
-
-# ─── Gemini 호출 (RPM 재시도 포함) ───────────────────────────────────────────
 
 @retry(
-    retry=retry_if_exception(_is_rpm_limit),
-    wait=wait_exponential(multiplier=2, min=60, max=300),  # 60s → 120s → 240s → 300s
+    retry=retry_if_exception(_is_retryable),
+    wait=wait_exponential(multiplier=2, min=60, max=300),
     stop=stop_after_attempt(4),
     reraise=True,
     before_sleep=before_sleep_log(log, logging.WARNING),
 )
 def _generate(client: genai.Client, prompt: str) -> str:
-    import time; time.sleep(3)  # 호출 전 3초 딜레이 (연속 호출 방지)
     response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())],
             temperature=0.75,
+            # tools 없음 — AFC/Function Calling 비활성화, 단 1회 요청
         ),
     )
     return response.text.strip()
@@ -77,10 +123,7 @@ def save_to_redis(payload: dict, kv_url: str, kv_token: str):
     ])
     resp = requests.post(
         f"{kv_url}/pipeline",
-        headers={
-            "Authorization": f"Bearer {kv_token}",
-            "Content-Type":  "application/json",
-        },
+        headers={"Authorization": f"Bearer {kv_token}", "Content-Type": "application/json"},
         data=body,
         timeout=15,
     )
@@ -100,13 +143,26 @@ def run():
     if not kv_url or not kv_token:
         log.error("[!] Redis 환경변수 없음 — 종료"); return
 
-    # KST 날짜
     kst       = datetime.timezone(datetime.timedelta(hours=9))
     today     = datetime.datetime.now(kst).strftime("%Y년 %m월 %d일")
     today_iso = datetime.datetime.now(kst).strftime("%Y-%m-%d")
 
-    prompt = f"""
-오늘은 {today}이다. 지금은 한국 주식시장 개장 전 아침 8시다.
+    # 1단계: 데이터 먼저 수집
+    log.info("[step 1] 뉴스·시장 데이터 수집 중...")
+    news_text   = fetch_news()
+    market_text = fetch_market()
+    time.sleep(1)  # 수집 후 잠시 대기
+
+    # 2단계: Gemini에 단 1회 요청
+    log.info(f"[step 2] Gemini 브리핑 생성 시작 ({today})...")
+
+    prompt = f"""오늘은 {today}이다. 지금은 한국 주식시장 개장 전 아침 8시다.
+
+[사전 수집된 시장 데이터]
+{market_text}
+
+[사전 수집된 최신 뉴스 헤드라인]
+{news_text}
 
 [역할 및 페르소나]
 너는 대한민국 주식 시장(국장)의 하루 흐름을 날카롭고 명쾌하게 요약하여 투자자들에게 전달하는
@@ -114,8 +170,7 @@ def run():
 단순한 사실 나열을 넘어 시장의 맥락을 짚어내고, 초보 투자자도 쉽게 이해할 수 있는 친절한 톤앤매너를 유지해라.
 
 [작성 원칙]
-- Google Search로 오늘({today}) 기준 최신 국내 증시 관련 뉴스를 직접 검색하여 실제 데이터 기반으로 작성해라.
-- 개장 전이므로 전날 마감 수치 + 미국 나스닥·S&P500 야간 흐름 + 오늘 예상 시나리오 중심으로 작성해라.
+- 위에 제공된 시장 데이터와 뉴스 헤드라인을 반드시 활용하라. 추가 검색은 하지 않는다.
 - 아래 [HTML 구조]를 반드시 그대로 지켜라. 마크다운, 코드블록, 추가 설명 없이 순수 HTML만 출력해라.
 - 금융 전문 용어는 쉽게 풀어 설명하고, 독자에게 '지적 즐거움'을 주는 비하인드 스토리를 반드시 포함해라.
 
@@ -143,19 +198,16 @@ def run():
 <section class="nl-section">
 <h2>주요 대형주 및 섹터 동향</h2>
 <ul class="nl-list">
-<li><b><a href="URL" target="_blank">[섹터/종목] 뉴스 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약</li>
-<li><b><a href="URL" target="_blank">[섹터/종목] 뉴스 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약</li>
-<li><b><a href="URL" target="_blank">[섹터/종목] 뉴스 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약</li>
+<li><b>[섹터/종목] 뉴스 타이틀</b><br> - 핵심 내용 및 주가 움직임 요약</li>
+<li><b>[섹터/종목] 뉴스 타이틀</b><br> - 핵심 내용 및 주가 움직임 요약</li>
+<li><b>[섹터/종목] 뉴스 타이틀</b><br> - 핵심 내용 및 주가 움직임 요약</li>
 </ul>
 </section>
 
 <section class="nl-section">
 <h2>오늘의 여의도 TMI &amp; 비하인드</h2>
 <p>[오늘 이슈와 관련된 흥미롭고 숨겨진 비하인드 스토리. 무릎을 탁 칠 만한 Intellectual Entertainment]</p>
-</section>
-"""
-
-    log.info(f"[gemini] 브리핑 생성 시작 ({today})...")
+</section>"""
 
     client = genai.Client(api_key=api_key)
 
@@ -164,40 +216,21 @@ def run():
     except ClientError as e:
         err_str = str(e)
         log.error(f"[gemini] 생성 실패 — {err_str[:200]}")
-
-        if _is_daily_quota(e):
-            # 일일 한도 초과: 오늘은 복구 불가, 안내 메시지만 저장
-            msg = (
-                '<p style="color:#9ca3af;text-align:center;padding:40px;line-height:1.8;">'
-                '📋 오늘 브리핑은 API 일일 한도 초과로 생성하지 못했습니다.<br>'
-                '<span style="font-size:12px;">내일 오전 자동으로 복구됩니다. '
-                '매일 1회만 실행하면 무료 한도 내에서 정상 동작합니다.</span>'
-                '</p>'
-            )
-        else:
-            msg = (
-                '<p style="color:#9ca3af;text-align:center;padding:40px;">'
-                '오늘 브리핑 생성에 실패했습니다. 잠시 후 다시 확인해 주세요.'
-                '</p>'
-            )
-
-        err_payload = {
-            "html":        msg,
-            "date":        today,
-            "dateIso":     today_iso,
-            "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "error":       err_str[:300],
-        }
-        save_to_redis(err_payload, kv_url, kv_token)
+        msg = (
+            '<p style="color:#9ca3af;text-align:center;padding:40px;">'
+            '오늘 브리핑 생성에 실패했습니다. 잠시 후 다시 확인해 주세요.'
+            '</p>'
+        )
+        save_to_redis({"html": msg, "date": today, "dateIso": today_iso,
+                       "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                       "error": err_str[:300]}, kv_url, kv_token)
         return
 
-    # 혹시 포함된 마크다운 코드블록 제거
     if html.startswith("```"):
         lines = html.split("\n")
         html  = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
 
     log.info(f"[gemini] 생성 완료 ({len(html)}자)")
-    log.info(html[:200] + " ...")
 
     payload = {
         "html":        html,
