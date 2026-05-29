@@ -20,8 +20,8 @@ const KV_TOKEN = process.env.KV_REST_API_TOKEN;
 const DART_KEY = process.env.DART_API_KEY;
 
 const TIMEOUT_MS  = 12000;
-const BATCH_SIZE  = 5;
-const BATCH_DELAY = 1500;
+const BATCH_SIZE  = 10;   // 병렬 처리 수 (5→10으로 속도 2배 향상)
+const BATCH_DELAY = 800;  // 배치 간 대기(ms) — DART API 부담 최소화
 
 const SKIP_KEYWORDS = [
   '기업인수목적', '스팩', 'SPAC', '선박투자회사',
@@ -311,7 +311,7 @@ async function main() {
   // 3. 연결재무제표 → EPS + 재무지표 배치 조회
   const targets = allStocks.filter(s => dartCorpMap[s.code]);
   console.log(`[3/4] DART 재무 조회... (${targets.length}개, 배치 ${BATCH_SIZE}개 × ${BATCH_DELAY}ms)`);
-  console.log(`      예상 소요: ~${Math.ceil(targets.length / BATCH_SIZE * BATCH_DELAY / 60000)}분\n`);
+  console.log(`      예상 소요: ~${Math.ceil(targets.length / BATCH_SIZE * (BATCH_DELAY + 2000) / 60000)}분 (API 호출 포함 추정)\n`);
 
   const epsMap        = {};   // dart_eps (기존 키, 하위호환)
   const financialsMap = {};   // dart_financials (신규 — EPS+성장률+영업이익률+ROE)
