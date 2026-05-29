@@ -951,18 +951,16 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-// DART 재무지표 읽기 (분기 1회 업데이트)
-// dart_financials: { eps, epsGrowth, operatingMargin, roe }
-// dart_eps: EPS만 (하위호환 fallback)
-let dartEps = null, dartFinancials = null;
+// DART 재무지표 읽기 (분기 1회 업데이트) — 전체 맵 보존 (경쟁사 비교용)
+let dartEps = null, dartFinancials = null, dartFinancialsMap = null;
 try {
   const dfRaw = await timedFetch(`${_redisUrl}/get/dart_financials`, {
     headers: { Authorization: `Bearer ${_redisToken}` },
   }).then(r => r.json());
   if (dfRaw.result) {
-    const dfMap = JSON.parse(dfRaw.result);
-    if (dfMap[code]) {
-      dartFinancials = dfMap[code];
+    dartFinancialsMap = JSON.parse(dfRaw.result);
+    if (dartFinancialsMap[code]) {
+      dartFinancials = dartFinancialsMap[code];
       dartEps = dartFinancials.eps ?? null;
     }
   }
@@ -1136,6 +1134,44 @@ if (dartEps === null) {
     }
 
 
+    // ── 같은 테마 경쟁사 비교 (sector_labels + recommend_v2 + dart_financials) ──
+    let competitors = null;
+    try {
+      if (themeSector && rv2Stocks && rv2Stocks.length > 0) {
+        const slRaw2 = await timedFetch(`${_redisUrl}/get/sector_labels`, {
+          headers: { Authorization: `Bearer ${_redisToken}` },
+        }).then(r => r.json()).catch(() => null);
+        const slMap2 = slRaw2?.result ? JSON.parse(slRaw2.result) : {};
+
+        const sameSecStocks = rv2Stocks
+          .filter(s => slMap2[s.code] === themeSector)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 6);
+
+        if (sameSecStocks.length > 1) {
+          competitors = sameSecStocks.map(s => {
+            const fin = dartFinancialsMap?.[s.code] || null;
+            const mktCapV = s.mktCap || 0;
+            const mktCapStr = mktCapV >= 10000
+              ? (mktCapV / 10000).toFixed(1) + '조'
+              : mktCapV ? mktCapV.toLocaleString() + '억' : '-';
+            return {
+              code:            s.code,
+              name:            s.name,
+              score:           s.score,
+              isCurrent:       s.code === code,
+              mktCap:          mktCapStr,
+              per:             s.per  || null,
+              pbr:             s.pbr  || null,
+              roe:             fin?.roe             ?? null,
+              operatingMargin: fin?.operatingMargin ?? null,
+              epsGrowth:       fin?.epsGrowth       ?? null,
+            };
+          });
+        }
+      }
+    } catch (_) {}
+
     res.status(200).json({
       success: true,
       stock: { name, code, market, marketCap, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume, themeSector },
@@ -1180,6 +1216,7 @@ if (dartEps === null) {
       rsRating,
       relStrength: relResult,
       newHigh: newHighResult,
+      competitors,
       dartFinancials: dartFinancials ? {
         epsGrowth:       dartFinancials.epsGrowth       ?? null,
         operatingMargin: dartFinancials.operatingMargin ?? null,

@@ -609,7 +609,13 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <div id="r-ai-opinion"></div>
     </div>
 
-    <!-- ④ 최근 공시 (full width) -->
+    <!-- ④ 같은 테마 경쟁사 비교 -->
+    <div class="dl-card full-row" id="competitors-card" style="display:none;">
+      <div class="dl-title">🏆 같은 테마 종목 비교 <span id="r-comp-sector" style="font-weight:500;color:var(--accent);font-size:11px;"></span></div>
+      <div id="r-competitors"></div>
+    </div>
+
+    <!-- ⑤ 최근 공시 (full width) -->
     <div class="dl-card full-row">
       <div class="dl-title">최근 공시 (1개월)</div>
       <div class="dart-list" id="r-dart"></div>
@@ -853,6 +859,60 @@ function renderNewHigh(nh) {
   el.innerHTML = `<span style="color:var(--muted)">52주 신고가 📈</span>
     <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${label}</span>
     <span style="color:${c};font-weight:600">+${score}점 반영</span>`;
+}
+
+function renderCompetitors(competitors, themeSector) {
+  const card = document.getElementById('competitors-card');
+  const el   = document.getElementById('r-competitors');
+  const secEl = document.getElementById('r-comp-sector');
+  if (!card || !el) return;
+  if (!competitors || competitors.length <= 1) { card.style.display = 'none'; return; }
+
+  card.style.display = '';
+  if (secEl) secEl.textContent = themeSector || '';
+
+  const fmtNum = (v, suffix='') => v !== null && v !== undefined ? v.toFixed(1) + suffix : '-';
+  const scoreColor = s => s >= 70 ? '#22c55e' : s >= 50 ? '#f59e0b' : '#94a3b8';
+
+  el.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);color:var(--muted);font-size:11px;">
+            <th style="text-align:left;padding:6px 8px;font-weight:600;">종목</th>
+            <th style="text-align:center;padding:6px 8px;font-weight:600;">점수</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:600;">시총</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:600;">PER</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:600;">ROE</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:600;">영업이익률</th>
+            <th style="text-align:right;padding:6px 8px;font-weight:600;">EPS성장</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${competitors.map(s => {
+            const bg = s.isCurrent ? 'background:rgba(99,102,241,0.06);' : '';
+            const nameStyle = s.isCurrent ? 'font-weight:700;color:var(--accent);' : 'color:var(--text);';
+            const dot = s.isCurrent ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:5px;vertical-align:middle;"></span>' : '';
+            const sc = s.score ?? 0;
+            return `<tr style="border-bottom:1px solid var(--border);${bg}">
+              <td style="padding:8px 8px;">
+                <div style="${nameStyle}font-size:13px;">${dot}${s.name}</div>
+                <div style="color:var(--muted);font-size:10px;">${s.code}</div>
+              </td>
+              <td style="text-align:center;padding:8px;">
+                <span style="font-size:15px;font-weight:700;color:${scoreColor(sc)}">${sc}</span>
+              </td>
+              <td style="text-align:right;padding:8px;color:var(--text);">${s.mktCap || '-'}</td>
+              <td style="text-align:right;padding:8px;color:var(--muted);">${s.per ? s.per.toFixed(1) : '-'}</td>
+              <td style="text-align:right;padding:8px;color:${s.roe >= 17 ? '#22c55e' : 'var(--muted)'};">${fmtNum(s.roe,'%')}</td>
+              <td style="text-align:right;padding:8px;color:${s.operatingMargin >= 20 ? '#22c55e' : s.operatingMargin >= 10 ? '#f59e0b' : 'var(--muted)'};">${fmtNum(s.operatingMargin,'%')}</td>
+              <td style="text-align:right;padding:8px;color:${s.epsGrowth > 0 ? '#22c55e' : s.epsGrowth < 0 ? '#ef4444' : 'var(--muted)'};">${s.epsGrowth !== null ? (s.epsGrowth > 0 ? '+' : '') + s.epsGrowth.toFixed(0) + '%' : '-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+      <p style="font-size:10px;color:var(--muted);margin-top:8px;">점수순 정렬 · DART 재무 기준 · 🟣 현재 종목</p>
+    </div>`;
 }
 
 function renderMarketEnv(marketEnv) {
@@ -1879,6 +1939,7 @@ function renderResult(data) {
   renderRelStrength(data.relStrength);
   renderNewsBoost(data.newsBoost);
   renderNewHigh(data.newHigh);
+  renderCompetitors(data.competitors, data.stock?.themeSector);
   renderMarketEnv(data.marketEnv);
   renderOneLiner(data);
   renderMAScore(data.maScore);
