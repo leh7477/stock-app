@@ -106,7 +106,7 @@ def _is_retryable(exc: BaseException) -> bool:
 )
 def _generate(client: genai.Client, prompt: str) -> str:
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-2.5-flash",
         contents=prompt,
         config=types.GenerateContentConfig(
             temperature=0.75,
