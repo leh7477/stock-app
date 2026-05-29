@@ -161,13 +161,17 @@ function getReportCandidates() {
   return candidates;
 }
 
-// ─── DART 연결재무제표 → 연환산 EPS 계산 ─────────────────────────────────
+// ─── DART 연결재무제표 → EPS + 영업이익률 + ROE + EPS성장률 ──────────────
 // · 분기 보고서: thstrm_amount(YTD 누적) × factor 로 연간 EPS 환산
 // · 연간 보고서: factor=1 (그대로 사용)
-// · EPS = 기본주당이익 직접 조회 → fallback: 당기순이익÷주식수 × factor
-// · PER 계산은 analyze.js에서: 현재가 ÷ dart_eps (연환산 EPS)
+// · 영업이익률 = 영업이익 / 매출액 × 100  (factor 불필요, 비율이므로)
+// · ROE = 당기순이익(지배) / 자본총계(지배) × 100
+// · EPS성장률 = (당기EPS - 전기EPS) / |전기EPS| × 100  (YoY)
 
-async function fetchDartEPS(corpCode) {
+function parseAmt(v) { return parseInt(String(v || '0').replace(/[,\s-]/g, '')) || 0; }
+function parseSigned(v) { return parseInt(String(v || '0').replace(/[,\s]/g, '')) || 0; }
+
+async function fetchDartFinancials(corpCode) {
   const candidates = getReportCandidates();
 
   for (const { year, code: reprtCode, factor } of candidates) {
@@ -177,46 +181,92 @@ async function fetchDartEPS(corpCode) {
         `&bsns_year=${year}&reprt_code=${reprtCode}&fs_div=CFS`;
 
       const data = await timedFetch(url).then(r => r.json()).catch(() => null);
-      if (data?.status !== '000') continue;  // 해당 보고서 없음 → 다음 후보
+      if (data?.status !== '000') continue;
 
       const list = data.list || [];
+      const isIS  = r => r.sj_div === 'IS'  || r.sj_div === 'CIS';
+      const isBS  = r => r.sj_div === 'BS';
 
-      // ── 방법1: 기본주당이익(EPS) 직접 조회 ────────────────────────────────
+      // ── EPS (기본주당이익) ───────────────────────────────────────────────
       const epsItem = list.find(r =>
-        (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
+        isIS(r) &&
         (r.account_nm?.includes('기본주당이익') ||
          r.account_nm?.includes('기본주당순이익') ||
          r.account_nm?.includes('주당순이익'))
       );
+
+      let eps = null, epsGrowth = null;
       if (epsItem?.thstrm_amount) {
-        const rawEps = parseInt(String(epsItem.thstrm_amount).replace(/[,\s]/g, '')) || 0;
-        if (rawEps > 0) return Math.round(rawEps * factor);  // ← 연환산 적용
-        continue;  // 0 또는 음수 → 다음 후보
+        const rawEps  = parseSigned(epsItem.thstrm_amount);
+        const prevEps = parseSigned(epsItem.frmtrm_amount);
+        if (rawEps > 0) {
+          eps = Math.round(rawEps * factor);
+          if (prevEps !== 0) {
+            epsGrowth = Math.round((rawEps - prevEps) / Math.abs(prevEps) * 100);
+          }
+        }
       }
 
-      // ── 방법2: 당기순이익(백만원) ÷ 발행주식수 fallback ──────────────────
-      const netIncome = list.find(r =>
-        (r.sj_div === 'IS' || r.sj_div === 'CIS') &&
-        r.account_nm?.includes('당기순이익') &&
-        !r.account_nm?.includes('비지배')
-      );
-      const shares = list.find(r =>
-        r.account_nm?.includes('보통주') &&
-        (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행주식'))
-      );
-      if (!netIncome?.thstrm_amount || !shares?.thstrm_amount) continue;
+      // EPS fallback: 당기순이익 ÷ 발행주식수
+      if (eps === null) {
+        const niItem = list.find(r =>
+          isIS(r) && r.account_nm?.includes('당기순이익') && !r.account_nm?.includes('비지배')
+        );
+        const shItem = list.find(r =>
+          r.account_nm?.includes('보통주') &&
+          (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행주식'))
+        );
+        if (niItem?.thstrm_amount && shItem?.thstrm_amount) {
+          const ni = parseAmt(niItem.thstrm_amount);
+          const sh = parseAmt(shItem.thstrm_amount);
+          if (ni > 0 && sh > 0) eps = Math.round(ni * 1_000_000 / sh * factor);
+        }
+      }
 
-      const niMillions = parseInt(String(netIncome.thstrm_amount).replace(/[,\s]/g, '')) || 0;
-      const sh         = parseInt(String(shares.thstrm_amount).replace(/[,\s]/g, ''))   || 0;
-      if (niMillions <= 0 || sh <= 0) continue;
+      if (eps === null || eps <= 0) continue;  // EPS 없으면 이 보고서 스킵
 
-      const rawEps = Math.round(niMillions * 1_000_000 / sh);
-      if (rawEps > 0) return Math.round(rawEps * factor);  // ← 연환산 적용
+      // ── 영업이익률 ───────────────────────────────────────────────────────
+      let operatingMargin = null;
+      const opItem = list.find(r =>
+        isIS(r) &&
+        r.account_nm?.includes('영업이익') &&
+        !r.account_nm?.includes('잉여금') &&
+        !r.account_nm?.includes('손실')
+      );
+      const revItem = list.find(r =>
+        isIS(r) &&
+        (r.account_nm === '매출액' ||
+         r.account_nm?.includes('수익(매출액)') ||
+         r.account_nm === '영업수익')
+      );
+      if (opItem?.thstrm_amount && revItem?.thstrm_amount) {
+        const op  = parseSigned(opItem.thstrm_amount);
+        const rev = parseAmt(revItem.thstrm_amount);
+        if (rev > 0) operatingMargin = Math.round(op / rev * 1000) / 10;  // 소수점 1자리
+      }
+
+      // ── ROE ──────────────────────────────────────────────────────────────
+      let roe = null;
+      const niItem2 = list.find(r =>
+        isIS(r) && r.account_nm?.includes('당기순이익') && !r.account_nm?.includes('비지배')
+      );
+      const eqItem = list.find(r =>
+        isBS(r) &&
+        (r.account_nm === '자본총계' || r.account_nm?.includes('지배기업 소유주지분'))
+      );
+      if (niItem2?.thstrm_amount && eqItem?.thstrm_amount) {
+        const ni = parseSigned(niItem2.thstrm_amount);
+        const eq = parseAmt(eqItem.thstrm_amount);
+        if (eq > 0) roe = Math.round(ni / eq * 1000) / 10;  // 소수점 1자리
+      }
+
+      return { eps, epsGrowth, operatingMargin, roe };
+
     } catch (_) {
       continue;
     }
   }
-  return null;  // 모든 후보 소진 → KIS PER fallback
+  return null;  // 모든 후보 소진
 }
 
 // ─── 메인 ──────────────────────────────────────────────────────────────────
@@ -239,25 +289,29 @@ async function main() {
   try   { dartCorpMap = await fetchDartCorpMap(new Set(allStocks.map(s => s.code))); }
   catch (e) { console.error('[2/4] 실패:', e.message); process.exit(1); }
 
-  // 3. 연결재무제표 → EPS 배치 조회
+  // 3. 연결재무제표 → EPS + 재무지표 배치 조회
   const targets = allStocks.filter(s => dartCorpMap[s.code]);
-  console.log(`[3/4] DART EPS 조회... (${targets.length}개, 배치 ${BATCH_SIZE}개 × ${BATCH_DELAY}ms)`);
+  console.log(`[3/4] DART 재무 조회... (${targets.length}개, 배치 ${BATCH_SIZE}개 × ${BATCH_DELAY}ms)`);
   console.log(`      예상 소요: ~${Math.ceil(targets.length / BATCH_SIZE * BATCH_DELAY / 60000)}분\n`);
 
-  const epsMap = {};
+  const epsMap        = {};   // dart_eps (기존 키, 하위호환)
+  const financialsMap = {};   // dart_financials (신규 — EPS+성장률+영업이익률+ROE)
   let processed = 0, succeeded = 0, skipped = 0;
 
   for (let i = 0; i < targets.length; i += BATCH_SIZE) {
     const batch   = targets.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(
       batch.map(async s => {
-        const eps = await fetchDartEPS(dartCorpMap[s.code]);
-        return { code: s.code, name: s.name, eps };
+        const fin = await fetchDartFinancials(dartCorpMap[s.code]);
+        return { code: s.code, name: s.name, fin };
       })
     );
-    results.forEach(({ code, eps }) => {
-      if (eps !== null) { epsMap[code] = eps; succeeded++; }
-      else skipped++;
+    results.forEach(({ code, fin }) => {
+      if (fin !== null) {
+        epsMap[code]        = fin.eps;   // 하위호환
+        financialsMap[code] = fin;       // { eps, epsGrowth, operatingMargin, roe }
+        succeeded++;
+      } else skipped++;
     });
     processed += batch.length;
 
@@ -268,13 +322,14 @@ async function main() {
     await sleep(BATCH_DELAY);
   }
 
-  // 4. Redis 저장 (TTL 95일 ≈ 분기 주기, 다음 분기 발표 전에 갱신 권장)
-  console.log('\n[4/4] Redis dart_eps 저장...');
+  // 4. Redis 저장 (TTL 95일 ≈ 분기 주기)
+  console.log('\n[4/4] Redis 저장...');
   const TTL_95D = 95 * 24 * 3600;
-  await redisSet('dart_eps', epsMap, TTL_95D);
-
+  await redisSet('dart_eps',        epsMap,        TTL_95D);  // 하위호환
+  await redisSet('dart_financials', financialsMap, TTL_95D);  // EPS+성장률+영업이익률+ROE
   const ratio = (succeeded / targets.length * 100).toFixed(1);
   const cands = getReportCandidates();
+  console.log(`      dart_eps: ${Object.keys(epsMap).length}개 / dart_financials: ${Object.keys(financialsMap).length}개`);
   console.log(`      저장 완료: ${succeeded}개 (전체 ${targets.length}개 중 ${ratio}%)`);
   console.log(`      우선순위: ${cands.map(c => `${c.year}년 ${c.code}`).join(' → ')}`);
   console.log(`      TTL: 95일 (다음 분기 보고서 제출 전 재실행 권장)`);

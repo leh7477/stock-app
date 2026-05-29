@@ -926,18 +926,34 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-// DART EPS 읽기 (분기 1회 업데이트, dart_eps 키)
-// PER = 현재가 ÷ dart_eps 로 실시간 계산 (연결 기준, KIS 별도 기준보다 정확)
-let dartEps = null;
+// DART 재무지표 읽기 (분기 1회 업데이트)
+// dart_financials: { eps, epsGrowth, operatingMargin, roe }
+// dart_eps: EPS만 (하위호환 fallback)
+let dartEps = null, dartFinancials = null;
 try {
-  const dpRaw = await timedFetch(`${_redisUrl}/get/dart_eps`, {
+  const dfRaw = await timedFetch(`${_redisUrl}/get/dart_financials`, {
     headers: { Authorization: `Bearer ${_redisToken}` },
   }).then(r => r.json());
-  if (dpRaw.result) {
-    const dpMap = JSON.parse(dpRaw.result);
-    if (dpMap[code] !== undefined) dartEps = dpMap[code];
+  if (dfRaw.result) {
+    const dfMap = JSON.parse(dfRaw.result);
+    if (dfMap[code]) {
+      dartFinancials = dfMap[code];
+      dartEps = dartFinancials.eps ?? null;
+    }
   }
 } catch (_) {}
+// dart_financials 없으면 dart_eps fallback
+if (dartEps === null) {
+  try {
+    const dpRaw = await timedFetch(`${_redisUrl}/get/dart_eps`, {
+      headers: { Authorization: `Bearer ${_redisToken}` },
+    }).then(r => r.json());
+    if (dpRaw.result) {
+      const dpMap = JSON.parse(dpRaw.result);
+      if (dpMap[code] !== undefined) dartEps = dpMap[code];
+    }
+  } catch (_) {}
+}
     
     // 테마 섹터 레이블 (update-sector-labels.py 가 주 1회 저장)
     let themeSector = null;
@@ -1137,6 +1153,11 @@ try {
       atr: atrObj,
       rsRating,
       relStrength: relResult,
+      dartFinancials: dartFinancials ? {
+        epsGrowth:       dartFinancials.epsGrowth       ?? null,
+        operatingMargin: dartFinancials.operatingMargin ?? null,
+        roe:             dartFinancials.roe             ?? null,
+      } : null,
       newsBoost: newsBoostResult.score !== 0 ? newsBoostResult : null,
       marketEnv: marketV4Score !== null ? {
         score: marketV4Score,
