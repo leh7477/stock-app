@@ -615,6 +615,8 @@ fetch('/api/daily').then(r=>r.json()).then(d=>{
   document.getElementById('brief-date').textContent=d.date||'';
   document.getElementById('briefing-strip').style.display='block';
 }).catch(()=>{});
+
+fetch('/api/track?page=guide').catch(function(){});
 </script>
 
 </body>

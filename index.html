@@ -57,10 +57,6 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .search-box input { flex:1; background:none; border:none; color:#F6F4EF; font-size:14px; font-family:inherit; outline:none; padding:9px 0; }
 .search-box input::placeholder { color:rgba(246,244,239,.35); }
 .search-btn { background:#FACC15; border:none; border-radius:7px; color:#0A1628; padding:5px 14px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
-.site-refresh { width:34px; height:34px; border-radius:50%; background:rgba(246,244,239,.08); border:1px solid rgba(246,244,239,.12); color:rgba(246,244,239,.6); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; transition:.15s; }
-.site-refresh:hover { background:rgba(246,244,239,.15); color:#F6F4EF; }
-.site-refresh.spinning { animation:spin .8s linear; }
-@keyframes spin { to { transform:rotate(360deg); } }
 /* 데스크탑 네비 */
 .site-nav { display:flex; align-items:center; gap:2px; flex-shrink:0; }
 .site-nav a { font-size:13px; font-weight:500; color:rgba(246,244,239,.6); text-decoration:none; padding:6px 11px; border-radius:7px; transition:.15s; white-space:nowrap; }
@@ -379,8 +375,6 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <a href="/guide.html">가이드</a>
       <a href="/about.html">소개</a>
     </nav>
-    <!-- 새로고침 -->
-    <button class="site-refresh" id="refresh-btn" onclick="loadData()">↻</button>
   </div>
 </header>
 
@@ -1363,8 +1357,6 @@ function qs(name) {
 
 // ── 추천 데이터 로드 ─────────────────────────────────────
 async function loadData(append = false) {
-  const btn = document.getElementById('refresh-btn');
-  if (!append) btn.classList.add('spinning');
 
   // 캐시 우선 표시 (첫 로드 & 필터 변경 없을 때만)
   if (!append && curOffset === 0) {
@@ -1425,7 +1417,6 @@ async function loadData(append = false) {
     document.getElementById('stock-list').innerHTML = msg;
   }
 
-  if (!append) btn.classList.remove('spinning');
 }
 
 async function loadMore() {
@@ -1623,6 +1614,8 @@ fetch('/api/daily').then(r=>r.json()).then(d=>{
   const tab = new URLSearchParams(location.search).get('tab');
   if (tab === 'news') switchTab('news');
 })();
+
+fetch('/api/track?page=index').catch(function(){});
 </script>
 
 </body>

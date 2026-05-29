@@ -1985,6 +1985,8 @@ if (urlQ) { document.getElementById('q').value = urlQ; doSearch(); }
     document.getElementById('briefing-strip').style.display = 'block';
   }).catch(() => {});
 })();
+
+fetch('/api/track?page=analyzer').catch(function(){});
 </script>
 </body>
 </html>

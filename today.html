@@ -251,6 +251,8 @@ async function loadBriefing() {
 }
 
 loadBriefing();
+
+fetch('/api/track?page=today').catch(function(){});
 </script>
 
 </body>

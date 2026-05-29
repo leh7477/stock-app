@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>방문자 통계 — 썸팁 관리자</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0A1628; --card:rgba(255,255,255,.05); --card2:rgba(255,255,255,.08);
+  --border:rgba(246,244,239,.1); --text:#F6F4EF; --sub:rgba(246,244,239,.7);
+  --muted:rgba(246,244,239,.35); --yellow:#FACC15; --green:#4ade80;
+  --blue:#60a5fa; --red:#f87171;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
+.wrap{max-width:860px;margin:0 auto;padding:32px 20px 80px;}
+
+/* 로그인 화면 */
+.login-box{max-width:360px;margin:120px auto 0;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:36px 32px;}
+.login-box h1{font-size:20px;font-weight:800;margin-bottom:6px;}
+.login-box p{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.login-box input{width:100%;background:rgba(255,255,255,.08);border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:.15s;}
+.login-box input:focus{border-color:rgba(250,204,21,.5);background:rgba(255,255,255,.12);}
+.login-box input::placeholder{color:var(--muted);}
+.login-box button{margin-top:12px;width:100%;background:#FACC15;border:none;border-radius:10px;padding:12px;font-size:14px;font-weight:700;color:#0A1628;cursor:pointer;transition:.15s;}
+.login-box button:hover{background:#fde047;}
+.err-msg{margin-top:10px;font-size:12px;color:#f87171;text-align:center;min-height:18px;}
+
+/* 대시보드 */
+#dashboard{display:none;}
+.page-title{font-size:22px;font-weight:800;margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+
+/* 상단 카드 그리드 */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px;}
+@media(max-width:640px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px 18px;}
+.stat-label{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.5px;margin-bottom:10px;text-transform:uppercase;}
+.stat-val{font-size:28px;font-weight:800;letter-spacing:-1px;line-height:1;}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:6px;}
+.c-yellow{color:var(--yellow);}
+.c-green{color:var(--green);}
+.c-blue{color:var(--blue);}
+.c-red{color:var(--red);}
+
+/* 섹션 */
+.section{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px 20px;margin-bottom:20px;}
+.section-title{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
+
+/* 페이지별 */
+.page-row{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.page-row:last-child{margin-bottom:0;}
+.page-name{font-size:13px;font-weight:600;min-width:80px;}
+.page-bar-wrap{flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;}
+.page-bar{height:100%;background:var(--blue);border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1);}
+.page-num{font-size:12px;font-weight:700;color:var(--sub);min-width:40px;text-align:right;}
+
+/* 14일 차트 */
+.day-chart{display:flex;align-items:flex-end;gap:5px;height:80px;margin-top:4px;}
+.day-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.day-bar-wrap{flex:1;width:100%;display:flex;align-items:flex-end;}
+.day-bar{width:100%;background:rgba(96,165,250,.4);border-radius:4px 4px 0 0;transition:height .5s cubic-bezier(.4,0,.2,1);min-height:3px;}
+.day-bar.today{background:var(--blue);}
+.day-label{font-size:9px;color:var(--muted);white-space:nowrap;}
+
+/* 새로고침 버튼 */
+.refresh-btn{margin-top:24px;background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;transition:.15s;}
+.refresh-btn:hover{background:rgba(255,255,255,.14);color:var(--text);}
+
+/* 실시간 펄스 */
+.pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+
+.loading{color:var(--muted);font-size:13px;padding:20px 0;text-align:center;}
+</style>
+</head>
+<body>
+
+<!-- 로그인 폼 -->
+<div id="login">
+  <div class="login-box">
+    <h1>🔒 관리자 통계</h1>
+    <p>썸팁 방문자 통계 페이지입니다.</p>
+    <input type="password" id="key-input" placeholder="시크릿 키 입력" autocomplete="off">
+    <button onclick="doLogin()">확인</button>
+    <div class="err-msg" id="err-msg"></div>
+  </div>
+</div>
+
+<!-- 대시보드 -->
+<div id="dashboard">
+<div class="wrap">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:8px;">
+    <div>
+      <div class="page-title">📊 방문자 통계</div>
+      <div class="page-sub" id="last-updated">로딩 중...</div>
+    </div>
+    <button class="refresh-btn" onclick="loadStats()">↻ 새로고침</button>
+  </div>
+
+  <!-- 상단 4개 카드 -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">실시간 (5분)</div>
+      <div class="stat-val c-green" id="s-realtime">—</div>
+      <div class="stat-sub"><span class="pulse"></span>현재 접속 중</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">오늘 순방문</div>
+      <div class="stat-val c-yellow" id="s-today-uniq">—</div>
+      <div class="stat-sub" id="s-today-views">페이지뷰 —</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">전체 페이지뷰</div>
+      <div class="stat-val c-blue" id="s-total">—</div>
+      <div class="stat-sub">누적 합계</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">어제 순방문</div>
+      <div class="stat-val" id="s-yesterday-uniq">—</div>
+      <div class="stat-sub" id="s-yesterday-views">페이지뷰 —</div>
+    </div>
+  </div>
+
+  <!-- 페이지별 조회수 -->
+  <div class="section">
+    <div class="section-title">📄 페이지별 전체 조회수</div>
+    <div id="page-bars"><div class="loading">로딩 중...</div></div>
+  </div>
+
+  <!-- 14일 추이 -->
+  <div class="section">
+    <div class="section-title">📅 최근 14일 방문 추이</div>
+    <div id="day-chart-wrap"><div class="loading">로딩 중...</div></div>
+    <div id="day-detail" style="margin-top:14px;font-size:12px;color:var(--muted);"></div>
+  </div>
+</div>
+</div>
+
+<script>
+let secretKey = '';
+
+const PAGE_LABELS = {
+  index:    '메인',
+  analyzer: '분석기',
+  today:    '브리핑',
+  guide:    '가이드',
+  about:    '소개',
+};
+
+function doLogin() {
+  const k = document.getElementById('key-input').value.trim();
+  if (!k) return;
+  secretKey = k;
+  document.getElementById('err-msg').textContent = '';
+  loadStats();
+}
+
+document.getElementById('key-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+async function loadStats() {
+  try {
+    const res = await fetch(`/api/stats?key=${encodeURIComponent(secretKey)}`);
+    if (res.status === 403) {
+      document.getElementById('err-msg').textContent = '키가 올바르지 않습니다.';
+      secretKey = '';
+      return;
+    }
+    const data = await res.json();
+    if (!data.ok) {
+      document.getElementById('err-msg').textContent = '데이터를 불러오지 못했습니다.';
+      return;
+    }
+    // 로그인 성공 → 대시보드 표시
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    renderDashboard(data);
+  } catch (e) {
+    document.getElementById('err-msg').textContent = '네트워크 오류가 발생했습니다.';
+  }
+}
+
+function fmt(n) {
+  return n >= 10000 ? (n / 10000).toFixed(1) + '만' : n.toLocaleString();
+}
+
+function renderDashboard(d) {
+  const now = new Date();
+  document.getElementById('last-updated').textContent =
+    `마지막 업데이트: ${now.toLocaleTimeString('ko-KR')} KST`;
+
+  document.getElementById('s-realtime').textContent     = d.realtime ?? 0;
+  document.getElementById('s-today-uniq').textContent   = fmt(d.today?.uniq ?? 0);
+  document.getElementById('s-today-views').textContent  = `페이지뷰 ${fmt(d.today?.views ?? 0)}`;
+  document.getElementById('s-total').textContent        = fmt(d.total ?? 0);
+
+  // 어제 날짜
+  const yDate = new Date(Date.now() + 9 * 3600000 - 86400000).toISOString().slice(0, 10);
+  const yData = d.daily?.[yDate] || { views: 0, uniq: 0 };
+  document.getElementById('s-yesterday-uniq').textContent  = fmt(yData.uniq);
+  document.getElementById('s-yesterday-views').textContent = `페이지뷰 ${fmt(yData.views)}`;
+
+  // 페이지별 바
+  const pages = d.pages || {};
+  const maxPv = Math.max(1, ...Object.values(pages));
+  document.getElementById('page-bars').innerHTML = Object.entries(PAGE_LABELS).map(([k, label]) => {
+    const v = pages[k] || 0;
+    const pct = Math.round(v / maxPv * 100);
+    return `<div class="page-row">
+      <div class="page-name">${label}</div>
+      <div class="page-bar-wrap"><div class="page-bar" style="width:${pct}%"></div></div>
+      <div class="page-num">${fmt(v)}</div>
+    </div>`;
+  }).join('');
+
+  // 14일 차트
+  const daily = d.daily || {};
+  const dates = Object.keys(daily).sort();
+  const maxV  = Math.max(1, ...dates.map(dt => daily[dt].views));
+  const todayStr = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);
+
+  const cols = dates.map(dt => {
+    const v   = daily[dt].views;
+    const h   = Math.max(4, Math.round(v / maxV * 72));
+    const mmdd = dt.slice(5); // MM-DD
+    const isT  = dt === todayStr;
+    return `<div class="day-col">
+      <div class="day-bar-wrap"><div class="day-bar${isT ? ' today' : ''}" style="height:${h}px" title="${dt}: ${v}건"></div></div>
+      <div class="day-label">${mmdd}</div>
+    </div>`;
+  }).reverse();
+  document.getElementById('day-chart-wrap').innerHTML =
+    `<div class="day-chart">${cols.join('')}</div>`;
+
+  // 14일 숫자 요약 (최근 7일)
+  const recent7 = dates.slice(0, 7);
+  const sum7v = recent7.reduce((a, dt) => a + (daily[dt]?.views || 0), 0);
+  const sum7u = recent7.reduce((a, dt) => a + (daily[dt]?.uniq  || 0), 0);
+  document.getElementById('day-detail').textContent =
+    `최근 7일 합계 — 페이지뷰 ${fmt(sum7v)} · 순방문자 ${fmt(sum7u)}`;
+}
+</script>
+</body>
+</html>
