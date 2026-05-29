@@ -552,6 +552,17 @@ function maSignal(price, ma) {
   return 'neutral';
 }
 
+function calcNewsBoost(code, sector, name, newsBoost) {
+  if (!newsBoost) return { score: 0 };
+  const { boostCodes = [], boostSectors = [], penaltyCodes = [], penaltySectors = [] } = newsBoost;
+  if (boostCodes.includes(code))   return { score: 3 };
+  if (penaltyCodes.includes(code)) return { score: -3 };
+  const haystack = ((sector || '') + ' ' + (name || '')).toLowerCase();
+  if (boostSectors.some(kw => kw && haystack.includes(kw.toLowerCase())))  return { score: 2 };
+  if (penaltySectors.some(kw => kw && haystack.includes(kw.toLowerCase()))) return { score: -2 };
+  return { score: 0 };
+}
+
 function calcRelStrengthScore(closes, market, marketReturns) {
   const ret = (arr, back) =>
     arr && arr.length > back + 1
@@ -624,9 +635,10 @@ function analyze(stock, closes, volumes, extra = {}) {
   const finalPer  = extra.per ?? 0;
   const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '');
   const korScore  = ks.total;
-  const marketAdj  = extra.marketAdj ?? 0;
-  const relResult  = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
-  const score      = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score);
+  const marketAdj       = extra.marketAdj ?? 0;
+  const relResult       = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
+  const newsBoostResult = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
+  const score           = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
@@ -659,7 +671,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, marketAdj = 0, marketReturns = null) {
+async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -725,7 +737,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null) {
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns, newsBoost }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -783,6 +795,20 @@ async function main() {
     console.log('      시장환경 조회 실패 (무시):', e.message);
   }
 
+  // 2.7 뉴스 가점/감점 데이터 (generate_newsletter.py 가 저장)
+  let newsBoost = null;
+  try {
+    const nbRaw = await redisGet('news_boost');
+    if (nbRaw) {
+      newsBoost = JSON.parse(nbRaw);
+      console.log(`      news_boost: BOOST 종목 ${newsBoost.boostCodes?.length ?? 0}개 섹터 ${newsBoost.boostSectors?.length ?? 0}개 / PENALTY 종목 ${newsBoost.penaltyCodes?.length ?? 0}개 섹터 ${newsBoost.penaltySectors?.length ?? 0}개`);
+    } else {
+      console.log('      news_boost 없음 (오늘 브리핑 미생성)');
+    }
+  } catch (e) {
+    console.log('      news_boost 조회 실패 (무시):', e.message);
+  }
+
   // 3. 배치 처리 (일봉 + 기본정보 + 수급)
   console.log(`[3/4] 일봉 + 기본정보 조회... (${allStocks.length}개, 배치 ${BATCH_SIZE}개)`);
   const results = [];
@@ -790,7 +816,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 

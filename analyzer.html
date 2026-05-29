@@ -469,6 +469,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
               <div class="score-subdesc">기술지표(70) + 국장특화(30) 종합 (0~100점)</div>
               <div id="r-mkt-env" style="display:none;margin-top:8px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-rel-strength" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
+              <div id="r-news-boost" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
             </div>
           </div>
         </div>
@@ -806,6 +807,19 @@ function renderScore(score) {
   const bar = document.getElementById('r-score-bar');
   bar.style.width      = score + '%';
   bar.style.background = isGold ? 'linear-gradient(90deg,#d97706,#eab308,#d97706)' : c;
+}
+
+function renderNewsBoost(nb) {
+  const el = document.getElementById('r-news-boost');
+  if (!el) return;
+  if (!nb || nb.score === 0) { el.style.display = 'none'; return; }
+  const { score, reason } = nb;
+  const c    = score > 0 ? '#22c55e' : '#ef4444';
+  const sign = score > 0 ? '+' : '';
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="color:var(--muted)">AI브리핑</span>
+    <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">📰 ${reason}</span>
+    <span style="color:${c};font-weight:600">${sign}${score}점 반영</span>`;
 }
 
 function renderRelStrength(rel) {
@@ -1841,6 +1855,7 @@ function renderResult(data) {
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
   renderRelStrength(data.relStrength);
+  renderNewsBoost(data.newsBoost);
   renderMarketEnv(data.marketEnv);
   renderOneLiner(data);
   renderMAScore(data.maScore);

@@ -118,7 +118,8 @@ def _generate(client: genai.Client, prompt: str) -> str:
 
 # ─── Redis 저장 ──────────────────────────────────────────────────────────────
 
-def save_to_redis(payload: dict, kv_url: str, kv_token: str, sentiment_score: int | None = None):
+def save_to_redis(payload: dict, kv_url: str, kv_token: str, sentiment_score: int | None = None,
+                  news_boost: dict | None = None):
     pipeline = [
         ["SET", "daily_newsletter", json.dumps(payload, ensure_ascii=False), "EX", str(26 * 3600)]
     ]
@@ -134,6 +135,9 @@ def save_to_redis(payload: dict, kv_url: str, kv_token: str, sentiment_score: in
         pipeline.append(["SET", "market_sentiment", senti_payload, "EX", str(26 * 3600)])
         pipeline.append(["DEL", "market_v4"])  # 마켓스코어 캐시 무효화
         log.info(f"[sentiment] 점수 저장: {sentiment_score}")
+    if news_boost is not None:
+        pipeline.append(["SET", "news_boost", json.dumps(news_boost, ensure_ascii=False), "EX", str(26 * 3600)])
+        log.info(f"[news_boost] 저장: {news_boost}")
     body = json.dumps(pipeline)
     resp = requests.post(
         f"{kv_url}/pipeline",
@@ -219,11 +223,22 @@ def run():
 
 ---
 
-[HTML 출력 형식 — 마크다운·코드블록·추가 설명 없이 순수 HTML만 출력, 마지막 줄에 반드시 심리 점수 태그 추가]
+[HTML 출력 형식 — 마크다운·코드블록·추가 설명 없이 순수 HTML만 출력, 마지막에 반드시 아래 태그 5개 추가]
 
-HTML 출력이 모두 끝난 후 맨 마지막 줄에 아래 형식으로 오늘 국장 전체 투자심리 점수를 정수로 출력해라.
-(0=극도의 공포·폭락, 25=약세, 50=중립, 75=강세, 100=극도의 탐욕·급등)
+HTML 출력이 모두 끝난 후 아래 5개 태그를 순서대로 맨 마지막에 출력해라.
+
+① 오늘 뉴스에서 직접 수혜가 확실한 종목 코드(6자리, 확실한 것만 최대 5개)와 수혜 섹터 키워드(최대 3개, 예: 반도체,방산,원전):
+<!--BOOST_CODES:코드1,코드2-->
+<!--BOOST_SECTORS:키워드1,키워드2-->
+
+② 오늘 뉴스에서 직접 악재가 있는 종목 코드(6자리, 확실한 것만 최대 5개)와 피해 섹터 키워드(최대 3개):
+<!--PENALTY_CODES:코드1,코드2-->
+<!--PENALTY_SECTORS:키워드1,키워드2-->
+
+③ 오늘 국장 전체 투자심리 점수 (0=극도의 공포·폭락, 25=약세, 50=중립, 75=강세, 100=극도의 탐욕·급등):
 <!--SENTIMENT:점수-->
+
+종목코드 불확실하면 빈칸 허용 (예: <!--BOOST_CODES:-->). 섹터 키워드는 한 단어로 간결하게.
 
 [HTML 출력 형식]
 
@@ -281,16 +296,35 @@ HTML 출력이 모두 끝난 후 맨 마지막 줄에 아래 형식으로 오늘
         lines = html.split("\n")
         html  = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
 
-    # 심리 점수 파싱 및 HTML에서 제거
+    # 태그 파싱 및 HTML에서 제거
     import re
+
+    def _parse_tag(text, tag):
+        m = re.search(rf'<!--{tag}:(.*?)-->', text)
+        if not m:
+            return []
+        return [v.strip() for v in m.group(1).split(',') if v.strip()]
+
+    # BOOST / PENALTY 파싱 (종목코드는 6자리 숫자만 허용)
+    boost_codes    = [c for c in _parse_tag(html, 'BOOST_CODES')   if re.fullmatch(r'\d{6}', c)]
+    boost_sectors  = _parse_tag(html, 'BOOST_SECTORS')
+    penalty_codes  = [c for c in _parse_tag(html, 'PENALTY_CODES') if re.fullmatch(r'\d{6}', c)]
+    penalty_sectors = _parse_tag(html, 'PENALTY_SECTORS')
+    log.info(f"[news_boost] BOOST 종목:{boost_codes} 섹터:{boost_sectors} / PENALTY 종목:{penalty_codes} 섹터:{penalty_sectors}")
+
+    # SENTIMENT 파싱
     sentiment_score = None
     m = re.search(r'<!--SENTIMENT:(\d+)-->', html)
     if m:
         sentiment_score = max(0, min(100, int(m.group(1))))
-        html = html[:m.start()].rstrip()
         log.info(f"[sentiment] 파싱 완료: {sentiment_score}")
     else:
         log.warning("[sentiment] 점수 태그 없음")
+
+    # 모든 태그 HTML에서 제거
+    for tag in ['BOOST_CODES', 'BOOST_SECTORS', 'PENALTY_CODES', 'PENALTY_SECTORS', 'SENTIMENT']:
+        html = re.sub(rf'<!--{tag}:.*?-->', '', html)
+    html = html.rstrip()
 
     log.info(f"[gemini] 생성 완료 ({len(html)}자)")
 
@@ -300,7 +334,17 @@ HTML 출력이 모두 끝난 후 맨 마지막 줄에 아래 형식으로 오늘
         "dateIso":     today_iso,
         "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
-    save_to_redis(payload, kv_url, kv_token, sentiment_score)
+    kst_date = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime("%Y-%m-%d")
+    news_boost_payload = {
+        "boostCodes":    boost_codes,
+        "boostSectors":  boost_sectors,
+        "penaltyCodes":  penalty_codes,
+        "penaltySectors": penalty_sectors,
+        "date":     kst_date,
+        "storedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    } if (boost_codes or boost_sectors or penalty_codes or penalty_sectors) else None
+
+    save_to_redis(payload, kv_url, kv_token, sentiment_score, news_boost_payload)
     log.info("=== 완료 ===")
 
 

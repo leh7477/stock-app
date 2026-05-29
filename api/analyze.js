@@ -312,6 +312,21 @@ function calcScore(closes, volumes, boll) {
   return { total, detail: { arrangement: arrangementPts, deviation: deviationPts, rsi: rsiPts, macd: macdPts, volume: volPts, obv: obvPts, boll: bollPts } };
 }
 
+// ── AI 브리핑 뉴스 기반 가점/감점 (±3pt) ────────────────────────────────────
+// 종목 코드 직접 매칭 ±3pt / 섹터 키워드 매칭 ±2pt / 둘 다 해당해도 max ±3pt
+function calcNewsBoost(code, sector, name, newsBoost) {
+  if (!newsBoost) return { score: 0, reason: null };
+  const { boostCodes = [], boostSectors = [], penaltyCodes = [], penaltySectors = [] } = newsBoost;
+  if (boostCodes.includes(code))   return { score: 3, reason: '오늘 뉴스 수혜 종목' };
+  if (penaltyCodes.includes(code)) return { score: -3, reason: '오늘 뉴스 피해 종목' };
+  const haystack = ((sector || '') + ' ' + (name || '')).toLowerCase();
+  if (boostSectors.some(kw => kw && haystack.includes(kw.toLowerCase())))
+    return { score: 2, reason: '오늘 뉴스 수혜 섹터' };
+  if (penaltySectors.some(kw => kw && haystack.includes(kw.toLowerCase())))
+    return { score: -2, reason: '오늘 뉴스 피해 섹터' };
+  return { score: 0, reason: null };
+}
+
 // ── 시장대비 초과수익률 스코어 (0~15점) ─────────────────────────────────────
 // 1m:20% + 3m:40% + 6m:25% + 12m:15% 가중 초과수익률 → 점수 변환
 // weeklyCloses: 주봉 배열 (12개월용 — 일봉보다 충분한 기간 보유)
@@ -924,6 +939,15 @@ try {
   }
 } catch (_) {}
     
+    // AI 브리핑 뉴스 가점/감점 (daily_newsletter 생성 시 저장)
+    let newsBoost = null;
+    try {
+      const nbRaw = await timedFetch(`${_redisUrl}/get/news_boost`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (nbRaw.result) newsBoost = JSON.parse(nbRaw.result);
+    } catch (_) {}
+
     // 시장환경 점수 (market_v4 → sentiment.score, 역발상: 공포=가점, 과열=감점)
     let marketV4Score = null;
     try {
@@ -1023,8 +1047,9 @@ try {
     const techDetail  = techResult.detail;
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code);
     const korScore  = ks.total;
-    const relResult = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score);
+    const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
+    const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1100,6 +1125,7 @@ try {
       atr: atrObj,
       rsRating,
       relStrength: relResult,
+      newsBoost: newsBoostResult.score !== 0 ? newsBoostResult : null,
       marketEnv: marketV4Score !== null ? {
         score: marketV4Score,
         adj:   marketAdj,
