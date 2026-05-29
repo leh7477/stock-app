@@ -3,7 +3,8 @@
 - Gemini 2.0 Flash + Google Search Grounding
 - 매일 08:00 KST (UTC 23:00 전날) GitHub Actions 실행
 - 결과를 Upstash Redis(daily_newsletter)에 저장
-- 429 RESOURCE_EXHAUSTED → 70초 대기 후 최대 3회 재시도
+- 429 RPM(분당) 초과 → 70초 대기 후 최대 3회 재시도
+- 429 일일(Daily) 한도 초과 → 즉시 포기 (재시도 무의미)
 """
 
 import os
@@ -26,18 +27,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__name__)
 
 
-# ─── 429 판별 ─────────────────────────────────────────────────────────────────
+# ─── 429 종류 구분 ────────────────────────────────────────────────────────────
 
-def _is_rate_limit(exc: BaseException) -> bool:
-    """Gemini 429 RESOURCE_EXHAUSTED 이면 True"""
-    return isinstance(exc, ClientError) and "429" in str(exc)
+def _is_daily_quota(exc: BaseException) -> bool:
+    """일일 한도 초과(PerDay) 여부 — 재시도해도 당일 내 해결 불가"""
+    return isinstance(exc, ClientError) and "PerDay" in str(exc)
+
+def _is_rpm_limit(exc: BaseException) -> bool:
+    """분당 요청 한도 초과 — 70초 대기 후 재시도 가능
+    단, 일일 한도 초과는 제외"""
+    return isinstance(exc, ClientError) and "429" in str(exc) and not _is_daily_quota(exc)
 
 
-# ─── Gemini 호출 (재시도 포함) ───────────────────────────────────────────────
+# ─── Gemini 호출 (RPM 재시도 포함) ───────────────────────────────────────────
 
 @retry(
-    retry=retry_if_exception(_is_rate_limit),
-    wait=wait_fixed(70),            # 429 → 70초 대기 (분당 제한 갱신 여유)
+    retry=retry_if_exception(_is_rpm_limit),
+    wait=wait_fixed(70),            # RPM 429 → 70초 대기 (분당 제한 갱신 여유)
     stop=stop_after_attempt(3),     # 최대 3회 시도 (원본 1회 + 재시도 2회)
     reraise=True,
     before_sleep=before_sleep_log(log, logging.WARNING),
@@ -147,14 +153,31 @@ def run():
     try:
         html = _generate(client, prompt)
     except ClientError as e:
-        log.error(f"[gemini] 최대 재시도 초과 — {e}")
-        # 실패해도 에러 상태를 Redis에 저장해 프런트에 안내 표시
+        err_str = str(e)
+        log.error(f"[gemini] 생성 실패 — {err_str[:200]}")
+
+        if _is_daily_quota(e):
+            # 일일 한도 초과: 오늘은 복구 불가, 안내 메시지만 저장
+            msg = (
+                '<p style="color:#9ca3af;text-align:center;padding:40px;line-height:1.8;">'
+                '📋 오늘 브리핑은 API 일일 한도 초과로 생성하지 못했습니다.<br>'
+                '<span style="font-size:12px;">내일 오전 자동으로 복구됩니다. '
+                '매일 1회만 실행하면 무료 한도 내에서 정상 동작합니다.</span>'
+                '</p>'
+            )
+        else:
+            msg = (
+                '<p style="color:#9ca3af;text-align:center;padding:40px;">'
+                '오늘 브리핑 생성에 실패했습니다. 잠시 후 다시 확인해 주세요.'
+                '</p>'
+            )
+
         err_payload = {
-            "html":        f'<p style="color:#9ca3af;text-align:center;padding:40px;">오늘 브리핑 생성에 실패했습니다. 잠시 후 다시 확인해 주세요.<br><small>{e}</small></p>',
+            "html":        msg,
             "date":        today,
             "dateIso":     today_iso,
             "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "error":       str(e),
+            "error":       err_str[:300],
         }
         save_to_redis(err_payload, kv_url, kv_token)
         return
