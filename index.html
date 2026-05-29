@@ -647,7 +647,8 @@ let curOffset   = 0;
 let totalCount  = 0;
 let totalAll    = 0;
 let ddIdx       = -1;   // 드롭다운 키보드 인덱스
-let _mktTrendChart = null;
+let _mktTrendChart   = null;
+let _mktHistoryData  = null;   // 패널 열기 전에 미리 fetch해 둠
 
 // ── 초성 검색 ──────────────────────────────────────────
 const CHOSUNG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -1020,7 +1021,7 @@ async function loadMarket() {
       </div>
     `;
     renderMktDetail(senti);
-    loadMktHistory();
+    prefetchMktHistory();   // 데이터만 미리 로드 (차트는 패널 열 때 그림)
   } catch(_) {}
 }
 
@@ -1032,9 +1033,16 @@ function toggleMktDetail() {
   if (!panel) return;
   const open = panel.classList.toggle('open');
   if (btn) btn.classList.toggle('open', open);
-  // 패널 열릴 때 차트 리사이즈 (hidden에서 초기화 시 0×0 방지)
-  if (open && _mktTrendChart) {
-    setTimeout(() => _mktTrendChart.resize(), 50);
+  if (open) {
+    // CSS transition(0.35s) 완료 후 차트 초기화/리사이즈
+    // → 컨테이너가 실제 크기를 갖춘 뒤 ECharts 렌더
+    setTimeout(() => {
+      if (_mktTrendChart) {
+        _mktTrendChart.resize();
+      } else {
+        renderMktTrendChart();  // 첫 오픈 시 초기화
+      }
+    }, 400);
   }
 }
 
@@ -1090,53 +1098,61 @@ function renderMktDetail(senti) {
   }
 }
 
-async function loadMktHistory() {
+// 데이터만 미리 로드 (차트 초기화 X — 패널이 닫혀있어 컨테이너 크기가 0)
+async function prefetchMktHistory() {
   try {
     const d = await fetch('/api/market-history?days=30').then(r => r.json());
-    if (!d.success || !d.history?.length) return;
-
-    const dates  = d.history.map(h => h.date.slice(5));   // MM-DD
-    const scores = d.history.map(h => h.score);
-
-    const el = document.getElementById('ms-trend-chart');
-    if (!el || typeof echarts === 'undefined') return;
-
-    if (_mktTrendChart) { _mktTrendChart.dispose(); }
-    _mktTrendChart = echarts.init(el);
-    _mktTrendChart.setOption({
-      grid: { top: 8, right: 8, bottom: 20, left: 28 },
-      xAxis: {
-        type: 'category',
-        data: dates,
-        axisLabel: { fontSize: 9, color: '#9ca3af' },
-        axisLine:  { lineStyle: { color: '#e5e7eb' } },
-        axisTick:  { show: false },
-      },
-      yAxis: {
-        type:  'value',
-        min:   0,
-        max:   100,
-        splitNumber: 2,
-        axisLabel:  { fontSize: 9, color: '#9ca3af' },
-        splitLine:  { lineStyle: { color: '#f3f4f6', type: 'dashed' } },
-      },
-      series: [{
-        type: 'line',
-        data: scores,
-        smooth: true,
-        symbolSize: 4,
-        lineStyle: { color: '#2563eb', width: 2 },
-        itemStyle:  { color: '#2563eb' },
-        areaStyle:  { color: { type:'linear', x:0, y:0, x2:0, y2:1,
-          colorStops: [{ offset:0, color:'rgba(37,99,235,.18)' }, { offset:1, color:'rgba(37,99,235,0)' }] } },
-      }],
-      tooltip: {
-        trigger: 'axis',
-        formatter: p => `${p[0].name}<br>마켓스코어 <b>${p[0].value}</b>점`,
-        textStyle: { fontSize: 11 },
-      },
-    });
+    if (d.success && d.history?.length) {
+      _mktHistoryData = d.history;
+    }
   } catch(_) {}
+}
+
+// 패널이 열린 뒤 실제로 차트 렌더 (컨테이너 크기 확보 후 호출)
+function renderMktTrendChart() {
+  if (!_mktHistoryData?.length) return;
+  const el = document.getElementById('ms-trend-chart');
+  if (!el || typeof echarts === 'undefined') return;
+
+  if (_mktTrendChart) { _mktTrendChart.dispose(); }
+  _mktTrendChart = echarts.init(el);
+
+  const dates  = _mktHistoryData.map(h => h.date.slice(5));  // MM-DD
+  const scores = _mktHistoryData.map(h => h.score);
+
+  _mktTrendChart.setOption({
+    grid: { top: 8, right: 8, bottom: 20, left: 28 },
+    xAxis: {
+      type: 'category',
+      data: dates,
+      axisLabel: { fontSize: 9, color: '#9ca3af' },
+      axisLine:  { lineStyle: { color: '#e5e7eb' } },
+      axisTick:  { show: false },
+    },
+    yAxis: {
+      type:  'value',
+      min:   0,
+      max:   100,
+      splitNumber: 2,
+      axisLabel:  { fontSize: 9, color: '#9ca3af' },
+      splitLine:  { lineStyle: { color: '#f3f4f6', type: 'dashed' } },
+    },
+    series: [{
+      type: 'line',
+      data: scores,
+      smooth: true,
+      symbolSize: 4,
+      lineStyle: { color: '#2563eb', width: 2 },
+      itemStyle:  { color: '#2563eb' },
+      areaStyle:  { color: { type:'linear', x:0, y:0, x2:0, y2:1,
+        colorStops: [{ offset:0, color:'rgba(37,99,235,.18)' }, { offset:1, color:'rgba(37,99,235,0)' }] } },
+    }],
+    tooltip: {
+      trigger: 'axis',
+      formatter: p => `${p[0].name}<br>마켓스코어 <b>${p[0].value}</b>점`,
+      textStyle: { fontSize: 11 },
+    },
+  });
 }
 
 // ── 2026 테마 섹터 렌더 ───────────────────────────────
