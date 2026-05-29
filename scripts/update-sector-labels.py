@@ -23,7 +23,7 @@ GEMINI_KEY = os.environ["GEMINI_API_KEY"]
 BATCH_SIZE    = 150   # Gemini 1회 요청당 종목 수
 BATCH_DELAY   = 2.0   # 배치 간 대기(초) — Rate Limit 방지
 TIMEOUT       = 20
-TTL_8D        = 8 * 24 * 3600
+TTL_95D       = 95 * 24 * 3600
 
 
 # ─── Redis ───────────────────────────────────────────────────────────────────
@@ -120,8 +120,8 @@ def run():
         raise RuntimeError("분류 결과 없음 — Redis 저장 중단")
 
     # 3. Redis 저장 (TTL 8일)
-    redis_set("sector_labels", sector_labels, TTL_8D)
-    log.info("[3/3] Redis sector_labels 저장 완료 (TTL 8일)")
+    redis_set("sector_labels", sector_labels, TTL_95D)
+    log.info("[3/3] Redis sector_labels 저장 완료 (TTL 95일)")
     log.info("=== 완료 ===")
 
 
