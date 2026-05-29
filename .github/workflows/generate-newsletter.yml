@@ -1,0 +1,40 @@
+name: 국장 브리핑 생성 (매일 08:00 KST)
+
+on:
+  schedule:
+    # KST 08:00 = UTC 23:00 (전날)
+    # 월~금 08:00 KST → UTC 일~목 23:00
+    - cron: '0 23 * * 0-4'
+  workflow_dispatch:
+    # 수동 실행 가능 (GitHub Actions 탭 → Run workflow)
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 국장 브리핑 생성
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: python scripts/generate_newsletter.py
+
+# ──────────────────────────────────────────────────────────────────
+# 실행 주기: 평일 매일 1회 (월~금 08:00 KST)
+# 소요 시간: ~1~2분 (Gemini Search Grounding + Redis 저장)
+# 저장 키:   daily_newsletter (TTL 26시간 — 다음날 생성 전까지 유지)
+# 사용처:    api/daily.js → today.html
+# ──────────────────────────────────────────────────────────────────

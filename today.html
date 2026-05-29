@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>썸팁 · 오늘의 국장 브리핑</title>
+<meta name="description" content="매일 오전 8시, AI가 분석한 오늘의 국장 흐름 예측 브리핑. 코스피·코스닥 시황, 핵심 이슈, 섹터 동향을 한눈에.">
+<link rel="canonical" href="https://somtip.kr/today.html">
+<meta property="og:type"         content="website">
+<meta property="og:site_name"    content="썸팁">
+<meta property="og:title"        content="썸팁 · 오늘의 국장 브리핑">
+<meta property="og:description"  content="매일 오전 8시 AI 생성 국장 브리핑. 시황·핵심이슈·섹터 동향 요약.">
+<meta property="og:url"          content="https://somtip.kr/today.html">
+<meta property="og:image"        content="https://somtip.kr/og-image.svg">
+<meta name="twitter:card"        content="summary_large_image">
+<meta name="twitter:title"       content="썸팁 · 오늘의 국장 브리핑">
+<meta name="twitter:image"       content="https://somtip.kr/og-image.svg">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5512272233044941" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f2f4f8; --card:#fff; --border:rgba(0,0,0,.07);
+  --text:#111827; --sub:#374151; --muted:#9ca3af;
+  --green:#16a34a; --blue:#2563eb; --amber:#d97706;
+  --navy:#0A1628; --yellow:#FACC15; --cream:#F6F4EF;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 0 1px rgba(0,0,0,.04);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px;}
+
+/* ── 헤더 ── */
+.site-hdr{background:#0A1628;position:sticky;top:0;z-index:50;border-bottom:1px solid rgba(246,244,239,.08);}
+.site-hdr-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;height:62px;padding:0 20px;gap:18px;}
+.site-logo{display:flex;align-items:center;text-decoration:none;flex-shrink:0;}
+.site-logo svg{height:28px;width:auto;display:block;}
+.site-nav{display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:auto;}
+.site-nav a{font-size:13px;font-weight:500;color:rgba(246,244,239,.6);text-decoration:none;padding:6px 11px;border-radius:7px;transition:.15s;white-space:nowrap;}
+.site-nav a:hover{color:#FACC15;background:rgba(250,204,21,.1);}
+.site-nav a.active{color:#FACC15;}
+@media(max-width:768px){.site-nav{display:none;}}
+
+/* ── 히어로 ── */
+.hero{background:linear-gradient(135deg,#0A1628 0%,#0f2040 60%,#1a2d50 100%);padding:52px 20px 44px;text-align:center;}
+.hero-inner{max-width:640px;margin:0 auto;}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(250,204,21,.15);color:#FACC15;font-size:12px;font-weight:700;padding:5px 16px;border-radius:99px;border:1px solid rgba(250,204,21,.3);margin-bottom:18px;letter-spacing:.04em;}
+.hero-tag .dot{width:6px;height:6px;border-radius:50%;background:#FACC15;animation:blink 1.8s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.hero h1{font-size:clamp(22px,4.5vw,34px);font-weight:800;color:#F6F4EF;line-height:1.3;margin-bottom:10px;}
+.hero h1 em{color:#FACC15;font-style:normal;}
+.hero p{font-size:13px;color:rgba(246,244,239,.5);margin-top:6px;}
+
+/* ── 본문 ── */
+.page{max-width:720px;margin:0 auto;padding:32px 20px 80px;}
+
+/* ── 로딩 / 에러 ── */
+.state-box{text-align:center;padding:60px 20px;}
+.state-icon{font-size:40px;margin-bottom:16px;}
+.state-title{font-size:17px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.state-sub{font-size:13px;color:var(--muted);line-height:1.7;}
+.spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:#FACC15;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ── 뉴스레터 카드 ── */
+.nl-card{background:var(--card);border:1.5px solid var(--border);border-radius:20px;padding:32px 28px;box-shadow:var(--shadow);}
+.nl-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(250,204,21,.1);color:#b45309;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;border:1px solid rgba(250,204,21,.25);margin-bottom:18px;letter-spacing:.03em;}
+
+/* ── 뉴스레터 콘텐츠 스타일 ── */
+#nl-content .nl-headline{font-size:clamp(18px,3.5vw,26px);font-weight:800;color:var(--text);line-height:1.35;margin-bottom:8px;}
+#nl-content .nl-meta{font-size:12px;color:var(--muted);margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+#nl-content .nl-section{margin-bottom:28px;padding-bottom:28px;border-bottom:1px solid var(--border);}
+#nl-content .nl-section:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+#nl-content h2{font-size:16px;font-weight:800;color:var(--text);line-height:1.4;margin-bottom:12px;padding-left:12px;border-left:3px solid #FACC15;}
+#nl-content h3{font-size:13px;font-weight:700;color:var(--blue);margin:16px 0 8px;}
+#nl-content p{font-size:14px;color:var(--sub);line-height:1.85;}
+#nl-content .nl-list{padding-left:0;list-style:none;display:flex;flex-direction:column;gap:14px;margin-top:4px;}
+#nl-content .nl-list li{font-size:13px;color:var(--sub);line-height:1.7;padding:12px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border);}
+#nl-content .nl-list a{color:var(--blue);text-decoration:none;font-weight:700;}
+#nl-content .nl-list a:hover{text-decoration:underline;}
+#nl-content .nl-list b{display:block;margin-bottom:4px;}
+
+/* ── 업데이트 정보 ── */
+.nl-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+.nl-footer-left{font-size:11px;color:var(--muted);}
+.nl-ai-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--muted);background:var(--bg);border:1px solid var(--border);padding:4px 10px;border-radius:99px;}
+
+/* ── 면책 ── */
+.disc-box{background:#fff8e6;border:1.5px solid rgba(217,119,6,.2);border-radius:14px;padding:16px 18px;margin-top:20px;}
+.disc-box p{font-size:12px;color:#78350f;line-height:1.8;}
+
+/* ── 푸터 ── */
+.site-footer{background:#0A1628;border-top:1px solid rgba(246,244,239,.08);padding:32px 20px 48px;margin-top:40px;}
+.site-footer .f-inner{max-width:900px;margin:0 auto;}
+.site-footer .f-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:20px;flex-wrap:wrap;}
+.site-footer .f-tagline{font-size:11px;color:rgba(246,244,239,.3);margin-top:7px;}
+.site-footer .f-links{display:flex;gap:20px;flex-wrap:wrap;align-items:center;padding-top:4px;}
+.site-footer .f-links a{font-size:12px;color:rgba(246,244,239,.38);text-decoration:none;transition:.15s;}
+.site-footer .f-links a:hover{color:rgba(246,244,239,.85);}
+.site-footer .f-divider{border:none;border-top:1px solid rgba(246,244,239,.07);margin:16px 0;}
+.site-footer .f-disc{font-size:10px;color:rgba(246,244,239,.22);line-height:1.8;}
+.site-footer .f-copy{font-size:10px;color:rgba(246,244,239,.22);margin-top:8px;}
+
+@media(max-width:600px){
+  .nl-card{padding:22px 16px;}
+  .hero{padding:36px 16px 32px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ 헤더 ══ -->
+<header class="site-hdr">
+  <div class="site-hdr-inner">
+    <a href="/" class="site-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="28" style="display:block;">
+        <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+        <g transform="translate(0,148)">
+          <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+          <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+          <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+          <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+          <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+        </g>
+      </svg>
+    </a>
+    <nav class="site-nav">
+      <a href="/">홈</a>
+      <a href="/analyzer.html">종목 분석기</a>
+      <a href="/today.html" class="active">오늘의 브리핑</a>
+      <a href="/about.html">소개</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ══ 히어로 ══ -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-tag"><span class="dot"></span> AI 브리핑</div>
+    <h1>오늘의 <em>국장 브리핑</em></h1>
+    <p>매일 오전 8시 · Gemini AI가 분석한 오늘의 증시 흐름 예측</p>
+  </div>
+</div>
+
+<!-- ══ 본문 ══ -->
+<main class="page">
+
+  <!-- 로딩 -->
+  <div id="state-loading" class="state-box">
+    <div class="spinner"></div>
+    <div class="state-title">브리핑 불러오는 중...</div>
+  </div>
+
+  <!-- 에러 -->
+  <div id="state-error" class="state-box" style="display:none;">
+    <div class="state-icon">📋</div>
+    <div class="state-title" id="error-title">브리핑 준비 중</div>
+    <div class="state-sub" id="error-msg">평일 오전 8시 이후 확인해 주세요.</div>
+  </div>
+
+  <!-- 뉴스레터 본문 -->
+  <div id="state-content" style="display:none;">
+    <div class="nl-card">
+      <div class="nl-badge">🤖 Gemini AI 생성 · 오늘의 국장 브리핑</div>
+      <div id="nl-content"></div>
+      <div class="nl-footer">
+        <div class="nl-footer-left">생성 시각: <span id="nl-time">-</span></div>
+        <div class="nl-ai-badge">✨ Gemini 2.0 Flash + Google Search</div>
+      </div>
+    </div>
+
+    <div class="disc-box" style="margin-top:16px;">
+      <p>⚠️ 본 브리핑은 AI가 공개 정보를 기반으로 생성한 참고 자료입니다. <strong>투자 권유가 아니며</strong>, 실제 투자 판단과 책임은 본인에게 있습니다.</p>
+    </div>
+  </div>
+
+</main>
+
+<!-- ══ 푸터 ══ -->
+<footer class="site-footer">
+  <div class="f-inner">
+    <div class="f-top">
+      <div>
+        <a href="/" style="display:inline-block;text-decoration:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" height="22" style="display:block;">
+            <text x="0" y="130" font-family="Manrope, system-ui, sans-serif" font-weight="800" font-size="150" letter-spacing="-7.5" fill="#F6F4EF">somtip<tspan fill="#FACC15">.</tspan></text>
+            <g transform="translate(0,148)">
+              <rect x="8"   y="6"  width="10" height="13" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="44"  y="8"  width="10" height="11" fill="#F6F4EF" fill-opacity="0.25"/>
+              <rect x="80"  y="11" width="10" height="8"  fill="#F6F4EF"/>
+              <rect x="116" y="6"  width="10" height="14" fill="#F6F4EF"/>
+              <rect x="152" y="4"  width="10" height="17" fill="#FACC15"/>
+              <rect x="188" y="1"  width="10" height="20" fill="#FACC15"/>
+            </g>
+          </svg>
+        </a>
+        <div class="f-tagline">나만 알고 싶은 주식 팁</div>
+      </div>
+      <div class="f-links">
+        <a href="/about.html">소개</a>
+        <a href="/guide.html">가이드</a>
+        <a href="/terms.html">이용약관</a>
+        <a href="/privacy.html">개인정보처리방침</a>
+      </div>
+    </div>
+    <hr class="f-divider">
+    <div class="f-disc">
+      본 서비스는 이동평균선·퀀트 지표 기반 정보 제공 목적이며, 투자 권유가 아닙니다.<br>
+      모든 투자 판단과 책임은 본인에게 있으며, 금융 투자에는 원금 손실 위험이 있습니다.
+    </div>
+    <div class="f-copy">© 2026 somtip. All rights reserved.</div>
+  </div>
+</footer>
+
+<script>
+async function loadBriefing() {
+  try {
+    const res  = await fetch('/api/daily');
+    const data = await res.json();
+
+    if (!data.success) {
+      document.getElementById('state-loading').style.display = 'none';
+      document.getElementById('error-msg').textContent = data.error || '브리핑을 불러올 수 없습니다.';
+      document.getElementById('state-error').style.display = 'block';
+      return;
+    }
+
+    // 생성 시각 포맷
+    if (data.generatedAt) {
+      const d   = new Date(data.generatedAt);
+      const kst = new Date(d.getTime() + 9 * 3600 * 1000);
+      document.getElementById('nl-time').textContent =
+        kst.toISOString().replace('T', ' ').slice(0, 16) + ' KST';
+    }
+
+    // HTML 렌더링
+    document.getElementById('nl-content').innerHTML = data.html || '';
+
+    document.getElementById('state-loading').style.display  = 'none';
+    document.getElementById('state-content').style.display  = 'block';
+
+  } catch (e) {
+    document.getElementById('state-loading').style.display  = 'none';
+    document.getElementById('error-msg').textContent = '네트워크 오류가 발생했습니다.';
+    document.getElementById('state-error').style.display    = 'block';
+  }
+}
+
+loadBriefing();
+</script>
+
+</body>
+</html>
