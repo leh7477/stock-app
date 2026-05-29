@@ -29,7 +29,27 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .site-nav{display:flex;align-items:center;gap:2px;flex-shrink:0;margin-left:auto;}
 .site-nav a{font-size:13px;font-weight:500;color:rgba(246,244,239,.6);text-decoration:none;padding:6px 11px;border-radius:7px;transition:.15s;white-space:nowrap;}
 .site-nav a:hover{color:#FACC15;background:rgba(250,204,21,.1);}
-@media(max-width:768px){.site-nav{display:none;}}
+@media(max-width:768px){.site-nav{display:none;}.site-hdr-inner{gap:8px;}}
+.mob-icon-btn{display:none;width:36px;height:36px;background:none;border:none;cursor:pointer;color:rgba(246,244,239,.7);align-items:center;justify-content:center;flex-shrink:0;border-radius:8px;transition:.15s;}
+.mob-icon-btn:hover{background:rgba(246,244,239,.1);color:#F6F4EF;}
+@media(max-width:768px){.mob-icon-btn{display:flex;}}
+.mob-search-bar{display:none;position:fixed;top:0;left:0;right:0;background:#0A1628;z-index:200;padding:13px 14px;align-items:center;gap:10px;border-bottom:1px solid rgba(246,244,239,.12);}
+.mob-search-bar.open{display:flex;}
+.mob-search-back{background:none;border:none;color:rgba(246,244,239,.7);font-size:20px;cursor:pointer;padding:0 4px;flex-shrink:0;line-height:1;}
+.mob-search-bar input{flex:1;background:rgba(246,244,239,.08);border:1.5px solid rgba(250,204,21,.4);border-radius:10px;padding:9px 14px;color:#F6F4EF;font-size:14px;font-family:inherit;outline:none;}
+.mob-search-bar button.go{background:#FACC15;border:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:700;color:#0A1628;cursor:pointer;flex-shrink:0;}
+.mob-nav-drawer{display:none;position:fixed;top:62px;left:0;right:0;bottom:0;background:#0A1628;z-index:150;overflow-y:auto;}
+.mob-nav-drawer.open{display:block;}
+.mob-nav-drawer a{display:flex;align-items:center;padding:16px 24px;font-size:15px;font-weight:500;color:rgba(246,244,239,.75);text-decoration:none;border-bottom:1px solid rgba(246,244,239,.06);gap:10px;}
+.mob-nav-drawer a:hover,.mob-nav-drawer a.active{color:#FACC15;background:rgba(250,204,21,.05);}
+.nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(10,22,40,.97);backdrop-filter:blur(12px);border-top:1px solid rgba(246,244,239,.12);padding:6px 0 calc(6px + env(safe-area-inset-bottom,0px));z-index:40;}
+@media(max-width:768px){.nav{display:flex;}body{padding-bottom:72px;}}
+.nitem{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 4px 3px;cursor:pointer;text-decoration:none;border:none;background:none;font-family:inherit;}
+.ni{display:flex;align-items:center;justify-content:center;width:24px;height:24px;opacity:.35;color:#F6F4EF;}
+.ni svg{width:22px;height:22px;}
+.nl{font-size:10px;color:rgba(246,244,239,.38);font-weight:500;}
+.nitem.active .ni{opacity:1;color:#FACC15;}
+.nitem.active .nl{color:#FACC15;font-weight:700;}
 
 /* ── 히어로 ── */
 .hero{background:linear-gradient(135deg,#0A1628 0%,#0f2040 60%,#1a2d50 100%);padding:56px 20px 48px;text-align:center;}
@@ -98,8 +118,32 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
       <a href="/guide.html">가이드</a>
       <a href="/about.html">소개</a>
     </nav>
+    <!-- 모바일 아이콘 -->
+    <button class="mob-icon-btn" onclick="openMobSearch()" aria-label="검색" style="margin-left:auto">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </button>
+    <button class="mob-icon-btn" id="mob-menu-btn" onclick="toggleMobMenu()" aria-label="메뉴">
+      <svg id="mob-menu-icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
   </div>
 </header>
+
+<!-- 모바일 검색 오버레이 -->
+<div class="mob-search-bar" id="mob-search-bar">
+  <button class="mob-search-back" onclick="closeMobSearch()">←</button>
+  <input id="mob-search-input" type="text" placeholder="종목명·코드·초성 검색" autocomplete="off"
+    onkeydown="if(event.key==='Enter') window.location.href='/?q='+encodeURIComponent(this.value)">
+  <button class="go" onclick="window.location.href='/?q='+encodeURIComponent(document.getElementById('mob-search-input').value)">분석</button>
+</div>
+<!-- 모바일 네비 드로어 -->
+<nav class="mob-nav-drawer" id="mob-nav-drawer">
+  <a href="/">🏠 국장 분석기</a>
+  <a href="/analyzer.html">📊 상세 지표</a>
+  <a href="/?tab=news">📰 뉴스·공시</a>
+  <a href="/today.html">✨ AI 브리핑</a>
+  <a href="/guide.html">📖 가이드</a>
+  <a href="/about.html">💡 소개</a>
+</nav>
 
 <!-- ══ 히어로 ═══════════════════════════════════════ -->
 <div class="hero">
@@ -267,5 +311,34 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   </div>
 </footer>
 
+<!-- ══ 하단 네비 ════════════════════════════════════════ -->
+<nav class="nav">
+  <a class="nitem" href="/">
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div>
+    <div class="nl">홈</div>
+  </a>
+  <button class="nitem" onclick="openMobSearch()">
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+    <div class="nl">검색</div>
+  </button>
+  <a class="nitem" href="/today.html">
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M12 7V4"/><circle cx="12" cy="3.5" r="1"/><circle cx="9" cy="13" r="1.5"/><circle cx="15" cy="13" r="1.5"/><path d="M9 17q3 2 6 0"/></svg></div>
+    <div class="nl">AI브리핑</div>
+  </a>
+  <a class="nitem" href="/?tab=news">
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+    <div class="nl">뉴스·공시</div>
+  </a>
+  <button class="nitem" onclick="toggleMobMenu()">
+    <div class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+    <div class="nl">전체</div>
+  </button>
+</nav>
+<script>
+function openMobSearch(){document.getElementById('mob-search-bar').classList.add('open');document.getElementById('mob-nav-drawer').classList.remove('open');updateMenuIcon(false);setTimeout(()=>document.getElementById('mob-search-input').focus(),80);}
+function closeMobSearch(){document.getElementById('mob-search-bar').classList.remove('open');}
+function toggleMobMenu(){const d=document.getElementById('mob-nav-drawer');const o=d.classList.toggle('open');closeMobSearch();updateMenuIcon(o);}
+function updateMenuIcon(o){const i=document.getElementById('mob-menu-icon');if(!i)return;i.innerHTML=o?'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>':'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';}
+</script>
 </body>
 </html>
