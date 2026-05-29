@@ -15,7 +15,7 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 120    # DART API 전종목 조회: 최대 2시간
+    timeout-minutes: 180    # DART API 전종목 조회: 최대 3시간
 
     steps:
       - name: 코드 체크아웃
