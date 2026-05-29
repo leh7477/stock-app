@@ -129,6 +129,31 @@ async function fetchAllListedStocks() {
   return all;
 }
 
+// ─── KOSPI·KOSDAQ 수익률 조회 (벤치마크용) ─────────────────────────────────
+
+async function fetchMarketReturns() {
+  const YAHOO_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+  const symbols  = { kospi: '^KS11', kosdaq: '^KQ11' };
+  const result   = {};
+
+  for (const [key, sym] of Object.entries(symbols)) {
+    const url  = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=15mo`;
+    const data = await timedFetch(url, { headers: YAHOO_UA }).then(r => r.json()).catch(e => {
+      throw new Error(`[market_returns] ${key}(${sym}) Yahoo Finance 호출 실패: ${e.message}`);
+    });
+    const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter(c => c != null);
+    if (!closes || closes.length < 63) {
+      throw new Error(`[market_returns] ${key}(${sym}) 데이터 불충분 (${closes?.length ?? 0}개) — Yahoo Finance 응답 확인 필요`);
+    }
+    const ret = (back) => closes.length > back
+      ? Math.round((closes[closes.length-1] - closes[closes.length-1-back]) / closes[closes.length-1-back] * 10000) / 100
+      : null;
+    result[key] = { '1m': ret(21), '3m': ret(63), '6m': ret(126), '12m': ret(252) };
+    console.log(`      ${key}: 1m ${result[key]['1m']}% / 3m ${result[key]['3m']}% / 6m ${result[key]['6m']}% / 12m ${result[key]['12m']}%`);
+  }
+  return result;
+}
+
 // ─── KIS 일봉 조회 ─────────────────────────────────────────────────────────
 
 function kisHeaders(token, trId) {
@@ -143,7 +168,7 @@ function kisHeaders(token, trId) {
 async function fetchDailyCandles(token, code, mkCode) {
   const now     = new Date();
   const endDt   = now.toISOString().slice(0, 10).replace(/-/g, '');
-  const startDt = new Date(now - 240 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
+  const startDt = new Date(now - 400 * 86400000).toISOString().slice(0, 10).replace(/-/g, '');
   const url = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice` +
     `?FID_COND_MRKT_DIV_CODE=J&FID_INPUT_ISCD=${code}` +
     `&FID_INPUT_DATE_1=${startDt}&FID_INPUT_DATE_2=${endDt}` +
@@ -527,6 +552,39 @@ function maSignal(price, ma) {
   return 'neutral';
 }
 
+function calcRelStrengthScore(closes, market, marketReturns) {
+  const ret = (arr, back) =>
+    arr && arr.length > back + 1
+      ? (arr[arr.length-1] - arr[arr.length-1-back]) / arr[arr.length-1-back] * 100
+      : null;
+
+  const s1m  = ret(closes, 21);
+  const s3m  = ret(closes, 63);
+  const s6m  = ret(closes, 126);
+  const s12m = ret(closes, 252);
+
+  const isKosdaq = typeof market === 'string' && market.includes('KOSDAQ');
+  const bench    = isKosdaq ? marketReturns?.kosdaq : marketReturns?.kospi;
+
+  const periods = [
+    { s: s1m,  b: bench?.['1m'],  w: 0.20 },
+    { s: s3m,  b: bench?.['3m'],  w: 0.40 },
+    { s: s6m,  b: bench?.['6m'],  w: 0.25 },
+    { s: s12m, b: bench?.['12m'], w: 0.15 },
+  ];
+
+  let wSum = 0, wTotal = 0;
+  for (const { s, b, w } of periods) {
+    if (s != null && b != null) { wSum += (s - b) * w; wTotal += w; }
+  }
+  if (wTotal === 0) return { score: 0 };
+
+  const excess = wSum / wTotal;
+  const score  = excess >= 30 ? 15 : excess >= 20 ? 12 : excess >= 10 ? 9
+               : excess >= 5  ? 6  : excess >= 0  ? 3  : 0;
+  return { score, excessReturn: Math.round(excess * 10) / 10 };
+}
+
 function analyze(stock, closes, volumes, extra = {}) {
   if (closes.length < 22) return null;
   const n = closes.length - 1, cur = closes[n];
@@ -566,8 +624,9 @@ function analyze(stock, closes, volumes, extra = {}) {
   const finalPer  = extra.per ?? 0;
   const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '');
   const korScore  = ks.total;
-  const marketAdj = extra.marketAdj ?? 0;
-  const score     = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj);
+  const marketAdj  = extra.marketAdj ?? 0;
+  const relResult  = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
+  const score      = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
@@ -600,7 +659,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, marketAdj = 0) {
+async function processStock(token, stock, marketAdj = 0, marketReturns = null) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -609,7 +668,7 @@ async function processStock(token, stock, marketAdj = 0) {
       const rawOutput = raw?.output2 ?? raw?.output;
       if (!rawOutput?.length) continue;
 
-      const recent      = rawOutput.filter(d => parseNum(d.stck_clpr) > 0).slice(0, 150);
+      const recent      = rawOutput.filter(d => parseNum(d.stck_clpr) > 0).slice(0, 270);
       const latestDay   = recent[0];
       const reversed    = recent.slice().reverse();
       const closes      = reversed.map(d => parseNum(d.stck_clpr));
@@ -666,7 +725,7 @@ async function processStock(token, stock, marketAdj = 0) {
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -697,6 +756,12 @@ async function main() {
   try   { token = await getKisToken(); }
   catch (e) { console.error('[2/4] 실패:', e.message); process.exit(1); }
 
+  // 2.3 KOSPI·KOSDAQ 수익률 조회 (시장대비 초과수익률 벤치마크)
+  console.log('[2.3/4] KOSPI·KOSDAQ 수익률 조회...');
+  const marketReturns = await fetchMarketReturns(); // 실패 시 throw → Actions 실패
+  await redisSet('market_returns', { ...marketReturns, updatedAt: new Date().toISOString() }, 48 * 3600);
+  console.log('      market_returns 저장 완료');
+
   // 2.5 시장환경 점수 (역발상: 공포=가점, 과열=감점)
   let marketAdj = 0;
   try {
@@ -725,7 +790,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 

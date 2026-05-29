@@ -468,6 +468,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
               </div>
               <div class="score-subdesc">기술지표(70) + 국장특화(30) 종합 (0~100점)</div>
               <div id="r-mkt-env" style="display:none;margin-top:8px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
+              <div id="r-rel-strength" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
             </div>
           </div>
         </div>
@@ -805,6 +806,20 @@ function renderScore(score) {
   const bar = document.getElementById('r-score-bar');
   bar.style.width      = score + '%';
   bar.style.background = isGold ? 'linear-gradient(90deg,#d97706,#eab308,#d97706)' : c;
+}
+
+function renderRelStrength(rel) {
+  const el = document.getElementById('r-rel-strength');
+  if (!el) return;
+  if (!rel?.available) { el.style.display = 'none'; return; }
+  const { score, excessReturn, detail } = rel;
+  const c = score >= 9 ? '#22c55e' : score >= 3 ? '#2563eb' : 'var(--muted)';
+  const sign = excessReturn >= 0 ? '+' : '';
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="color:var(--muted)">시장대비 초과수익률</span>
+    <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${sign}${excessReturn}%</span>
+    <span style="color:${c};font-weight:600">+${score}점 반영</span>
+    <span style="color:var(--muted);font-size:10px">1m:${detail.s1m??'-'}% 3m:${detail.s3m??'-'}% 6m:${detail.s6m??'-'}% 12m:${detail.s12m??'-'}%</span>`;
 }
 
 function renderMarketEnv(marketEnv) {
@@ -1825,6 +1840,7 @@ function renderResult(data) {
 
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
+  renderRelStrength(data.relStrength);
   renderMarketEnv(data.marketEnv);
   renderOneLiner(data);
   renderMAScore(data.maScore);

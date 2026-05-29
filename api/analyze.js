@@ -312,6 +312,63 @@ function calcScore(closes, volumes, boll) {
   return { total, detail: { arrangement: arrangementPts, deviation: deviationPts, rsi: rsiPts, macd: macdPts, volume: volPts, obv: obvPts, boll: bollPts } };
 }
 
+// ── 시장대비 초과수익률 스코어 (0~15점) ─────────────────────────────────────
+// 1m:20% + 3m:40% + 6m:25% + 12m:15% 가중 초과수익률 → 점수 변환
+// weeklyCloses: 주봉 배열 (12개월용 — 일봉보다 충분한 기간 보유)
+// marketReturns: Redis market_returns { kospi: {1m,3m,6m,12m}, kosdaq: {…} }
+function calcRelStrengthScore(closes, weeklyCloses, market, marketReturns) {
+  const ret = (arr, back) =>
+    arr && arr.length > back + 1
+      ? (arr[arr.length - 1] - arr[arr.length - 1 - back]) / arr[arr.length - 1 - back] * 100
+      : null;
+
+  const s1m  = ret(closes, 21);
+  const s3m  = ret(closes, 63);
+  const s6m  = ret(closes, 126);
+  const s12m = ret(weeklyCloses, 52); // 주봉 52주 ≈ 12개월
+
+  const isKosdaq = typeof market === 'string' && market.includes('KOSDAQ');
+  const bench    = isKosdaq ? marketReturns?.kosdaq : marketReturns?.kospi;
+
+  const periods = [
+    { s: s1m,  b: bench?.['1m'],  w: 0.20 },
+    { s: s3m,  b: bench?.['3m'],  w: 0.40 },
+    { s: s6m,  b: bench?.['6m'],  w: 0.25 },
+    { s: s12m, b: bench?.['12m'], w: 0.15 },
+  ];
+
+  let wSum = 0, wTotal = 0;
+  for (const { s, b, w } of periods) {
+    if (s != null && b != null) { wSum += (s - b) * w; wTotal += w; }
+  }
+
+  if (wTotal === 0) return { score: 0, excessReturn: null, available: false };
+
+  const excess = wSum / wTotal;
+  const score  = excess >= 30 ? 15
+               : excess >= 20 ? 12
+               : excess >= 10 ? 9
+               : excess >= 5  ? 6
+               : excess >= 0  ? 3
+               : 0;
+
+  return {
+    score,
+    excessReturn: Math.round(excess * 10) / 10,
+    available: true,
+    detail: {
+      s1m:  s1m  != null ? Math.round(s1m  * 10) / 10 : null,
+      s3m:  s3m  != null ? Math.round(s3m  * 10) / 10 : null,
+      s6m:  s6m  != null ? Math.round(s6m  * 10) / 10 : null,
+      s12m: s12m != null ? Math.round(s12m * 10) / 10 : null,
+      b1m:  bench?.['1m']  ?? null,
+      b3m:  bench?.['3m']  ?? null,
+      b6m:  bench?.['6m']  ?? null,
+      b12m: bench?.['12m'] ?? null,
+    },
+  };
+}
+
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
 // PBR 저평가(12) + max(PER저평가, 미래성장가점)(8) + 패닉셀링 감지(10)
 
@@ -879,6 +936,16 @@ try {
       }
     } catch (_) {}
 
+    // 시장 수익률 벤치마크 (update-recommend.js 배치가 매일 저장)
+    let marketReturns = null;
+    try {
+      const mrRaw = await timedFetch(`${_redisUrl}/get/market_returns`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (mrRaw.result) marketReturns = JSON.parse(mrRaw.result);
+      if (!marketReturns) console.warn('[analyze] market_returns 없음 — 배치 미실행 또는 Yahoo Finance 오류');
+    } catch (_) {}
+
     let marketAdj = 0;
     if (marketV4Score !== null) {
       if      (marketV4Score <= 20) marketAdj = 5;
@@ -956,7 +1023,8 @@ try {
     const techDetail  = techResult.detail;
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code);
     const korScore  = ks.total;
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj);
+    const relResult = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1031,6 +1099,7 @@ try {
       disclosures,
       atr: atrObj,
       rsRating,
+      relStrength: relResult,
       marketEnv: marketV4Score !== null ? {
         score: marketV4Score,
         adj:   marketAdj,
