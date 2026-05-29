@@ -10,7 +10,7 @@ on:
 jobs:
   classify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
 
     steps:
       - name: 코드 체크아웃

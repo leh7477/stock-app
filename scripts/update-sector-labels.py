@@ -1,8 +1,8 @@
 """
-전종목 테마 섹터 분류 스크립트 (주 1회 실행)
+전종목 테마 섹터 분류 스크립트 (분기 1회 실행)
 - recommend_v2 Redis에서 전종목 로드
 - 종목명 + KIS 업종명 → Gemini 배치 분류 → 테마 섹터명 생성
-- Redis sector_labels에 저장 (TTL 8일)
+- Redis sector_labels에 저장 (TTL 95일)
 """
 
 import os
@@ -12,6 +12,8 @@ import time
 import requests
 import logging
 from google import genai
+from google.genai.errors import ClientError
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_fixed, before_sleep_log
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -20,9 +22,10 @@ KV_URL     = os.environ["KV_REST_API_URL"]
 KV_TOKEN   = os.environ["KV_REST_API_TOKEN"]
 GEMINI_KEY = os.environ["GEMINI_API_KEY"]
 
-BATCH_SIZE    = 150   # Gemini 1회 요청당 종목 수
-BATCH_DELAY   = 2.0   # 배치 간 대기(초) — Rate Limit 방지
-TIMEOUT       = 20
+BATCH_SIZE    = 80    # 요청당 종목 수 (토큰 절약)
+BATCH_DELAY   = 12.0  # 배치 간 대기(초) — 분당 5회 이하 유지
+RETRY_WAIT    = 65    # 429 발생 시 대기(초)
+TIMEOUT       = 30
 TTL_95D       = 95 * 24 * 3600
 
 
@@ -46,8 +49,19 @@ def redis_set(key, value, ttl_sec):
     )
 
 
-# ─── Gemini 배치 분류 ─────────────────────────────────────────────────────────
+# ─── Gemini 배치 분류 (429 시 65초 후 재시도 × 3회) ─────────────────────────
 
+def _is_429(exc):
+    return isinstance(exc, ClientError) and '429' in str(exc)
+
+
+@retry(
+    retry=retry_if_exception_type(ClientError),
+    wait=wait_fixed(RETRY_WAIT),
+    stop=stop_after_attempt(3),
+    before_sleep=before_sleep_log(log, logging.WARNING),
+    reraise=True,
+)
 def classify_batch(client, stocks: list) -> dict:
     """종목 리스트 → {code: 테마명} dict 반환"""
     lines = "\n".join(
@@ -108,7 +122,7 @@ def run():
             sector_labels.update(result)
             log.info(f"       → {len(result)}개 분류 완료 (누적 {len(sector_labels)}개)")
         except Exception as e:
-            log.error(f"       → 배치 {batch_num} 실패: {e}")
+            log.error(f"       → 배치 {batch_num} 최종 실패 (3회 재시도 소진): {str(e)[:120]}")
             errors += 1
 
         if batch_num < total_batches:
@@ -119,9 +133,9 @@ def run():
     if not sector_labels:
         raise RuntimeError("분류 결과 없음 — Redis 저장 중단")
 
-    # 3. Redis 저장 (TTL 8일)
+    # 3. Redis 저장 (TTL 95일)
     redis_set("sector_labels", sector_labels, TTL_95D)
-    log.info("[3/3] Redis sector_labels 저장 완료 (TTL 95일)")
+    log.info(f"[3/3] Redis sector_labels 저장 완료 ({len(sector_labels)}개, TTL 95일)")
     log.info("=== 완료 ===")
 
 
