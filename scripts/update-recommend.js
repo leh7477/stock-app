@@ -563,10 +563,11 @@ function analyze(stock, closes, volumes, extra = {}) {
   const d5FrgnInst = _d5 ? (_d5.foreign || 0) + (_d5.inst || 0) : null;
 
   // KIS PER 사용 (DART EPS는 analyze.js에서 dart_eps 읽어 실시간 계산)
-  const finalPer = extra.per ?? 0;
-  const ks       = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '');
-  const korScore = ks.total;
-  const score    = Math.min(100, Math.round(techScore * 0.7) + korScore);
+  const finalPer  = extra.per ?? 0;
+  const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '');
+  const korScore  = ks.total;
+  const marketAdj = extra.marketAdj ?? 0;
+  const score     = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
@@ -599,7 +600,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock) {
+async function processStock(token, stock, marketAdj = 0) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -665,7 +666,7 @@ async function processStock(token, stock) {
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -696,6 +697,27 @@ async function main() {
   try   { token = await getKisToken(); }
   catch (e) { console.error('[2/4] 실패:', e.message); process.exit(1); }
 
+  // 2.5 시장환경 점수 (역발상: 공포=가점, 과열=감점)
+  let marketAdj = 0;
+  try {
+    const mv4Raw = await redisGet('market_v4');
+    const mv4 = mv4Raw ? JSON.parse(mv4Raw) : null;
+    const mv4Score = mv4?.sentiment?.score ?? null;
+    if (mv4Score !== null) {
+      if      (mv4Score <= 20) marketAdj = 5;
+      else if (mv4Score <= 30) marketAdj = 3;
+      else if (mv4Score <= 40) marketAdj = 1;
+      else if (mv4Score >= 80) marketAdj = -3;
+      else if (mv4Score >= 70) marketAdj = -2;
+      const adjSign = marketAdj > 0 ? '+' : '';
+      console.log(`      market_v4 점수: ${mv4Score}점 → 전종목 보정 ${adjSign}${marketAdj}점`);
+    } else {
+      console.log('      market_v4 없음 → 보정 0점');
+    }
+  } catch (e) {
+    console.log('      시장환경 조회 실패 (무시):', e.message);
+  }
+
   // 3. 배치 처리 (일봉 + 기본정보 + 수급)
   console.log(`[3/4] 일봉 + 기본정보 조회... (${allStocks.length}개, 배치 ${BATCH_SIZE}개)`);
   const results = [];
@@ -703,7 +725,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 

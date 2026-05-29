@@ -867,6 +867,27 @@ try {
   }
 } catch (_) {}
     
+    // 시장환경 점수 (market_v4 → sentiment.score, 역발상: 공포=가점, 과열=감점)
+    let marketV4Score = null;
+    try {
+      const mv4Raw = await timedFetch(`${_redisUrl}/get/market_v4`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (mv4Raw.result) {
+        const mv4 = JSON.parse(mv4Raw.result);
+        marketV4Score = mv4?.sentiment?.score ?? null;
+      }
+    } catch (_) {}
+
+    let marketAdj = 0;
+    if (marketV4Score !== null) {
+      if      (marketV4Score <= 20) marketAdj = 5;
+      else if (marketV4Score <= 30) marketAdj = 3;
+      else if (marketV4Score <= 40) marketAdj = 1;
+      else if (marketV4Score >= 80) marketAdj = -3;
+      else if (marketV4Score >= 70) marketAdj = -2;
+    }
+
     const investor = null;
 
     // DART 공시
@@ -935,7 +956,7 @@ try {
     const techDetail  = techResult.detail;
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code);
     const korScore  = ks.total;
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore);
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1010,6 +1031,12 @@ try {
       disclosures,
       atr: atrObj,
       rsRating,
+      marketEnv: marketV4Score !== null ? {
+        score: marketV4Score,
+        adj:   marketAdj,
+        label: marketV4Score >= 75 ? '과열' : marketV4Score >= 60 ? '탐욕' : marketV4Score >= 40 ? '중립' : marketV4Score >= 25 ? '공포' : '극도공포',
+        color: marketV4Score >= 75 ? '#dc2626' : marketV4Score >= 60 ? '#d97706' : marketV4Score >= 40 ? '#6b7280' : marketV4Score >= 25 ? '#2563eb' : '#7c3aed',
+      } : null,
     });
 
   } catch(e) {

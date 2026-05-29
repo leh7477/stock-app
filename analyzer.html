@@ -467,6 +467,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
                 <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
               </div>
               <div class="score-subdesc">기술지표(70) + 국장특화(30) 종합 (0~100점)</div>
+              <div id="r-mkt-env" style="display:none;margin-top:8px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
             </div>
           </div>
         </div>
@@ -804,6 +805,19 @@ function renderScore(score) {
   const bar = document.getElementById('r-score-bar');
   bar.style.width      = score + '%';
   bar.style.background = isGold ? 'linear-gradient(90deg,#d97706,#eab308,#d97706)' : c;
+}
+
+function renderMarketEnv(marketEnv) {
+  const el = document.getElementById('r-mkt-env');
+  if (!el) return;
+  if (!marketEnv) { el.style.display = 'none'; return; }
+  const { score, adj, label, color } = marketEnv;
+  const adjText  = adj > 0 ? `+${adj}점 가점` : adj < 0 ? `${adj}점 감점` : '보정 없음';
+  const adjColor = adj > 0 ? '#22c55e' : adj < 0 ? '#ef4444' : 'var(--muted)';
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="color:var(--muted)">시장환경</span>
+    <span style="background:${color}22;color:${color};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${label} ${score}점</span>
+    <span style="color:${adjColor};font-weight:600">${adjText} 반영</span>`;
 }
 
 function renderMAScore(maScore) {
@@ -1811,6 +1825,7 @@ function renderResult(data) {
 
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
+  renderMarketEnv(data.marketEnv);
   renderOneLiner(data);
   renderMAScore(data.maScore);
   renderKoreanScore(data.korScore);
