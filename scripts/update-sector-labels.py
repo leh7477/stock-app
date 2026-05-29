@@ -52,9 +52,13 @@ def redis_set(key, value, ttl_sec):
 
 def _is_retryable(exc: BaseException) -> bool:
     msg = str(exc)
-    return isinstance(exc, ClientError) and (
-        "429" in msg or "RESOURCE_EXHAUSTED" in msg or "rateLimitExceeded" in msg
-    ) and "PerDay" not in msg and "DAILY" not in msg.upper()
+    if not isinstance(exc, ClientError):
+        return False
+    if "503" in msg or "UNAVAILABLE" in msg or "high demand" in msg:
+        return True
+    if ("429" in msg or "RESOURCE_EXHAUSTED" in msg or "rateLimitExceeded" in msg):
+        return "PerDay" not in msg and "DAILY" not in msg.upper()
+    return False
 
 
 @retry(
