@@ -80,22 +80,36 @@ def fetch_naver_index(symbol, start=BACKFILL_START, end=None):
     return result
 
 
-def fetch_yahoo_history(symbol, days=90):
-    """Yahoo Finance 일별 종가 반환 → {date_str: close_price}"""
-    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range={days}d"
+def fetch_stooq_history(symbol, start=BACKFILL_START):
+    """stooq.com 일별 종가 반환 → {date_str: close_price}
+    symbol 예시: %5Eixic (Nasdaq ^IXIC), %5Evix (VIX ^VIX), usdkrw
+    """
+    # stooq는 YYYYMMDD 형식의 날짜 범위를 받음
+    end = datetime.datetime.now().strftime("%Y%m%d")
+    url = f"https://stooq.com/q/d/l/?s={symbol}&i=d&d1={start}&d2={end}"
     r = requests.get(url, timeout=TIMEOUT)
     r.raise_for_status()
-    chart = r.json().get("chart", {}).get("result", [None])[0]
-    if not chart:
-        return {}
-    timestamps = chart.get("timestamp", [])
-    closes = chart.get("indicators", {}).get("quote", [{}])[0].get("close", [])
+    # CSV 응답: Date,Open,High,Low,Close,Volume
     result = {}
-    for ts, price in zip(timestamps, closes):
-        if price is None:
+    lines = r.text.strip().splitlines()
+    if len(lines) < 2:
+        return result
+    header = [h.lower().strip() for h in lines[0].split(",")]
+    try:
+        date_idx  = header.index("date")
+        close_idx = header.index("close")
+    except ValueError:
+        return result
+    for line in lines[1:]:
+        parts = line.split(",")
+        if len(parts) <= max(date_idx, close_idx):
             continue
-        date = datetime.datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
-        result[date] = price
+        date_str = parts[date_idx].strip()
+        close_str = parts[close_idx].strip()
+        try:
+            result[date_str] = float(close_str)
+        except ValueError:
+            pass
     return result
 
 
@@ -176,12 +190,12 @@ def run():
     print(f"    코스피 {len(kospi_rates)}일, 코스닥 {len(kosdaq_rates)}일")
 
     # ── 2) Yahoo Finance 수집 ───────────────────────────────────
-    print("[2] Yahoo Finance 나스닥·환율·VIX 수집 중...")
-    nasdaq_prices = fetch_yahoo_history("%5EIXIC",    90)
-    time.sleep(0.5)
-    usd_prices    = fetch_yahoo_history("USDKRW%3DX", 90)
-    time.sleep(0.5)
-    vix_prices    = fetch_yahoo_history("%5EVIX",     90)
+    print("[2] stooq.com 나스닥·환율·VIX 수집 중...")
+    nasdaq_prices = fetch_stooq_history("%5Eixic")   # Nasdaq ^IXIC
+    time.sleep(1)
+    usd_prices    = fetch_stooq_history("usdkrw")    # USD/KRW
+    time.sleep(1)
+    vix_prices    = fetch_stooq_history("%5Evix")    # VIX ^VIX
 
     nasdaq_rates = prices_to_daily_rate(nasdaq_prices)
     usd_rates    = prices_to_daily_rate(usd_prices)
