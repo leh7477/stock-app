@@ -978,7 +978,19 @@ if (dartEps === null) {
   } catch (_) {}
 }
     
-    // 테마 섹터 레이블 (update-sector-labels.py 가 주 1회 저장)
+    // 해자 분석 (update-moat-analysis.py 가 분기 1회 저장)
+    let moatAnalysis = null;
+    try {
+      const maRaw = await timedFetch(`${_redisUrl}/get/moat_analysis`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (maRaw.result) {
+        const maMap = JSON.parse(maRaw.result);
+        moatAnalysis = maMap[code] || null;
+      }
+    } catch (_) {}
+
+    // 테마 섹터 레이블 (update-sector-labels.py 가 분기 1회 저장)
     let themeSector = null;
     try {
       const slRaw = await timedFetch(`${_redisUrl}/get/sector_labels`, {
@@ -1217,6 +1229,7 @@ if (dartEps === null) {
       relStrength: relResult,
       newHigh: newHighResult,
       competitors,
+      moatAnalysis,
       dartFinancials: dartFinancials ? {
         epsGrowth:       dartFinancials.epsGrowth       ?? null,
         operatingMargin: dartFinancials.operatingMargin ?? null,

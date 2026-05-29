@@ -1,0 +1,39 @@
+name: 해자 분석 생성 (분기 1회)
+
+on:
+  schedule:
+    # 분기 첫날 KST 18:00 (UTC 09:00) — sector-labels(17:00) 완료 후
+    - cron: '0 9 1 1,4,7,10 *'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 패키지 설치
+        run: pip install -r requirements.txt
+
+      - name: 해자 분석 실행
+        env:
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+        run: python scripts/update-moat-analysis.py
+
+# ──────────────────────────────────────────────────────────────────
+# 실행 주기: 분기 1회 (1·4·7·10월 1일 KST 18:00)
+# 소요 시간: ~35~45분 (125배치 × 15초 + Gemini 처리)
+# 저장 키:   moat_analysis (TTL 95일)
+# 모델:      gemini-3.1-flash-lite (RPD 500, 125배치 여유)
+# 사용처:    analyzer.html 해자 분석 카드
+# ──────────────────────────────────────────────────────────────────
