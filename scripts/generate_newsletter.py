@@ -110,7 +110,7 @@ def _generate(client: genai.Client, prompt: str) -> str:
         contents=prompt,
         config=types.GenerateContentConfig(
             temperature=0.75,
-            # tools 없음 — AFC/Function Calling 비활성화, 단 1회 요청
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         ),
     )
     return response.text.strip()
