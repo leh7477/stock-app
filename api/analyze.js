@@ -1157,6 +1157,8 @@ if (dartEps === null) {
         epsGrowth:       dartFinancials.epsGrowth       ?? null,
         operatingMargin: dartFinancials.operatingMargin ?? null,
         roe:             dartFinancials.roe             ?? null,
+        revenueGrowth:   dartFinancials.revenueGrowth   ?? null,
+        debtRatio:       dartFinancials.debtRatio       ?? null,
       } : null,
       newsBoost: newsBoostResult.score !== 0 ? newsBoostResult : null,
       marketEnv: marketV4Score !== null ? {

@@ -161,12 +161,14 @@ function getReportCandidates() {
   return candidates;
 }
 
-// ─── DART 연결재무제표 → EPS + 영업이익률 + ROE + EPS성장률 ──────────────
+// ─── DART 연결재무제표 → EPS + 영업이익률 + ROE + EPS성장률 + 매출성장률 + 부채비율 ──
 // · 분기 보고서: thstrm_amount(YTD 누적) × factor 로 연간 EPS 환산
 // · 연간 보고서: factor=1 (그대로 사용)
-// · 영업이익률 = 영업이익 / 매출액 × 100  (factor 불필요, 비율이므로)
-// · ROE = 당기순이익(지배) / 자본총계(지배) × 100
-// · EPS성장률 = (당기EPS - 전기EPS) / |전기EPS| × 100  (YoY)
+// · 영업이익률 = 영업이익 / 매출액 × 100  (비율이므로 factor 불필요)
+// · ROE       = 당기순이익 / 자본총계 × 100
+// · EPS성장률  = (당기EPS - 전기EPS) / |전기EPS| × 100  (YoY)
+// · 매출성장률 = (당기매출 - 전기매출) / |전기매출| × 100  (YoY)
+// · 부채비율   = 부채총계 / 자본총계 × 100
 
 function parseAmt(v) { return parseInt(String(v || '0').replace(/[,\s-]/g, '')) || 0; }
 function parseSigned(v) { return parseInt(String(v || '0').replace(/[,\s]/g, '')) || 0; }
@@ -257,10 +259,27 @@ async function fetchDartFinancials(corpCode) {
       if (niItem2?.thstrm_amount && eqItem?.thstrm_amount) {
         const ni = parseSigned(niItem2.thstrm_amount);
         const eq = parseAmt(eqItem.thstrm_amount);
-        if (eq > 0) roe = Math.round(ni / eq * 1000) / 10;  // 소수점 1자리
+        if (eq > 0) roe = Math.round(ni / eq * 1000) / 10;
       }
 
-      return { eps, epsGrowth, operatingMargin, roe };
+      // ── 매출 성장률 (YoY) ────────────────────────────────────────────────
+      let revenueGrowth = null;
+      if (revItem?.thstrm_amount && revItem?.frmtrm_amount) {
+        const curRev  = parseAmt(revItem.thstrm_amount);
+        const prevRev = parseAmt(revItem.frmtrm_amount);
+        if (prevRev > 0) revenueGrowth = Math.round((curRev - prevRev) / prevRev * 1000) / 10;
+      }
+
+      // ── 부채비율 = 부채총계 / 자본총계 × 100 ────────────────────────────
+      let debtRatio = null;
+      const debtItem = list.find(r => isBS(r) && r.account_nm === '부채총계');
+      if (debtItem?.thstrm_amount && eqItem?.thstrm_amount) {
+        const debt = parseAmt(debtItem.thstrm_amount);
+        const eq2  = parseAmt(eqItem.thstrm_amount);
+        if (eq2 > 0) debtRatio = Math.round(debt / eq2 * 1000) / 10;
+      }
+
+      return { eps, epsGrowth, operatingMargin, roe, revenueGrowth, debtRatio };
 
     } catch (_) {
       continue;
