@@ -25,6 +25,7 @@
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5512272233044941" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
 <style>
 :root {
   --bg:     #f2f4f8;
@@ -87,6 +88,29 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .mkt-chg.up   { color:#dc2626; }
 .mkt-chg.dn   { color:#2563eb; }
 .mkt-chg.flat { color:var(--muted); }
+/* ── 마켓스코어 상세 패널 ── */
+.mkt-detail-btn { display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:var(--muted); cursor:pointer; padding:5px 0; border:none; background:none; user-select:none; transition:.15s; }
+.mkt-detail-btn:hover { color:var(--blue); }
+.mkt-detail-btn .arr { transition:transform .25s; display:inline-block; }
+.mkt-detail-btn.open .arr { transform:rotate(180deg); }
+.mkt-detail { overflow:hidden; max-height:0; transition:max-height .35s cubic-bezier(.4,0,.2,1); }
+.mkt-detail.open { max-height:600px; }
+.mkt-detail-inner { padding:12px 0 14px; border-top:1px solid var(--border); }
+/* 컴포넌트 바 */
+.ms-comp-list { display:flex; flex-direction:column; gap:7px; margin-bottom:14px; }
+.ms-comp-row { display:grid; grid-template-columns:80px 1fr 32px; align-items:center; gap:8px; }
+.ms-comp-name { font-size:11px; font-weight:600; color:var(--sub); white-space:nowrap; }
+.ms-comp-track { height:8px; background:var(--bg); border-radius:99px; overflow:hidden; position:relative; }
+.ms-comp-fill { height:100%; border-radius:99px; transition:width .6s cubic-bezier(.4,0,.2,1); }
+.ms-comp-val { font-size:11px; font-weight:700; color:var(--text); text-align:right; }
+.ms-comp-null { font-size:10px; color:var(--muted); text-align:center; }
+/* MA 정보 */
+.ms-ma-info { font-size:11px; color:var(--muted); margin-bottom:12px; }
+.ms-ma-info b { color:var(--text); }
+/* 추이 차트 */
+.ms-chart-wrap { position:relative; }
+.ms-chart-title { font-size:11px; font-weight:700; color:var(--sub); margin-bottom:6px; }
+#ms-trend-chart { width:100%; height:110px; }
 /* 업데이트 날짜 — TOP10 우측 */
 .result-cnt { font-size: 12px; color: var(--muted); }
 
@@ -623,6 +647,7 @@ let curOffset   = 0;
 let totalCount  = 0;
 let totalAll    = 0;
 let ddIdx       = -1;   // 드롭다운 키보드 인덱스
+let _mktTrendChart = null;
 
 // ── 초성 검색 ──────────────────────────────────────────
 const CHOSUNG = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
@@ -955,9 +980,11 @@ async function loadMarket() {
     const kospi  = d.kospi;
     const kosdaq = d.kosdaq;
     const usd    = d.usdkrw;
+    const nasdaq = d.nasdaq;
+    const vix    = d.vix;
     const senti  = d.sentiment || {};
 
-    // senti.score: 0~100 연속값 (api/market.js calcSentiment)
+    // senti.score: 0~100 연속값 (api/market.js)
     const pct = typeof senti.score === 'number' ? senti.score : 50;
 
     const bar = document.getElementById('mkt-bar-inner');
@@ -969,35 +996,146 @@ async function loadMarket() {
           <span class="mkt-score-sep">,</span>
           <span class="mkt-score-stage" style="color:${senti.color||'#6b7280'}">${senti.label||'중립'} 단계입니다</span>
         </div>
-        ${miniGaugeSVG(pct)}
+        <div style="display:flex;align-items:center;gap:6px;">
+          ${miniGaugeSVG(pct)}
+          <button class="mkt-detail-btn" id="mkt-detail-btn" onclick="toggleMktDetail()">상세 <span class="arr">▾</span></button>
+        </div>
       </div>
       <div class="mkt-ticker-row">
-        ${kospi ? `
-        <div class="mkt-item">
-          <div>
-            <div class="mkt-label">코스피</div>
-            <div class="mkt-price">${fmtMktNum(kospi.price)}</div>
+        ${kospi  ? `<div class="mkt-item"><div><div class="mkt-label">코스피</div><div class="mkt-price">${fmtMktNum(kospi.price)}</div></div><div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)}<br><span style="font-size:10px;">(${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</span></div></div>` : ''}
+        ${kosdaq ? `<div class="mkt-item"><div><div class="mkt-label">코스닥</div><div class="mkt-price">${fmtMktNum(kosdaq.price)}</div></div><div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)}<br><span style="font-size:10px;">(${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</span></div></div>` : ''}
+        ${usd    ? `<div class="mkt-item"><div><div class="mkt-label">달러/원</div><div class="mkt-price">${fmtMktNum(usd.price,1)}<span style="font-size:11px;color:var(--muted);margin-left:2px;">원</span></div></div><div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)}<br><span style="font-size:10px;">(${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</span></div></div>` : ''}
+        ${nasdaq ? `<div class="mkt-item"><div><div class="mkt-label">나스닥</div><div class="mkt-price">${fmtMktNum(nasdaq.price,0)}</div></div><div class="mkt-chg ${chgClass(nasdaq.changeRate)}">${chgSign(nasdaq.change)}${fmtMktNum(nasdaq.change,1)}<br><span style="font-size:10px;">(${chgSign(nasdaq.changeRate)}${fmtMktNum(nasdaq.changeRate)}%)</span></div></div>` : ''}
+        ${vix    ? `<div class="mkt-item"><div><div class="mkt-label">VIX</div><div class="mkt-price">${fmtMktNum(vix.price,1)}</div></div><div style="font-size:11px;color:var(--muted);">공포지수</div></div>` : ''}
+      </div>
+      <div class="mkt-detail" id="mkt-detail">
+        <div class="mkt-detail-inner">
+          <div class="ms-comp-list" id="ms-comp-list"></div>
+          <div class="ms-ma-info" id="ms-ma-info"></div>
+          <div class="ms-chart-wrap">
+            <div class="ms-chart-title">📈 30일 마켓스코어 추이</div>
+            <div id="ms-trend-chart"></div>
           </div>
-          <div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)}<br><span style="font-size:10px;">(${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</span></div>
-        </div>` : ''}
-        ${kosdaq ? `
-        <div class="mkt-item">
-          <div>
-            <div class="mkt-label">코스닥</div>
-            <div class="mkt-price">${fmtMktNum(kosdaq.price)}</div>
-          </div>
-          <div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)}<br><span style="font-size:10px;">(${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</span></div>
-        </div>` : ''}
-        ${usd ? `
-        <div class="mkt-item">
-          <div>
-            <div class="mkt-label">달러/원</div>
-            <div class="mkt-price">${fmtMktNum(usd.price, 1)}<span style="font-size:11px;color:var(--muted);margin-left:2px;">원</span></div>
-          </div>
-          <div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)}<br><span style="font-size:10px;">(${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</span></div>
-        </div>` : ''}
+        </div>
       </div>
     `;
+    renderMktDetail(senti);
+    loadMktHistory();
+  } catch(_) {}
+}
+
+// ── 마켓스코어 상세 패널 ──────────────────────────────
+
+function toggleMktDetail() {
+  const panel = document.getElementById('mkt-detail');
+  const btn   = document.getElementById('mkt-detail-btn');
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  if (btn) btn.classList.toggle('open', open);
+  // 패널 열릴 때 차트 리사이즈 (hidden에서 초기화 시 0×0 방지)
+  if (open && _mktTrendChart) {
+    setTimeout(() => _mktTrendChart.resize(), 50);
+  }
+}
+
+const COMP_LABELS = {
+  indexPos: '지수 위치',
+  supply:   '수급 균형',
+  trading:  '거래 대금',
+  nasdaq:   '나스닥',
+  usd:      '달러/원',
+  vix:      'VIX',
+  news:     '뉴스 심리',
+};
+
+function compBarColor(score) {
+  if (score >= 70) return '#16a34a';
+  if (score >= 55) return '#65a30d';
+  if (score >= 45) return '#9ca3af';
+  if (score >= 30) return '#2563eb';
+  return '#7c3aed';
+}
+
+function renderMktDetail(senti) {
+  const compList = document.getElementById('ms-comp-list');
+  const maInfo   = document.getElementById('ms-ma-info');
+  if (!compList) return;
+
+  const comps = senti.components || {};
+  compList.innerHTML = Object.entries(COMP_LABELS).map(([key, label]) => {
+    const c  = comps[key] || {};
+    const sc = c.score;
+    if (sc == null) {
+      return `<div class="ms-comp-row">
+        <div class="ms-comp-name">${label}</div>
+        <div class="ms-comp-track"><div class="ms-comp-fill" style="width:50%;background:#e5e7eb;"></div></div>
+        <div class="ms-comp-null">—</div>
+      </div>`;
+    }
+    const col = compBarColor(sc);
+    return `<div class="ms-comp-row">
+      <div class="ms-comp-name">${label}</div>
+      <div class="ms-comp-track"><div class="ms-comp-fill" style="width:${sc}%;background:${col};"></div></div>
+      <div class="ms-comp-val" style="color:${col}">${Math.round(sc)}</div>
+    </div>`;
+  }).join('');
+
+  if (maInfo) {
+    const raw = senti.rawScore;
+    const ma  = senti.ma20;
+    const n   = senti.maLen || 0;
+    maInfo.innerHTML = (ma != null && n > 0)
+      ? `당일 원점수 <b>${raw}</b>점 · ${n}일 이동평균 <b>${ma}</b>점 → 최종 <b>${senti.score}</b>점`
+      : `당일 점수 <b>${senti.score}</b>점 (이력 부족, MA 미적용)`;
+  }
+}
+
+async function loadMktHistory() {
+  try {
+    const d = await fetch('/api/market-history?days=30').then(r => r.json());
+    if (!d.success || !d.history?.length) return;
+
+    const dates  = d.history.map(h => h.date.slice(5));   // MM-DD
+    const scores = d.history.map(h => h.score);
+
+    const el = document.getElementById('ms-trend-chart');
+    if (!el || typeof echarts === 'undefined') return;
+
+    if (_mktTrendChart) { _mktTrendChart.dispose(); }
+    _mktTrendChart = echarts.init(el);
+    _mktTrendChart.setOption({
+      grid: { top: 8, right: 8, bottom: 20, left: 28 },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLabel: { fontSize: 9, color: '#9ca3af' },
+        axisLine:  { lineStyle: { color: '#e5e7eb' } },
+        axisTick:  { show: false },
+      },
+      yAxis: {
+        type:  'value',
+        min:   0,
+        max:   100,
+        splitNumber: 2,
+        axisLabel:  { fontSize: 9, color: '#9ca3af' },
+        splitLine:  { lineStyle: { color: '#f3f4f6', type: 'dashed' } },
+      },
+      series: [{
+        type: 'line',
+        data: scores,
+        smooth: true,
+        symbolSize: 4,
+        lineStyle: { color: '#2563eb', width: 2 },
+        itemStyle:  { color: '#2563eb' },
+        areaStyle:  { color: { type:'linear', x:0, y:0, x2:0, y2:1,
+          colorStops: [{ offset:0, color:'rgba(37,99,235,.18)' }, { offset:1, color:'rgba(37,99,235,0)' }] } },
+      }],
+      tooltip: {
+        trigger: 'axis',
+        formatter: p => `${p[0].name}<br>마켓스코어 <b>${p[0].value}</b>점`,
+        textStyle: { fontSize: 11 },
+      },
+    });
   } catch(_) {}
 }
 
