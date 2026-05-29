@@ -530,7 +530,7 @@ function calcDisclosureBonus(disclosures) {
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
 // PBR(8) + max(PER저평가[10], 섹터프리미엄[14])(14) + 수급(4) + 공포보너스(+4) + 공시(±2)
 // 슈퍼사이클 주도주(삼성전자·하이닉스 등)도 90점대 진입 가능한 구조
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '') {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -538,7 +538,6 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const pbrScore = pbr > 0 ? Math.max(0, 8 * (1.5 - pbr) / 1.5) : 0;
 
   // 섹터 프리미엄 vs PER 저평가 (최대 14점, 높은 값 선택)
-  // 반도체/방산 슈퍼사이클(14점) ↔ 극도 저평가 가치주(PER≤8배, ~10점)
   const secScore  = sectorGrowthScore(sector, stockName, stockCode);
   const perScore  = per > 0 ? Math.max(0, 10 * (25 - per) / 25) : 0;
   const perFinal  = Math.max(perScore, secScore);
@@ -573,12 +572,46 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 공시 모멘텀 (-2 ~ +2점)
   const discScore = calcDisclosureBonus(disclosures);
 
-  const total = Math.min(30, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore));
+  // ── DART 재무 보너스 (분기 1회, CAN SLIM A·C 기준) ────────────────────────
+  let roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0;
+  if (dartFin) {
+    // ROE — CAN SLIM A: 17% 기준
+    if (dartFin.roe !== null) {
+      if      (dartFin.roe >= 25) roScore = 5;
+      else if (dartFin.roe >= 17) roScore = 4;
+      else if (dartFin.roe >= 10) roScore = 2;
+    }
+    // EPS 성장률 — CAN SLIM C: 25% 기준
+    if (dartFin.epsGrowth !== null) {
+      if      (dartFin.epsGrowth >= 50) epsGScore = 5;
+      else if (dartFin.epsGrowth >= 25) epsGScore = 4;
+      else if (dartFin.epsGrowth >= 10) epsGScore = 2;
+    }
+    // 영업이익률
+    if (dartFin.operatingMargin !== null) {
+      if      (dartFin.operatingMargin >= 20) opMarginScore = 3;
+      else if (dartFin.operatingMargin >= 10) opMarginScore = 1;
+    }
+    // 매출 성장률
+    if (dartFin.revenueGrowth !== null) {
+      if      (dartFin.revenueGrowth >= 20) revGScore = 2;
+      else if (dartFin.revenueGrowth >= 10) revGScore = 1;
+    }
+    // 부채비율 감점
+    if (dartFin.debtRatio !== null) {
+      if      (dartFin.debtRatio >= 300) debtPenalty = -4;
+      else if (dartFin.debtRatio >= 200) debtPenalty = -3;
+      else if (dartFin.debtRatio >= 150) debtPenalty = -1;
+    }
+  }
+
+  const total = Math.min(40, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore + roScore + epsGScore + opMarginScore + revGScore + debtPenalty));
   return { total,
            pbrScore:    Math.round(pbrScore * 10) / 10,
            perScore:    Math.round(perScore * 10) / 10,
            perFinal:    Math.round(perFinal * 10) / 10,
-           supplyScore, panicScore, discScore, drawdown, isIVExtreme };
+           supplyScore, panicScore, discScore, drawdown, isIVExtreme,
+           roScore, epsGScore, opMarginScore, revGScore, debtPenalty };
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -1126,7 +1159,7 @@ if (dartEps === null) {
     const techResult  = calcScore(closes, volumes, boll);
     const techScore   = techResult.total;
     const techDetail  = techResult.detail;
-    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials);
     const korScore  = ks.total;
     const relResult          = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult    = calcNewsBoost(code, sector2, name, newsBoost);

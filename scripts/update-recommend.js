@@ -500,7 +500,7 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '') {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -536,12 +536,47 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   }
 
   const discScore = calcDisclosureBonus(disclosures);
-  const total = Math.min(30, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore));
+
+  // ── DART 재무 보너스 (분기 1회, CAN SLIM A·C 기준) ────────────────────────
+  let roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0;
+  if (dartFin) {
+    // ROE — CAN SLIM A: 17% 기준
+    if (dartFin.roe !== null) {
+      if      (dartFin.roe >= 25) roScore = 5;
+      else if (dartFin.roe >= 17) roScore = 4;
+      else if (dartFin.roe >= 10) roScore = 2;
+    }
+    // EPS 성장률 — CAN SLIM C: 25% 기준
+    if (dartFin.epsGrowth !== null) {
+      if      (dartFin.epsGrowth >= 50) epsGScore = 5;
+      else if (dartFin.epsGrowth >= 25) epsGScore = 4;
+      else if (dartFin.epsGrowth >= 10) epsGScore = 2;
+    }
+    // 영업이익률
+    if (dartFin.operatingMargin !== null) {
+      if      (dartFin.operatingMargin >= 20) opMarginScore = 3;
+      else if (dartFin.operatingMargin >= 10) opMarginScore = 1;
+    }
+    // 매출 성장률
+    if (dartFin.revenueGrowth !== null) {
+      if      (dartFin.revenueGrowth >= 20) revGScore = 2;
+      else if (dartFin.revenueGrowth >= 10) revGScore = 1;
+    }
+    // 부채비율 감점
+    if (dartFin.debtRatio !== null) {
+      if      (dartFin.debtRatio >= 300) debtPenalty = -4;
+      else if (dartFin.debtRatio >= 200) debtPenalty = -3;
+      else if (dartFin.debtRatio >= 150) debtPenalty = -1;
+    }
+  }
+
+  const total = Math.min(40, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore + roScore + epsGScore + opMarginScore + revGScore + debtPenalty));
   return { total,
            pbrScore:    Math.round(pbrScore * 10) / 10,
            perScore:    Math.round(perScore * 10) / 10,
            perFinal:    Math.round(perFinal * 10) / 10,
-           supplyScore, panicScore, discScore, drawdown, isIVExtreme };
+           supplyScore, panicScore, discScore, drawdown, isIVExtreme,
+           roScore, epsGScore, opMarginScore, revGScore, debtPenalty };
 }
 
 function maSignal(price, ma) {
@@ -660,7 +695,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
   // KIS PER 사용 (DART EPS는 analyze.js에서 dart_eps 읽어 실시간 계산)
   const finalPer  = extra.per ?? 0;
-  const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '');
+  const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '', extra.dartFin ?? null);
   const korScore  = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
   const relResult            = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
@@ -700,7 +735,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null) {
+async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -766,7 +801,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns, newsBoost }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -824,7 +859,21 @@ async function main() {
     console.log('      시장환경 조회 실패 (무시):', e.message);
   }
 
-  // 2.7 뉴스 가점/감점 데이터 (generate_newsletter.py 가 저장)
+  // 2.7 DART 재무지표 (update-dart-eps.js 가 분기 1회 저장)
+  let dartFinancialsMap = null;
+  try {
+    const dfRaw = await redisGet('dart_financials');
+    if (dfRaw) {
+      dartFinancialsMap = JSON.parse(dfRaw);
+      console.log(`      dart_financials: ${Object.keys(dartFinancialsMap).length}개 종목 로드`);
+    } else {
+      console.log('      dart_financials 없음 — ROE/EPS성장률 미반영');
+    }
+  } catch (e) {
+    console.log('      dart_financials 조회 실패 (무시):', e.message);
+  }
+
+  // 2.8 뉴스 가점/감점 데이터 (generate_newsletter.py 가 저장)
   let newsBoost = null;
   try {
     const nbRaw = await redisGet('news_boost');
@@ -845,7 +894,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 
