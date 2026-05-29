@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 # ─── 뉴스 수집 ───────────────────────────────────────────────────────────────
 
 def fetch_news() -> str:
-    """Google News RSS에서 한국 증시 최신 뉴스 15건 수집"""
+    """Google News RSS에서 한국 증시 최신 뉴스 15건 수집 (URL 포함)"""
     url = (
         "https://news.google.com/rss/search"
         "?q=코스피+코스닥+주식시장+증시&hl=ko&gl=KR&ceid=KR:ko"
@@ -43,9 +43,10 @@ def fetch_news() -> str:
         lines = []
         for item in items:
             title   = item.findtext("title",   "").strip()
+            link    = item.findtext("link",    "#").strip() or item.findtext("guid", "#").strip()
             pubdate = item.findtext("pubDate", "").strip()
             if title:
-                lines.append(f"- {title}  [{pubdate}]")
+                lines.append(f"- 제목: {title}\n  URL: {link}\n  날짜: {pubdate}")
         result = "\n".join(lines)
         log.info(f"[news] {len(lines)}건 수집 완료")
         return result or "(뉴스 수집 결과 없음)"
@@ -156,57 +157,88 @@ def run():
     # 2단계: Gemini에 단 1회 요청
     log.info(f"[step 2] Gemini 브리핑 생성 시작 ({today})...")
 
-    prompt = f"""오늘은 {today}이다. 지금은 한국 주식시장 개장 전 아침 8시다.
+    prompt = f"""오늘은 {today}이다.
 
 [사전 수집된 시장 데이터]
 {market_text}
 
-[사전 수집된 최신 뉴스 헤드라인]
+[사전 수집된 당일 뉴스 데이터]
 {news_text}
 
+---
+
 [역할 및 페르소나]
-너는 대한민국 주식 시장(국장)의 하루 흐름을 날카롭고 명쾌하게 요약하여 투자자들에게 전달하는
-전문 뉴스레터 에디터이자 최고의 증시 분석가다.
+너는 대한민국 주식 시장(국장)의 하루 흐름을 날카롭고 명쾌하게 요약하여 투자자들에게 전달하는 전문 뉴스레터 에디터이자 최고의 증시 분석가이다.
 단순한 사실 나열을 넘어 시장의 맥락을 짚어내고, 초보 투자자도 쉽게 이해할 수 있는 친절한 톤앤매너를 유지해라.
 
 [작성 원칙]
-- 위에 제공된 시장 데이터와 뉴스 헤드라인을 반드시 활용하라. 추가 검색은 하지 않는다.
-- 아래 [HTML 구조]를 반드시 그대로 지켜라. 마크다운, 코드블록, 추가 설명 없이 순수 HTML만 출력해라.
-- 금융 전문 용어는 쉽게 풀어 설명하고, 독자에게 '지적 즐거움'을 주는 비하인드 스토리를 반드시 포함해라.
+- 제공되는 당일 시황 및 뉴스 데이터를 바탕으로 아래 [Content Guidelines]의 HTML 구조를 엄격히 준수하여 한국어로 작성해라.
+- 금융 전문 용어는 쉽게 풀어서 설명하고, 독자에게 '지적 즐거움(Intellectual Entertainment)'을 선사하는 비하인드 스토리를 반드시 포함해라.
 
-[HTML 구조 — 이 형식 외 어떤 텍스트도 출력 금지]
+---
 
-<h1 class="nl-headline">[오늘 국장 흐름을 단 한 줄로 요약하는 매력적인 제목]</h1>
+[Content Guidelines]
+
+1. **Main Headline**
+   - 오늘 하루 대한민국 증시(국장)의 전체적인 흐름을 단 한 줄로 요약하는 캐치하고 매력적인 한글 제목을 작성해라.
+
+2. **Section 1: Market Flow**
+   - **H2 Title**: 오늘 코스피/코스닥 시황을 요약하는 임팩트 있는 한 문장 문구. (예: '코스피, 외인·기관 양매도에 2,550선 후퇴…반도체 동반 약세')
+   - **Content**: 코스피와 코스닥 지수의 마감 수치, 등락 폭, 그리고 시장을 움직인 핵심 수급 주체(외인, 기관, 개인)의 움직임과 하락/상승 원인을 2~3문장으로 명확히 요약해라.
+   - **H3 (Sub)**: '읽기쉬운 해석' (오늘 시장이 왜 이렇게 움직였는지 주식 초보자도 바로 이해할 수 있도록 거시경제나 대외 변수와 연결하여 쉽게 설명해라.)
+
+3. **Section 2: Focus Issue**
+   - **H2 Title**: 오늘 국장에서 가장 뜨거웠던 최고의 핵심 이슈나 주도 테마를 제목으로 작성해라. (예: '고려아연 경영권 분쟁 격화, 지분 싸움에 장중 변동성 극대화')
+   - **Content**: 오늘 시장을 뒤흔든 가장 중요한 #1 뉴스 또는 테마의 타임라인과 구체적인 현황을 딥다이브하여 상세히 분석해라.
+   - **H3 (Sub)**: '시장 영향력 분석' (이 이슈가 오늘 국장 전체 또는 특정 섹터에 왜 강력한 영향을 미쳤는지 그 중요성을 서술해라.)
+   - **H3 (Sub)**: '향후 관점 포인트' (투자자들이 앞으로 이 이슈와 관련해서 어떤 후속 뉴스나 일정, 변수를 눈여겨보아야 하는지 가이드를 제시해라.)
+
+4. **Section 3: Sector Watch**
+   - **H2 Title**: '주요 대형주 및 섹터 동향'
+   - **Content**: 주도 테마 외에 오늘 주목해야 할 국장의 3가지 핵심 뉴스나 섹터(예: 2차전지, 바이오, 엔터, 원전 등)의 개별 종목 흐름을 픽업해라.
+   - **Format**: 아래의 HTML 형식을 반드시 칼같이 지켜서 리스트 형태로 출력해라. 뉴스 원본에 제공된 실제 URL이 있다면 매핑하고, 없다면 '#'으로 처리해라.
+   `<li><b><a href='URL' target='_blank'>[섹터명/종목명] 뉴스 및 종목 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약...</li>`
+
+5. **Section 4: Yeouido TMI (Fun/Interesting Fact)**
+   - **H2 Title**: '오늘의 여의도 TMI & 비하인드'
+   - **Content**: 흔한 증시 리포트의 딱딱한 분석 대신, 오늘 급등락한 기업의 역사적 배경, CEO의 과거 흥미로운 발언, 과거 증시 역사 속 유사 사례, 혹은 여의도 증권가 찌라시 뒤편의 비하인드 스토리 등 흥미진진하고 약간은 숨겨진 이야기를 들려주어라.
+   - **Goal**: 독자가 글을 읽고 무릎을 탁 칠 만한 흥미롭고 유익한 'Intellectual Entertainment'를 제공해야 한다.
+
+---
+
+[HTML 출력 형식 — 마크다운·코드블록·추가 설명 없이 순수 HTML만 출력]
+
+<h1 class="nl-headline">[Main Headline]</h1>
 <p class="nl-meta">{today} · 썸팁 국장 브리핑</p>
 
 <section class="nl-section">
-<h2>[전일 마감·미국 시장·오늘 예상 흐름을 담은 임팩트 있는 한 문장]</h2>
-<p>[전날 코스피·코스닥 마감 수치, 미국 나스닥·S&P500 야간 흐름, 오늘 국장 방향 예상 2~3문장]</p>
+<h2>[Section 1 H2]</h2>
+<p>[Section 1 Content]</p>
 <h3>읽기쉬운 해석</h3>
-<p>[주식 초보자도 이해할 수 있도록 왜 이런 흐름인지 거시경제·대외 변수와 연결해 쉽게 설명]</p>
+<p>[Interpretation]</p>
 </section>
 
 <section class="nl-section">
-<h2>[오늘 국장에서 가장 뜨거울 핵심 이슈·테마 제목]</h2>
-<p>[오늘 시장을 움직일 핵심 이슈 타임라인과 현황 딥다이브 분석]</p>
+<h2>[Section 2 H2]</h2>
+<p>[Section 2 Content]</p>
 <h3>시장 영향력 분석</h3>
-<p>[이 이슈가 왜 중요한지, 어떤 섹터에 어떤 영향을 미치는지]</p>
+<p>[Market Impact Analysis]</p>
 <h3>향후 관점 포인트</h3>
-<p>[투자자들이 오늘·이번 주 체크해야 할 후속 뉴스·일정·변수 가이드]</p>
+<p>[Future Viewpoints]</p>
 </section>
 
 <section class="nl-section">
 <h2>주요 대형주 및 섹터 동향</h2>
 <ul class="nl-list">
-<li><b>[섹터/종목] 뉴스 타이틀</b><br> - 핵심 내용 및 주가 움직임 요약</li>
-<li><b>[섹터/종목] 뉴스 타이틀</b><br> - 핵심 내용 및 주가 움직임 요약</li>
-<li><b>[섹터/종목] 뉴스 타이틀</b><br> - 핵심 내용 및 주가 움직임 요약</li>
+<li><b><a href='URL' target='_blank'>[섹터명/종목명] 뉴스 및 종목 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약</li>
+<li><b><a href='URL' target='_blank'>[섹터명/종목명] 뉴스 및 종목 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약</li>
+<li><b><a href='URL' target='_blank'>[섹터명/종목명] 뉴스 및 종목 타이틀</a></b><br> - 핵심 내용 및 주가 움직임 요약</li>
 </ul>
 </section>
 
 <section class="nl-section">
 <h2>오늘의 여의도 TMI &amp; 비하인드</h2>
-<p>[오늘 이슈와 관련된 흥미롭고 숨겨진 비하인드 스토리. 무릎을 탁 칠 만한 Intellectual Entertainment]</p>
+<p>[TMI Content]</p>
 </section>"""
 
     client = genai.Client(api_key=api_key)
