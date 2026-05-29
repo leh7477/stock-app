@@ -85,7 +85,7 @@ def classify_batch(client, stocks: list) -> dict:
 - 테마명은 12자 이내
 - 반드시 JSON 형식으로만 응답: {{"종목코드": "테마명", ...}}"""
 
-    resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
+    resp = client.models.generate_content(model="gemini-3.1-flash-lite", contents=prompt)
     text = resp.text.strip()
 
     m = re.search(r"\{[\s\S]+\}", text)
