@@ -1209,7 +1209,7 @@ if (dartEps === null) {
 
         const sameSecStocks = rv2Stocks
           .filter(s => slMap2[s.code] === themeSector)
-          .sort((a, b) => b.score - a.score)
+          .sort((a, b) => (b.mktCap || 0) - (a.mktCap || 0))
           .slice(0, 6);
 
         if (sameSecStocks.length > 1) {
