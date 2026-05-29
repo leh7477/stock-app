@@ -314,6 +314,18 @@ function calcScore(closes, volumes, boll) {
 
 // ── AI 브리핑 뉴스 기반 가점/감점 (±3pt) ────────────────────────────────────
 // 종목 코드 직접 매칭 ±3pt / 섹터 키워드 매칭 ±2pt / 둘 다 해당해도 max ±3pt
+// ─── 52주 신고가 근접도 (CAN SLIM N) ─────────────────────────────────────────
+// 신고가 돌파 +5pt / 5% 이내 +3pt / 10% 이내 +1pt
+function calc52WkHighScore(closes) {
+  if (!closes || closes.length < 20) return { score: 0, pctFromHigh: null };
+  const cur     = closes[closes.length - 1];
+  const period  = Math.min(252, closes.length);
+  const high52w = Math.max(...closes.slice(-period));
+  const pct     = (cur - high52w) / high52w * 100;  // 0 이상이면 신고가 돌파
+  const score   = pct >= 0 ? 5 : pct >= -5 ? 3 : pct >= -10 ? 1 : 0;
+  return { score, pctFromHigh: Math.round(pct * 10) / 10, high52w };
+}
+
 function calcNewsBoost(code, sector, name, newsBoost) {
   if (!newsBoost) return { score: 0, reason: null };
   const { boostCodes = [], boostSectors = [], penaltyCodes = [], penaltySectors = [] } = newsBoost;
@@ -622,6 +634,7 @@ function calcMidLongTarget(cur, per, pbr, growthScore, tag, ma60) {
 function buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
   const n   = closes.length - 1;
   const cur = closes[n];
+  const { pctFromHigh } = calc52WkHighScore(closes);
   const ma5  = ma5arr[n]  || 0;
   const ma20 = ma20arr[n] || 0;
   const ma60 = ma60arr[n] || 0;
@@ -673,6 +686,18 @@ function buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
       status: supportGapPct > 7 ? 'ok' : supportGapPct > 3 ? 'warn' : 'fail',
       label: '손절 여유',
       desc:  `20일 지지선 ${supportNum.toLocaleString()}원 · 현재가에서 -${supportGapPct.toFixed(1)}% 아래`,
+    },
+    {
+      status: pctFromHigh === null ? 'warn'
+             : pctFromHigh >= 0   ? 'ok'
+             : pctFromHigh >= -5  ? 'ok'
+             : pctFromHigh >= -10 ? 'warn' : 'fail',
+      label: '52주 신고가',
+      desc:  pctFromHigh === null  ? '데이터 부족' :
+             pctFromHigh >= 0      ? `신고가 돌파 중 — CAN SLIM N 조건 충족 (+${pctFromHigh.toFixed(1)}%)` :
+             pctFromHigh >= -5     ? `신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 이내 — 돌파 임박` :
+             pctFromHigh >= -10    ? `신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 아래 — 진입 검토 가능` :
+                                     `신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 아래 — 아직 이르다`,
     },
   ];
 }
@@ -1077,7 +1102,8 @@ if (dartEps === null) {
     const korScore  = ks.total;
     const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score);
+    const newHighResult   = calc52WkHighScore(closes);
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score + newHighResult.score);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1153,6 +1179,7 @@ if (dartEps === null) {
       atr: atrObj,
       rsRating,
       relStrength: relResult,
+      newHigh: newHighResult,
       dartFinancials: dartFinancials ? {
         epsGrowth:       dartFinancials.epsGrowth       ?? null,
         operatingMargin: dartFinancials.operatingMargin ?? null,

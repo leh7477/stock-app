@@ -552,6 +552,17 @@ function maSignal(price, ma) {
   return 'neutral';
 }
 
+// ─── 52주 신고가 근접도 (CAN SLIM N) ─────────────────────────────────────────
+function calc52WkHighScore(closes) {
+  if (!closes || closes.length < 20) return { score: 0, pctFromHigh: null };
+  const cur     = closes[closes.length - 1];
+  const period  = Math.min(252, closes.length);
+  const high52w = Math.max(...closes.slice(-period));
+  const pct     = (cur - high52w) / high52w * 100;
+  const score   = pct >= 0 ? 5 : pct >= -5 ? 3 : pct >= -10 ? 1 : 0;
+  return { score, pctFromHigh: Math.round(pct * 10) / 10, high52w };
+}
+
 function calcNewsBoost(code, sector, name, newsBoost) {
   if (!newsBoost) return { score: 0 };
   const { boostCodes = [], boostSectors = [], penaltyCodes = [], penaltySectors = [] } = newsBoost;
@@ -638,7 +649,8 @@ function analyze(stock, closes, volumes, extra = {}) {
   const marketAdj       = extra.marketAdj ?? 0;
   const relResult       = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
   const newsBoostResult = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
-  const score           = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score);
+  const newHighResult   = calc52WkHighScore(closes);
+  const score           = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score + newHighResult.score);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';

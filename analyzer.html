@@ -472,6 +472,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
               <div id="r-mkt-env" style="display:none;margin-top:8px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-rel-strength" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-news-boost" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
+              <div id="r-new-high" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
             </div>
           </div>
         </div>
@@ -836,6 +837,22 @@ function renderRelStrength(rel) {
     <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${sign}${excessReturn}%</span>
     <span style="color:${c};font-weight:600">+${score}점 반영</span>
     <span style="color:var(--muted);font-size:10px">1m:${detail.s1m??'-'}% 3m:${detail.s3m??'-'}% 6m:${detail.s6m??'-'}% 12m:${detail.s12m??'-'}%</span>`;
+}
+
+function renderNewHigh(nh) {
+  const el = document.getElementById('r-new-high');
+  if (!el) return;
+  if (!nh || nh.score === 0) { el.style.display = 'none'; return; }
+  const { score, pctFromHigh } = nh;
+  const isBreakout = pctFromHigh >= 0;
+  const c = isBreakout ? '#22c55e' : '#2563eb';
+  const label = isBreakout
+    ? `52주 신고가 돌파 +${pctFromHigh.toFixed(1)}%`
+    : `52주 신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 이내`;
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="color:var(--muted)">52주 신고가 📈</span>
+    <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${label}</span>
+    <span style="color:${c};font-weight:600">+${score}점 반영</span>`;
 }
 
 function renderMarketEnv(marketEnv) {
@@ -1861,6 +1878,7 @@ function renderResult(data) {
   renderScore(data.score ?? 50);
   renderRelStrength(data.relStrength);
   renderNewsBoost(data.newsBoost);
+  renderNewHigh(data.newHigh);
   renderMarketEnv(data.marketEnv);
   renderOneLiner(data);
   renderMAScore(data.maScore);
