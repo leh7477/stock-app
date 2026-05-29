@@ -371,17 +371,17 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <a href="/" class="active">국장 분석기</a>
       <a href="/analyzer.html">상세 지표</a>
       <a href="#" onclick="switchTab('news');return false;">뉴스·공시</a>
-      <a href="/today.html">오늘의 브리핑</a>
+      <a href="/today.html">AI 브리핑</a>
       <a href="/guide.html">가이드</a>
       <a href="/about.html">소개</a>
     </nav>
   </div>
 </header>
 
-<!-- ══ 오늘의 브리핑 스트립 ══ -->
+<!-- ══ AI 브리핑 스트립 ══ -->
 <div id="briefing-strip" style="display:none;background:linear-gradient(90deg,#0A1628,#0f2040);border-bottom:1px solid rgba(250,204,21,.22);">
   <a href="/today.html" style="display:flex;align-items:center;gap:10px;max-width:1100px;margin:0 auto;padding:7px 20px;text-decoration:none;">
-    <span style="flex-shrink:0;font-size:10px;font-weight:700;color:#FACC15;background:rgba(250,204,21,.14);padding:2px 8px;border-radius:99px;border:1px solid rgba(250,204,21,.28);white-space:nowrap;">📰 오늘의 브리핑</span>
+    <span style="flex-shrink:0;font-size:10px;font-weight:700;color:#FACC15;background:rgba(250,204,21,.14);padding:2px 8px;border-radius:99px;border:1px solid rgba(250,204,21,.28);white-space:nowrap;">📰 AI 브리핑</span>
     <span id="brief-hl" style="flex:1;font-size:12px;color:rgba(246,244,239,.7);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;"></span>
     <span id="brief-date" style="flex-shrink:0;font-size:11px;color:rgba(246,244,239,.35);white-space:nowrap;"></span>
     <span style="flex-shrink:0;font-size:11px;font-weight:600;color:#FACC15;white-space:nowrap;">자세히 →</span>
@@ -614,7 +614,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
       <div class="f-links">
         <a href="/about.html">소개</a>
         <a href="/guide.html">가이드</a>
-        <a href="/today.html">오늘의 브리핑</a>
+        <a href="/today.html">AI 브리핑</a>
         <a href="/terms.html">이용약관</a>
         <a href="/privacy.html">개인정보처리방침</a>
       </div>
@@ -1598,7 +1598,7 @@ loadData();
 loadStockNames();
 loadMarket();
 
-// ── 오늘의 브리핑 스트립 ──
+// ── AI 브리핑 스트립 ──
 fetch('/api/daily').then(r=>r.json()).then(d=>{
   if(!d.success||!d.html) return;
   const tmp=document.createElement('div'); tmp.innerHTML=d.html;
