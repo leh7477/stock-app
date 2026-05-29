@@ -3,6 +3,7 @@
 - Gemini 2.0 Flash + Google Search Grounding
 - 매일 08:00 KST (UTC 23:00 전날) GitHub Actions 실행
 - 결과를 Upstash Redis(daily_newsletter)에 저장
+- 429 RESOURCE_EXHAUSTED → 70초 대기 후 최대 3회 재시도
 """
 
 import os
@@ -11,6 +12,46 @@ import datetime
 import requests
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_fixed,
+    before_sleep_log,
+)
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger(__name__)
+
+
+# ─── 429 판별 ─────────────────────────────────────────────────────────────────
+
+def _is_rate_limit(exc: BaseException) -> bool:
+    """Gemini 429 RESOURCE_EXHAUSTED 이면 True"""
+    return isinstance(exc, ClientError) and "429" in str(exc)
+
+
+# ─── Gemini 호출 (재시도 포함) ───────────────────────────────────────────────
+
+@retry(
+    retry=retry_if_exception(_is_rate_limit),
+    wait=wait_fixed(70),            # 429 → 70초 대기 (분당 제한 갱신 여유)
+    stop=stop_after_attempt(3),     # 최대 3회 시도 (원본 1회 + 재시도 2회)
+    reraise=True,
+    before_sleep=before_sleep_log(log, logging.WARNING),
+)
+def _generate(client: genai.Client, prompt: str) -> str:
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+            temperature=0.75,
+        ),
+    )
+    return response.text.strip()
 
 
 # ─── Redis 저장 ──────────────────────────────────────────────────────────────
@@ -29,7 +70,7 @@ def save_to_redis(payload: dict, kv_url: str, kv_token: str):
         timeout=15,
     )
     resp.raise_for_status()
-    print(f"[redis] 저장 완료 — status: {resp.status_code}")
+    log.info(f"[redis] 저장 완료 — status: {resp.status_code}")
 
 
 # ─── 메인 ────────────────────────────────────────────────────────────────────
@@ -40,13 +81,13 @@ def run():
     kv_token = os.environ.get("KV_REST_API_TOKEN")
 
     if not api_key:
-        print("[!] GEMINI_API_KEY 없음 — 종료"); return
+        log.error("[!] GEMINI_API_KEY 없음 — 종료"); return
     if not kv_url or not kv_token:
-        print("[!] Redis 환경변수 없음 — 종료"); return
+        log.error("[!] Redis 환경변수 없음 — 종료"); return
 
     # KST 날짜
-    kst   = datetime.timezone(datetime.timedelta(hours=9))
-    today = datetime.datetime.now(kst).strftime("%Y년 %m월 %d일")
+    kst       = datetime.timezone(datetime.timedelta(hours=9))
+    today     = datetime.datetime.now(kst).strftime("%Y년 %m월 %d일")
     today_iso = datetime.datetime.now(kst).strftime("%Y-%m-%d")
 
     prompt = f"""
@@ -99,27 +140,32 @@ def run():
 </section>
 """
 
-    print(f"[gemini] 브리핑 생성 시작 ({today})...")
+    log.info(f"[gemini] 브리핑 생성 시작 ({today})...")
 
-    client   = genai.Client(api_key=api_key)
-    response = client.models.generate_content(
-        model="gemini-2.0-flash",
-        contents=prompt,
-        config=types.GenerateContentConfig(
-            tools=[types.Tool(google_search=types.GoogleSearch())],
-            temperature=0.75,
-        ),
-    )
+    client = genai.Client(api_key=api_key)
 
-    html = response.text.strip()
+    try:
+        html = _generate(client, prompt)
+    except ClientError as e:
+        log.error(f"[gemini] 최대 재시도 초과 — {e}")
+        # 실패해도 에러 상태를 Redis에 저장해 프런트에 안내 표시
+        err_payload = {
+            "html":        f'<p style="color:#9ca3af;text-align:center;padding:40px;">오늘 브리핑 생성에 실패했습니다. 잠시 후 다시 확인해 주세요.<br><small>{e}</small></p>',
+            "date":        today,
+            "dateIso":     today_iso,
+            "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "error":       str(e),
+        }
+        save_to_redis(err_payload, kv_url, kv_token)
+        return
 
     # 혹시 포함된 마크다운 코드블록 제거
     if html.startswith("```"):
         lines = html.split("\n")
         html  = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
 
-    print(f"[gemini] 생성 완료 ({len(html)}자)")
-    print(html[:200], "...")
+    log.info(f"[gemini] 생성 완료 ({len(html)}자)")
+    log.info(html[:200] + " ...")
 
     payload = {
         "html":        html,
@@ -128,7 +174,7 @@ def run():
         "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     save_to_redis(payload, kv_url, kv_token)
-    print("=== 완료 ===")
+    log.info("=== 완료 ===")
 
 
 if __name__ == "__main__":
