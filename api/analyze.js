@@ -159,6 +159,19 @@ function calcOBVArr(closes, volumes) {
   return obv;
 }
 
+// ── ATR (Average True Range 14) ─────────────────────────────────────────────
+function calcATR14(rows, period = 14) {
+  if (!rows || rows.length < 2) return null;
+  const trs = [];
+  for (let i = 1; i < rows.length; i++) {
+    const h = rows[i].high, l = rows[i].low, pc = rows[i - 1].close;
+    trs.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+  }
+  const recent = trs.slice(-period);
+  if (!recent.length) return null;
+  return recent.reduce((a, b) => a + b, 0) / recent.length;
+}
+
 // ── 점수 계산 (최고 100점 / 최악 0점) ───────────────────────────────────────
 // 추세(40) + 모멘텀(30) + 수급(30) + 볼린저스퀴즈 보너스/패널티(±10)
 // 반환: { total: 0~100, detail: { arrangement, deviation, rsi, macd, volume, obv, boll } }
@@ -766,8 +779,15 @@ export default async function handler(req, res) {
       volume: parseNum(pOut.acml_vol),
     };
 
+    // ATR 14일 (일봉 기준 진폭 — 분할매수 가이드·포지션 리스크 계산용)
+    const atr14val = calcATR14(dailyHistory);
+    const atrObj = (atr14val && latest.close > 0) ? {
+      price: Math.round(atr14val),
+      pct:   Math.round(atr14val / latest.close * 10000) / 100,
+    } : null;
+
     // 투자자 수급 + 점수 (GitHub Actions 사전 계산 → Redis 읽기)
-    // → 메인 페이지와 분석기가 항상 동일한 점수를 표시하도록 Redis 저장값을 우선 사용
+    // → 메인 페이지와 분析기가 항상 동일한 점수를 표시하도록 Redis 저장값을 우선 사용
     const _redisUrl   = process.env.KV_REST_API_URL;
     const _redisToken = process.env.KV_REST_API_TOKEN;
 
@@ -805,9 +825,10 @@ export default async function handler(req, res) {
       } catch (_) {}
     }
 
-    // stock_scores (소형 맵, 워크플로우 후 생성) 우선 → 없으면 recommend_v2 에서 직접 조회
-    // → recommend_v2 는 이미 Redis 에 존재하므로 워크플로우 재실행 없이 즉시 동기화
+    // stock_scores (소형 맵) 우선 → 없으면 recommend_v2 fallback
+    // recommend_v2 는 RS 퍼센타일 계산에도 필요하므로 항상 읽음
     let storedScore = null;
+    let rv2Stocks   = null;
     try {
       const scRaw = await timedFetch(`${_redisUrl}/get/stock_scores`, {
         headers: { Authorization: `Bearer ${_redisToken}` },
@@ -818,18 +839,20 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    if (storedScore === null) {
-      try {
-        const rv2Raw = await timedFetch(`${_redisUrl}/get/recommend_v2`, {
-          headers: { Authorization: `Bearer ${_redisToken}` },
-        }).then(r => r.json());
-        if (rv2Raw.result) {
-          const rv2 = JSON.parse(rv2Raw.result);
-          const found = (rv2.stocks || []).find(s => s.code === code);
+    // Always fetch recommend_v2: storedScore fallback + RS percentile universe
+    try {
+      const rv2Raw = await timedFetch(`${_redisUrl}/get/recommend_v2`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (rv2Raw.result) {
+        const rv2 = JSON.parse(rv2Raw.result);
+        rv2Stocks = rv2.stocks || [];
+        if (storedScore === null) {
+          const found = rv2Stocks.find(s => s.code === code);
           if (found?.score !== undefined) storedScore = found.score;
         }
-      } catch (_) {}
-    }
+      }
+    } catch (_) {}
 
 // DART EPS 읽기 (분기 1회 업데이트, dart_eps 키)
 // PER = 현재가 ÷ dart_eps 로 실시간 계산 (연결 기준, KIS 별도 기준보다 정확)
@@ -934,6 +957,17 @@ try {
     };
     const checklist = buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr);
 
+    // RS Rating — 퀀트 점수 기준 스캔 전종목 대비 퍼센타일 (1~99)
+    let rsRating = null;
+    if (rv2Stocks && rv2Stocks.length > 10) {
+      const allScores = rv2Stocks.map(s => s.score).filter(s => typeof s === 'number');
+      if (allScores.length > 10) {
+        const below = allScores.filter(s => s < score).length;
+        rsRating = Math.max(1, Math.min(99, Math.round(below / allScores.length * 98) + 1));
+      }
+    }
+
+
     res.status(200).json({
       success: true,
       stock: { name, code, market, marketCap, price:latest.close, chgAmt, chgRate, open:latest.open, high:latest.high, low:latest.low, volume:latest.volume },
@@ -974,6 +1008,8 @@ try {
       investorSupply,
       investor,
       disclosures,
+      atr: atrObj,
+      rsRating,
     });
 
   } catch(e) {

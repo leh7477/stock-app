@@ -240,6 +240,28 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .val-item-val{font-size:12px;font-weight:700;}
 .val-disclaimer{font-size:10px;color:var(--muted);text-align:center;margin-top:8px;}
 
+/* ── 분할매수 가이드 ── */
+.atr-table{width:100%;border-collapse:collapse;}
+.atr-table th{font-size:9px;color:var(--muted);font-weight:600;padding:5px 6px;border-bottom:1.5px solid var(--border);}
+.atr-table td{padding:7px 6px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.atr-table tr:last-child td{border-bottom:none;}
+.atr-stage-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;}
+.atr-stop-row{display:flex;align-items:center;justify-content:space-between;background:var(--red-bg);border-radius:10px;padding:9px 12px;margin-top:8px;}
+
+/* ── 포지션 리스크 테이블 ── */
+.risk-table{width:100%;border-collapse:collapse;}
+.risk-table th{font-size:9px;color:var(--muted);font-weight:600;padding:5px 6px;border-bottom:1.5px solid var(--border);text-align:center;}
+.risk-table td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;}
+.risk-table tr:last-child td{border-bottom:none;}
+.risk-table tbody tr:hover{background:var(--bg3);}
+
+/* ── RS Rating ── */
+.rs-circle{width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border:2.5px solid;}
+.rs-num{font-size:26px;font-weight:700;line-height:1;}
+.rs-denom{font-size:9px;color:var(--muted);}
+.rs-bar-outer{height:5px;background:var(--bg);border-radius:99px;overflow:hidden;margin:5px 0;}
+.rs-bar-inner{height:100%;border-radius:99px;transition:width .6s ease;}
+
 /* ── 반응형 ── */
 @media(max-width:680px){
   .detail-grid,.skel-grid{grid-template-columns:1fr;}
@@ -449,10 +471,22 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
           <div class="checklist" id="r-checklist"></div>
         </div>
 
-        <!-- 매매 전략 -->
+        <!-- RS 상대강도 -->
         <div class="dl-card">
-          <div class="dl-title">매매 전략</div>
+          <div class="dl-title">📊 RS 상대강도 <span style="font-weight:400;color:var(--muted);font-size:10px;">전종목 기준 퍼센타일</span></div>
+          <div id="r-rs-rating"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
+        </div>
+
+        <!-- 분할매수 가이드 (ATR 기반) -->
+        <div class="dl-card">
+          <div class="dl-title">📐 분할매수 가이드 <span style="font-weight:400;color:var(--muted);font-size:10px;">ATR 기반 4단계</span></div>
           <div id="r-strategy"></div>
+        </div>
+
+        <!-- 포지션 리스크 테이블 -->
+        <div class="dl-card">
+          <div class="dl-title">🛡️ 포지션 리스크 <span style="font-weight:400;color:var(--muted);font-size:10px;">2×ATR 손절 기준</span></div>
+          <div id="r-position-risk"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
         <!-- 지지·저항 -->
@@ -1144,56 +1178,245 @@ function renderTechScore(techDetail, techContrib70) {
     </div>`;
 }
 
-function renderStrategy(rec) {
+function renderStrategy(rec, stock, atr) {
   const el = document.getElementById('r-strategy');
+  if (!el) return;
+
+  // 중장기 목표가 블록 (bear 포함 공통)
+  const mlt = rec?.midLongTarget;
+  let midLongHtml = '';
+  if (mlt) {
+    const mltUp    = parseFloat(mlt.upside);
+    const mltColor = mltUp >= 0 ? '#22c55e' : '#ef4444';
+    const mltSign  = mltUp >= 0 ? '+' : '';
+    const mltLabel = mltUp >= 15 ? '📈 상승 여력 있음' : mltUp >= 0 ? '📊 소폭 상승 여력' : '⚠️ 고평가 구간';
+    midLongHtml = `
+      <div style="background:var(--bg);border-radius:10px;padding:10px 12px;border-left:3px solid ${mltColor};margin-top:10px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px;">🏹 중장기 목표가 <span style="font-size:9px;">${mlt.horizon} · ${mlt.basis}</span></div>
+        <div style="font-size:16px;font-weight:700;color:${mltColor};">${mlt.price.toLocaleString()}원</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px;">${mltSign}${mlt.upside}% · ${mltLabel}</div>
+      </div>`;
+  }
+
+  // Bear: 매수 비추천 + ATR 레벨 참고
   if (!rec || rec.grade === 'bear') {
+    const bearAtrHtml = atr ? (() => {
+      const p = stock?.price || 0;
+      const a = atr.price;
+      return `
+        <div style="margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:10px;opacity:0.75;">
+          <div style="font-size:10px;font-weight:600;color:var(--muted);margin-bottom:6px;">⬇️ ATR 레벨 (참고용)</div>
+          ${['-1 ATR', '-2 ATR', '-3 ATR'].map((lbl,i) => {
+            const ep = Math.round(p - (i+1)*a);
+            const pct = ((ep - p)/p*100).toFixed(1);
+            return `<div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border);">
+              <span style="color:var(--muted);">${lbl}</span>
+              <span style="font-weight:600;">${ep.toLocaleString()}원 <span style="color:var(--red);font-size:10px;">(${pct}%)</span></span>
+            </div>`;
+          }).join('')}
+        </div>`;
+    })() : '';
+
     el.innerHTML = `
       <div class="strategy-avoid">
         <div class="strategy-avoid-icon">⛔</div>
         <div class="strategy-avoid-label">매수 비추천</div>
         <div class="strategy-avoid-desc">${rec?.reason || '이평선 하락 추세 진행 중'}<br>지지선 회복 확인 후 재진입 검토</div>
-      </div>`;
+      </div>
+      ${bearAtrHtml}
+      ${midLongHtml}
+      <div class="strategy-note">※ 이동평균 기반 기계적 기준이며, 투자 권유가 아닙니다.</div>`;
     return;
   }
-  // 중장기 목표가 블록 생성
-  const mlt = rec.midLongTarget;
-  let midLongHtml = '';
-  if (mlt) {
-    const mltUp     = parseFloat(mlt.upside);
-    const mltColor  = mltUp >= 0 ? '#22c55e' : '#ef4444';
-    const mltSign   = mltUp >= 0 ? '+' : '';
-    const mltLabel  = mltUp >= 15 ? '📈 상승 여력 있음' : mltUp >= 0 ? '📊 소폭 상승 여력' : '⚠️ 고평가 구간';
-    midLongHtml = `
-      <div class="s-item" style="border-left:3px solid ${mltColor};padding-left:13px;">
-        <div class="s-label">🏹 중장기 목표가 <span style="font-size:9px;color:var(--muted);font-weight:400;">${mlt.horizon} · ${mlt.basis}</span></div>
-        <div class="s-val" style="color:${mltColor};">${mlt.price.toLocaleString()}<span class="s-unit">원</span></div>
-        <div class="s-sub">${mltSign}${mlt.upside}% · ${mltLabel}</div>
-      </div>`;
+
+  // ATR 없을 때 폴백: 기존 방식
+  if (!atr || !stock) {
+    el.innerHTML = `
+      <div class="strategy-grid">
+        <div class="s-item">
+          <div class="s-label">🟢 추천 매수가</div>
+          <div class="s-val" style="color:var(--green);">${rec.buyLow.toLocaleString()} ~ ${rec.buyHigh.toLocaleString()}<span class="s-unit">원</span></div>
+          <div class="s-sub">${rec.reason}</div>
+        </div>
+        <div class="s-item">
+          <div class="s-label">🎯 단기 목표가</div>
+          <div class="s-val" style="color:#3b82f6;">${rec.target.toLocaleString()}<span class="s-unit">원</span></div>
+          <div class="s-sub">기대 수익 +${rec.gainPct}%</div>
+        </div>
+      </div>
+      ${midLongHtml}
+      <div class="strategy-note">※ ATR 데이터 없음 — 이평선 기반 기계적 기준선이며, 투자 권유가 아닙니다.</div>`;
+    return;
   }
 
-  const stopHtml = `
-      <div class="s-item">
-        <div class="s-label">🛑 손절가</div>
-        <div class="s-val" style="color:var(--red);">${rec.stop.toLocaleString()}<span class="s-unit">원</span></div>
-        <div class="s-sub">예상 손실 -${rec.lossPct}% · 이탈 시 추가 하락 위험</div>
-      </div>`;
+  // ATR 4단계 분할매수 가이드
+  const price    = stock.price;
+  const atrPrice = atr.price;
+  const stageColors = ['#16a34a', '#2563eb', '#7c3aed', '#d97706'];
+  const stages = [
+    { n: 1, weight: 30, ep: price,                   label: '현재가 진입' },
+    { n: 2, weight: 30, ep: Math.round(price - atrPrice),     label: '-1 ATR' },
+    { n: 3, weight: 25, ep: Math.round(price - 2 * atrPrice), label: '-2 ATR' },
+    { n: 4, weight: 15, ep: Math.round(price - 3 * atrPrice), label: '-3 ATR (최종)' },
+  ];
+  const stopPrice = Math.round(price - 4 * atrPrice);
+  const stopPct   = ((price - stopPrice) / price * 100).toFixed(1);
+
+  const stagesHtml = stages.map((s, i) => {
+    const c       = stageColors[i];
+    const diff    = s.ep - price;
+    const diffPct = diff === 0 ? '' : ` (${(diff/price*100).toFixed(1)}%)`;
+    return `<tr>
+      <td style="text-align:center;">
+        <span class="atr-stage-badge" style="background:${c}1a;color:${c};">${s.n}차</span>
+      </td>
+      <td style="text-align:center;">
+        <span style="font-size:13px;font-weight:700;color:${c};">${s.ep.toLocaleString()}원</span>
+        <span style="font-size:9px;color:var(--muted);">${diffPct}</span>
+      </td>
+      <td style="text-align:center;">
+        <div style="font-size:12px;font-weight:700;">${s.weight}%</div>
+        <div style="height:3px;background:var(--bg);border-radius:99px;margin-top:3px;overflow:hidden;">
+          <div style="height:100%;width:${s.weight/30*100}%;background:${c};border-radius:99px;"></div>
+        </div>
+      </td>
+      <td style="font-size:11px;color:var(--muted);">${s.label}</td>
+    </tr>`;
+  }).join('');
 
   el.innerHTML = `
-    <div class="strategy-grid">
-      <div class="s-item">
-        <div class="s-label">🟢 추천 매수가</div>
-        <div class="s-val" style="color:var(--green);">${rec.buyLow.toLocaleString()} ~ ${rec.buyHigh.toLocaleString()}<span class="s-unit">원</span></div>
-        <div class="s-sub">${rec.reason}</div>
-      </div>
-      <div class="s-item">
-        <div class="s-label">🎯 단기 목표가</div>
-        <div class="s-val" style="color:#3b82f6;">${rec.target.toLocaleString()}<span class="s-unit">원</span></div>
-        <div class="s-sub">기대 수익 +${rec.gainPct}%</div>
-      </div>
-      ${stopHtml}
-      ${midLongHtml || ''}
+    <div style="font-size:10px;color:var(--muted);margin-bottom:6px;">
+      ATR(14) <b>${atr.price.toLocaleString()}원</b> (±${atr.pct}%) 기준 단계적 매수 계획
     </div>
-    <div class="strategy-note">※ 이동평균·PBR·PER 기반 기계적 기준선이며, 실제 매매 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
+    <table class="atr-table">
+      <thead>
+        <tr>
+          <th style="text-align:center;">단계</th>
+          <th style="text-align:center;">매수가</th>
+          <th style="text-align:center;">비중</th>
+          <th>기준</th>
+        </tr>
+      </thead>
+      <tbody>${stagesHtml}</tbody>
+    </table>
+    <div class="atr-stop-row">
+      <div>
+        <div style="font-size:10px;color:var(--muted);">🛑 ATR 손절가 (-4 ATR)</div>
+        <div style="font-size:14px;font-weight:700;color:var(--red);">${stopPrice.toLocaleString()}원</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:var(--muted);">평균 손실</div>
+        <div style="font-size:14px;font-weight:700;color:var(--red);">-${stopPct}%</div>
+      </div>
+    </div>
+    ${midLongHtml}
+    <div class="strategy-note">※ ATR·이동평균 기반 기계적 기준선이며, 투자 권유가 아닙니다. 모든 투자 책임은 본인에게 있습니다.</div>`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   🛡️ 포지션 리스크 테이블
+────────────────────────────────────────────────────────────── */
+function renderPositionRisk(stock, atr) {
+  const el = document.getElementById('r-position-risk');
+  if (!el) return;
+  if (!atr || !stock?.price) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:10px 0;">ATR 데이터 없음</div>';
+    return;
+  }
+
+  const price      = stock.price;
+  const stopMult   = 2;                                  // 2×ATR 손절
+  const stopAmt    = atr.price * stopMult;
+  const stopPrice  = Math.round(price - stopAmt);
+  const stopPct    = stopAmt / price * 100;
+
+  const allocs = [5, 10, 15, 20, 25];
+  const rows = allocs.map(a => {
+    const impact   = stopPct * a / 100;
+    const impColor = impact < 1 ? '#16a34a' : impact < 2 ? '#d97706' : '#dc2626';
+    const impBg    = impact < 1 ? 'rgba(22,163,74,0.06)' : impact < 2 ? 'rgba(217,119,6,0.06)' : 'rgba(220,38,38,0.06)';
+    const lossAmt  = Math.round(price * a / 100 * stopPct / 100 * 10000); // 가정 1억 포트 기준 손실 (백만원)
+    return `<tr>
+      <td style="font-size:14px;font-weight:700;padding:8px 6px;">${a}%</td>
+      <td style="font-size:11px;color:var(--muted);padding:8px 6px;">${stopPrice.toLocaleString()}원</td>
+      <td style="padding:8px 6px;">
+        <span style="font-size:13px;font-weight:700;color:${impColor};background:${impBg};padding:2px 8px;border-radius:6px;">-${impact.toFixed(2)}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--muted);">손절: 2×ATR = <b>${stopAmt.toLocaleString()}원</b></div>
+      <div style="font-size:11px;font-weight:700;color:var(--red);">-${stopPct.toFixed(1)}%</div>
+    </div>
+    <table class="risk-table">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:5px 6px;">포트 비중</th>
+          <th>손절가</th>
+          <th>포트 손실</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;padding-top:5px;border-top:1px solid var(--border);">
+      ※ 포트폴리오 총 자산 기준 · 2×ATR 기계적 손절선
+    </div>`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   📊 RS 상대강도 (퀀트 점수 기준 전종목 퍼센타일)
+────────────────────────────────────────────────────────────── */
+function renderRSRating(rsRating) {
+  const el = document.getElementById('r-rs-rating');
+  if (!el) return;
+
+  if (rsRating === null || rsRating === undefined) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:10px 0;">스캔 데이터 없음</div>';
+    return;
+  }
+
+  const tier = rsRating >= 80 ? { label: '시장 주도주', color: '#d97706', bg: 'rgba(234,179,8,0.12)', emoji: '⭐' }
+             : rsRating >= 70 ? { label: '준주도주',   color: '#16a34a', bg: 'rgba(22,163,74,0.10)',  emoji: '📈' }
+             : rsRating >= 50 ? { label: '중립',        color: '#6b7280', bg: 'rgba(107,114,128,0.09)', emoji: '⚖️' }
+             : rsRating >= 30 ? { label: '약세',        color: '#d97706', bg: 'rgba(217,119,6,0.09)',  emoji: '📉' }
+             :                  { label: '하위권',      color: '#dc2626', bg: 'rgba(220,38,38,0.09)',  emoji: '⚠️' };
+
+  const pctRank = 100 - rsRating + 1;   // RS 80 = 상위 21% 수준
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="rs-circle" style="background:${tier.bg};border-color:${tier.color}55;">
+        <div class="rs-num" style="color:${tier.color};">${rsRating}</div>
+        <div class="rs-denom">/ 99</div>
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:17px;font-weight:700;color:${tier.color};margin-bottom:4px;">${tier.emoji} ${tier.label}</div>
+        <div class="rs-bar-outer">
+          <div class="rs-bar-inner" style="width:${rsRating}%;background:${tier.color};"></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);">스캔 전종목 상위 ${pctRank}% 수준</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:10px;">
+      ${[
+        { min:80, max:99, lbl:'⭐주도주', c:'#d97706' },
+        { min:70, max:79, lbl:'📈준주도',  c:'#16a34a' },
+        { min:50, max:69, lbl:'⚖️중립',    c:'#6b7280' },
+        { min:30, max:49, lbl:'📉약세',    c:'#d97706' },
+        { min:1,  max:29, lbl:'⚠️하위',    c:'#dc2626' },
+      ].map(z => {
+        const active = rsRating >= z.min && rsRating <= z.max;
+        return `<div style="text-align:center;padding:4px 2px;border-radius:7px;background:${active?z.c+'18':'var(--bg)'};border:1.5px solid ${active?z.c+'55':'transparent'};">
+          <div style="font-size:9px;font-weight:${active?'700':'400'};color:${active?z.c:'var(--muted)'};">${z.lbl}</div>
+          <div style="font-size:8px;color:var(--muted);">${z.min}~${z.max}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:6px;padding-top:5px;border-top:1px solid var(--border);">
+      퀀트 점수 기준 상대강도 · 스캔 전종목 대비 퍼센타일
+    </div>`;
 }
 
 function renderInvestorSupply(supply) {
@@ -1538,7 +1761,9 @@ function renderResult(data) {
   renderKoreanScore(data.korScore);
   renderGrowthScore(data.korScore);
   renderTechScore(data.korScore?.techDetail, data.korScore?.techScore);
-  renderStrategy(data.recommend);
+  renderStrategy(data.recommend, data.stock, data.atr);
+  renderPositionRisk(data.stock, data.atr);
+  renderRSRating(data.rsRating);
   renderChecklist(data.checklist);
   renderInvestorSupply(data.investorSupply);
   renderAIOpinion(data);
