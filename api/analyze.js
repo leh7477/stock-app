@@ -314,6 +314,24 @@ function calcScore(closes, volumes, boll) {
 
 // ── AI 브리핑 뉴스 기반 가점/감점 (±3pt) ────────────────────────────────────
 // 종목 코드 직접 매칭 ±3pt / 섹터 키워드 매칭 ±2pt / 둘 다 해당해도 max ±3pt
+// ─── ATR 수축 점수 (변동성 압축 = 큰 움직임 준비 신호) ──────────────────────
+// 종가 기반 변동성(일간 변동폭%) 근사 — 최근 14일 vs 과거 60일 비율
+// 수축비 ≤ 0.55 → +5pt / ≤ 0.70 → +3pt / ≤ 0.85 → +1pt
+function calcAtrContractionScore(closes) {
+  if (!closes || closes.length < 40) return { score: 0, contractionRatio: null };
+  const changes = [];
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i-1] > 0) changes.push(Math.abs(closes[i] - closes[i-1]) / closes[i-1]);
+  }
+  if (changes.length < 30) return { score: 0, contractionRatio: null };
+  const recent = changes.slice(-14).reduce((s, v) => s + v, 0) / 14;
+  const hist   = changes.slice(-60).reduce((s, v) => s + v, 0) / Math.min(60, changes.length);
+  if (hist === 0) return { score: 0, contractionRatio: null };
+  const ratio = recent / hist;
+  const score = ratio <= 0.55 ? 5 : ratio <= 0.70 ? 3 : ratio <= 0.85 ? 1 : 0;
+  return { score, contractionRatio: Math.round(ratio * 100) / 100 };
+}
+
 // ─── 52주 신고가 근접도 (CAN SLIM N) ─────────────────────────────────────────
 // 신고가 돌파 +5pt / 5% 이내 +3pt / 10% 이내 +1pt
 function calc52WkHighScore(closes) {
@@ -1110,10 +1128,11 @@ if (dartEps === null) {
     const techDetail  = techResult.detail;
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code);
     const korScore  = ks.total;
-    const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
-    const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
-    const newHighResult   = calc52WkHighScore(closes);
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score + newHighResult.score);
+    const relResult          = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
+    const newsBoostResult    = calcNewsBoost(code, sector2, name, newsBoost);
+    const newHighResult      = calc52WkHighScore(closes);
+    const atrContractionResult = calcAtrContractionScore(closes);
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score + newHighResult.score + atrContractionResult.score);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1228,6 +1247,7 @@ if (dartEps === null) {
       rsRating,
       relStrength: relResult,
       newHigh: newHighResult,
+      atrContraction: atrContractionResult,
       competitors,
       moatAnalysis,
       dartFinancials: dartFinancials ? {

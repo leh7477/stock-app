@@ -552,6 +552,22 @@ function maSignal(price, ma) {
   return 'neutral';
 }
 
+// ─── ATR 수축 점수 ────────────────────────────────────────────────────────────
+function calcAtrContractionScore(closes) {
+  if (!closes || closes.length < 40) return { score: 0, contractionRatio: null };
+  const changes = [];
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i-1] > 0) changes.push(Math.abs(closes[i] - closes[i-1]) / closes[i-1]);
+  }
+  if (changes.length < 30) return { score: 0, contractionRatio: null };
+  const recent = changes.slice(-14).reduce((s, v) => s + v, 0) / 14;
+  const hist   = changes.slice(-60).reduce((s, v) => s + v, 0) / Math.min(60, changes.length);
+  if (hist === 0) return { score: 0, contractionRatio: null };
+  const ratio = recent / hist;
+  const score = ratio <= 0.55 ? 5 : ratio <= 0.70 ? 3 : ratio <= 0.85 ? 1 : 0;
+  return { score, contractionRatio: Math.round(ratio * 100) / 100 };
+}
+
 // ─── 52주 신고가 근접도 (CAN SLIM N) ─────────────────────────────────────────
 function calc52WkHighScore(closes) {
   if (!closes || closes.length < 20) return { score: 0, pctFromHigh: null };
@@ -647,10 +663,11 @@ function analyze(stock, closes, volumes, extra = {}) {
   const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '');
   const korScore  = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
-  const relResult       = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
-  const newsBoostResult = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
-  const newHighResult   = calc52WkHighScore(closes);
-  const score           = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score + newHighResult.score);
+  const relResult            = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
+  const newsBoostResult      = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
+  const newHighResult        = calc52WkHighScore(closes);
+  const atrContractionResult = calcAtrContractionScore(closes);
+  const score                = Math.min(100, Math.round(techScore * 0.7) + korScore + marketAdj + relResult.score + newsBoostResult.score + newHighResult.score + atrContractionResult.score);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';

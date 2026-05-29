@@ -473,6 +473,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
               <div id="r-rel-strength" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-news-boost" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-new-high" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
+              <div id="r-atr-contraction" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
             </div>
           </div>
         </div>
@@ -849,6 +850,21 @@ function renderRelStrength(rel) {
     <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${sign}${excessReturn}%</span>
     <span style="color:${c};font-weight:600">+${score}점 반영</span>
     <span style="color:var(--muted);font-size:10px">1m:${detail.s1m??'-'}% 3m:${detail.s3m??'-'}% 6m:${detail.s6m??'-'}% 12m:${detail.s12m??'-'}%</span>`;
+}
+
+function renderAtrContraction(atr) {
+  const el = document.getElementById('r-atr-contraction');
+  if (!el) return;
+  if (!atr || atr.score === 0) { el.style.display = 'none'; return; }
+  const { score, contractionRatio } = atr;
+  const c = score >= 5 ? '#7c3aed' : '#2563eb';
+  const label = score >= 5 ? `극도 수축 (${contractionRatio}배) — 큰 움직임 임박`
+              : score >= 3 ? `명확한 수축 (${contractionRatio}배) — 조용한 매집`
+                           : `약한 수축 (${contractionRatio}배)`;
+  el.style.display = 'flex';
+  el.innerHTML = `<span style="color:var(--muted)">ATR 수축 🔋</span>
+    <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px;">${label}</span>
+    <span style="color:${c};font-weight:600">+${score}점 반영</span>`;
 }
 
 function renderNewHigh(nh) {
@@ -1994,6 +2010,7 @@ function renderResult(data) {
   renderRelStrength(data.relStrength);
   renderNewsBoost(data.newsBoost);
   renderNewHigh(data.newHigh);
+  renderAtrContraction(data.atrContraction);
   renderMoat(data.moatAnalysis);
   renderCompetitors(data.competitors, data.stock?.themeSector);
   renderMarketEnv(data.marketEnv);
