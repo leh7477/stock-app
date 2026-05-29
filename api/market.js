@@ -60,7 +60,7 @@ function parseNaver(d) {
   const chgRate    = parseFloat(String(d.fluctuationsRatio || '0').replace(/,/g,''));
   // Naver 지수 API 필드명: totalTradeAmount / accumulatedTradingValue / tradeAmount 순 시도
   const tradeAmt   = parseFloat(String(
-    d.totalTradeAmount || d.accumulatedTradingValue || d.tradeAmount || '0'
+    d.tradingValue || d.totalTradeAmount || d.accumulatedTradingValue || d.tradeAmount || '0'
   ).replace(/,/g,''));
   if (!price) return null;
   return { price, change: chg, changeRate: chgRate, tradeAmount: tradeAmt || 0 };
