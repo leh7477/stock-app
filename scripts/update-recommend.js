@@ -150,6 +150,7 @@ async function fetchMarketReturns() {
   const YAHOO_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
   const symbols  = { kospi: '^KS11', kosdaq: '^KQ11' };
   const result   = {};
+  let kospiDailyReturns = null;
 
   for (const [key, sym] of Object.entries(symbols)) {
     const url  = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=1d&range=15mo`;
@@ -165,8 +166,17 @@ async function fetchMarketReturns() {
       : null;
     result[key] = { '1m': ret(21), '3m': ret(63), '6m': ret(126), '12m': ret(252) };
     console.log(`      ${key}: 1m ${result[key]['1m']}% / 3m ${result[key]['3m']}% / 6m ${result[key]['6m']}% / 12m ${result[key]['12m']}%`);
+
+    // KOSPI 일별 로그수익률 60개 — Fama-French 베타 계산용
+    if (key === 'kospi') {
+      const logRets = [];
+      for (let i = 1; i < closes.length; i++) {
+        if (closes[i] > 0 && closes[i-1] > 0) logRets.push(Math.log(closes[i] / closes[i-1]));
+      }
+      kospiDailyReturns = logRets.slice(-90); // 최근 90거래일
+    }
   }
-  return result;
+  return { periodReturns: result, kospiDailyReturns };
 }
 
 // ─── KIS 일봉 조회 ─────────────────────────────────────────────────────────
@@ -545,7 +555,32 @@ function calcEpsAcceleration(epsHistory) {
   return score;
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0) {
+function calcFamaFrench(closes, pbr, operatingMargin, kospiDailyReturns) {
+  let beta = null, alpha = null, mktScore = 0;
+  if (closes && closes.length >= 22 && Array.isArray(kospiDailyReturns) && kospiDailyReturns.length >= 20) {
+    const stockLogR = [];
+    for (let i = 1; i < closes.length; i++) {
+      if (closes[i] > 0 && closes[i-1] > 0) stockLogR.push(Math.log(closes[i] / closes[i-1]));
+    }
+    const N = Math.min(60, stockLogR.length, kospiDailyReturns.length);
+    if (N >= 20) {
+      const sR = stockLogR.slice(-N), mR = kospiDailyReturns.slice(-N);
+      const ms = sR.reduce((a,b)=>a+b,0)/N, mm = mR.reduce((a,b)=>a+b,0)/N;
+      let cov = 0, varM = 0;
+      for (let i = 0; i < N; i++) { cov += (sR[i]-ms)*(mR[i]-mm); varM += (mR[i]-mm)**2; }
+      if (varM > 0) { beta = Math.round(cov/varM*100)/100; alpha = Math.round((ms-beta*mm)*252*100)/100; }
+    }
+  }
+  if (beta !== null && alpha !== null) {
+    if      (alpha > 0 && beta >= 0.8 && beta <= 1.2) mktScore = 4;
+    else if (alpha > 0 && (beta >= 0.5 || beta > 1.2)) mktScore = 2;
+  }
+  const hmlScore = pbr > 0 ? (pbr <= 0.8 ? 3 : pbr <= 1.5 ? 2 : pbr <= 2.5 ? 1 : 0) : 0;
+  const rmwScore = operatingMargin != null ? (operatingMargin >= 20 ? 3 : operatingMargin >= 10 ? 2 : operatingMargin >= 5 ? 1 : 0) : 0;
+  return { total: Math.min(10, mktScore + hmlScore + rmwScore), beta, alpha, mktScore, hmlScore, rmwScore };
+}
+
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0, ffScore = 0) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -628,7 +663,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    epsAccelScore + divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
+    epsAccelScore + ffScore + divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
            pbrScore, secScore, forwardPERScore,
@@ -765,12 +800,13 @@ function analyze(stock, closes, volumes, extra = {}) {
 
   const finalPer  = extra.per ?? 0;
   const epsAccel  = calcEpsAcceleration(extra.dartFin?.epsHistory ?? null);
+  const ff        = calcFamaFrench(closes, extra.pbr || 0, extra.dartFin?.operatingMargin ?? null, extra.kospiDailyReturns ?? null);
   const ks        = calcKoreanScore(
     extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '',
     d5FrgnInst, [], stock.name || '', stock.code || '',
     extra.dartFin ?? null, extra.forwardPer ?? null,
     d20FrgnInst, extra.divYield ?? 0, extra.mktCap ?? 0,
-    extra.frgnRatio ?? 0, d5Personal, epsAccel
+    extra.frgnRatio ?? 0, d5Personal, epsAccel, ff.total
   );
   const korScore        = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
@@ -837,7 +873,7 @@ async function fetchAllForwardPERs(stocks) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null, forwardPERMap = null) {
+async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null, forwardPERMap = null, kospiDailyReturns = null) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -912,7 +948,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, divYield, investorSupply, marketAdj, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null, forwardPer: forwardPERMap?.[stock.code] ?? null }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, divYield, investorSupply, marketAdj, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null, forwardPer: forwardPERMap?.[stock.code] ?? null, kospiDailyReturns }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -945,8 +981,12 @@ async function main() {
 
   // 2.3 KOSPI·KOSDAQ 수익률 조회 (시장대비 초과수익률 벤치마크)
   console.log('[2.3/4] KOSPI·KOSDAQ 수익률 조회...');
-  const marketReturns = await fetchMarketReturns(); // 실패 시 throw → Actions 실패
+  const { periodReturns: marketReturns, kospiDailyReturns } = await fetchMarketReturns(); // 실패 시 throw → Actions 실패
   await redisSet('market_returns', { ...marketReturns, updatedAt: new Date().toISOString() }, 48 * 3600);
+  if (kospiDailyReturns) {
+    await redisSet('market_daily_returns', { kospi: kospiDailyReturns, updatedAt: new Date().toISOString() }, 48 * 3600);
+    console.log(`      market_daily_returns 저장 완료 (${kospiDailyReturns.length}개)`);
+  }
   console.log('      market_returns 저장 완료');
 
   // 2.5 시장환경 점수 (역발상: 공포=가점, 과열=감점)
@@ -1012,7 +1052,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap, forwardPERMap)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap, forwardPERMap, kospiDailyReturns)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 

@@ -591,6 +591,49 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
+// ─── Fama-French 3팩터 점수 (0~10pt) ─────────────────────────────────────────
+// 시장팩터(베타+알파): 4pt / 가치팩터(HML, PBR): 3pt / 수익성팩터(RMW, 영업이익률): 3pt
+function calcFamaFrench(closes, pbr, operatingMargin, kospiDailyReturns) {
+  // ── 베타 / 알파 계산 ─────────────────────────────────────────────────────
+  let beta = null, alpha = null, mktScore = 0;
+  if (closes && closes.length >= 22 && Array.isArray(kospiDailyReturns) && kospiDailyReturns.length >= 20) {
+    const stockLogR = [];
+    for (let i = 1; i < closes.length; i++) {
+      if (closes[i] > 0 && closes[i-1] > 0) stockLogR.push(Math.log(closes[i] / closes[i-1]));
+    }
+    const N = Math.min(60, stockLogR.length, kospiDailyReturns.length);
+    if (N >= 20) {
+      const sR = stockLogR.slice(-N);
+      const mR = kospiDailyReturns.slice(-N);
+      const ms = sR.reduce((a,b)=>a+b,0)/N, mm = mR.reduce((a,b)=>a+b,0)/N;
+      let cov = 0, varM = 0;
+      for (let i = 0; i < N; i++) { cov += (sR[i]-ms)*(mR[i]-mm); varM += (mR[i]-mm)**2; }
+      if (varM > 0) {
+        beta  = Math.round(cov/varM * 100) / 100;
+        alpha = Math.round((ms - beta*mm) * 252 * 100) / 100; // 연환산 %
+      }
+    }
+  }
+  if (beta !== null && alpha !== null) {
+    if      (alpha > 0 && beta >= 0.8 && beta <= 1.2) mktScore = 4;
+    else if (alpha > 0 && beta >= 0.5 && beta <  0.8) mktScore = 2;
+    else if (alpha > 0 && beta >  1.2)                mktScore = 2;
+  }
+
+  // ── HML 가치 팩터 (PBR 기반) ────────────────────────────────────────────
+  const hmlScore = pbr > 0
+    ? (pbr <= 0.8 ? 3 : pbr <= 1.5 ? 2 : pbr <= 2.5 ? 1 : 0)
+    : 0;
+
+  // ── RMW 수익성 팩터 (영업이익률 기반) ──────────────────────────────────
+  const rmwScore = operatingMargin != null
+    ? (operatingMargin >= 20 ? 3 : operatingMargin >= 10 ? 2 : operatingMargin >= 5 ? 1 : 0)
+    : 0;
+
+  const total = Math.min(10, mktScore + hmlScore + rmwScore);
+  return { total, beta, alpha, mktScore, hmlScore, rmwScore };
+}
+
 // ─── EPS 가속도 점수 (0~12pt) ─────────────────────────────────────────────────
 // epsHistory: [2년전EPS, 1년전EPS, 최신EPS] — DART 연간/분기 기준
 function calcEpsAcceleration(epsHistory) {
@@ -619,7 +662,7 @@ function calcEpsAcceleration(epsHistory) {
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
 // PBR(8) + 섹터(0~8) + forwardPER(0~10) + 수급(0~8) + 공시(±2) + DART(+15/-4)
 // + EPS가속(0~12) + 배당(0~4) + 시총(-3~0) = cap 50pt → ×0.5 = 최대 25pt
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0, ffScore = 0) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -712,13 +755,13 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    epsAccelScore + divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
+    epsAccelScore + ffScore + divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
            pbrScore, secScore, forwardPERScore, perFinal,
            supplyScore, supplyD5, supplyD20, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
-           epsAccelScore,
+           epsAccelScore, ffScore,
            divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
 }
 
@@ -1223,6 +1266,15 @@ if (dartEps === null) {
       if (!marketReturns) console.warn('[analyze] market_returns 없음 — 배치 미실행 또는 Yahoo Finance 오류');
     } catch (_) {}
 
+    // KOSPI 일별 수익률 (Fama-French 베타 계산용)
+    let kospiDailyReturns = null;
+    try {
+      const mdrRaw = await timedFetch(`${_redisUrl}/get/market_daily_returns`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (mdrRaw.result) kospiDailyReturns = JSON.parse(mdrRaw.result)?.kospi ?? null;
+    } catch (_) {}
+
     let marketAdj = 0;
     if (marketV4Score !== null) {
       if      (marketV4Score <= 20) marketAdj = 5;
@@ -1343,7 +1395,8 @@ if (dartEps === null) {
     const techScore   = techResult.total;
     const techDetail  = techResult.detail;
     const epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
-    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2);
+    const ff2       = calcFamaFrench(closes, pbr2, dartFinancials?.operatingMargin ?? null, kospiDailyReturns);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2, ff2.total);
     const korScore  = ks.total;
     const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
@@ -1448,6 +1501,7 @@ if (dartEps === null) {
           disclosureScore: discS,
           roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
           epsAccelScore: epsAccel2, epsHistory: dartFinancials?.epsHistory ?? null,
+          ffScore: ff2.total, ffDetail: ff2,
           divScore: divS, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
           techScore: Math.round(techScore * 0.7),
