@@ -355,11 +355,15 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 </header>
 
 <!-- 모바일 검색 오버레이 -->
-<div class="mob-search-bar" id="mob-search-bar">
+<div class="mob-search-bar" id="mob-search-bar" style="position:relative;">
   <button class="mob-search-back" onclick="closeMobSearch()">←</button>
-  <input id="mob-search-input" type="text" placeholder="종목명·코드·초성 검색" autocomplete="off"
-    onkeydown="if(event.key==='Enter') window.location.href='/?q='+encodeURIComponent(this.value)">
-  <button class="go" onclick="window.location.href='/?q='+encodeURIComponent(document.getElementById('mob-search-input').value)">분석</button>
+  <div style="flex:1;position:relative;">
+    <input id="mob-search-input" type="text" placeholder="종목명·코드·초성 검색" autocomplete="off"
+      oninput="mobSyncSearch(this.value)"
+      onkeydown="mobSearchKey(event)">
+    <div id="mob-suggest-drop" class="suggest-drop" style="top:calc(100% + 4px);left:0;right:0;"></div>
+  </div>
+  <button class="go" onclick="mobDoSearch()">분석</button>
 </div>
 <!-- 모바일 네비 드로어 -->
 <nav class="mob-nav-drawer" id="mob-nav-drawer">
@@ -2256,8 +2260,67 @@ fetch('/api/track?page=analyzer').catch(function(){});
   </button>
 </nav>
 <script>
-function openMobSearch(){document.getElementById('mob-search-bar').classList.add('open');document.getElementById('mob-nav-drawer').classList.remove('open');updateMenuIcon(false);setTimeout(()=>document.getElementById('mob-search-input').focus(),80);}
-function closeMobSearch(){document.getElementById('mob-search-bar').classList.remove('open');}
+function openMobSearch(){
+  document.getElementById('mob-search-bar').classList.add('open');
+  document.getElementById('mob-nav-drawer').classList.remove('open');
+  updateMenuIcon(false);
+  setTimeout(()=>document.getElementById('mob-search-input').focus(),80);
+}
+function closeMobSearch(){
+  document.getElementById('mob-search-bar').classList.remove('open');
+  document.getElementById('mob-suggest-drop').classList.remove('open');
+}
+
+const mobDropEl = document.getElementById('mob-suggest-drop');
+let mobActiveIdx = -1;
+
+function mobSyncSearch(val) {
+  const q = val.trim();
+  if (!q) { mobDropEl.classList.remove('open'); return; }
+  const matches = stockNames.filter(s => matchStock(s.name, s.code, q)).slice(0, 12);
+  if (!matches.length) {
+    mobDropEl.innerHTML = '<div class="suggest-empty">일치하는 종목 없음</div>';
+    mobDropEl.classList.add('open'); return;
+  }
+  mobActiveIdx = -1;
+  mobDropEl.innerHTML = matches.map(s =>
+    `<div class="suggest-item" data-code="${s.code}" data-name="${s.name}" onmousedown="mobPick('${s.name}','${s.code}')">
+       <span class="suggest-name">${hlName(s.name, q)}</span>
+       <span class="suggest-code">${s.code}</span>
+       <span class="suggest-mkt">${s.market || ''}</span>
+     </div>`
+  ).join('');
+  mobDropEl.classList.add('open');
+}
+function mobPick(name, code) {
+  document.getElementById('mob-search-input').value = name;
+  mobDropEl.classList.remove('open');
+  closeMobSearch();
+  doSearch(code);
+}
+function mobDoSearch() {
+  const items = mobDropEl.querySelectorAll('.suggest-item');
+  if (mobActiveIdx >= 0 && items[mobActiveIdx]) {
+    const el = items[mobActiveIdx];
+    mobPick(el.dataset.name, el.dataset.code);
+  } else {
+    closeMobSearch();
+    doSearch(document.getElementById('mob-search-input').value.trim());
+  }
+}
+function mobSearchKey(e) {
+  const items = mobDropEl.querySelectorAll('.suggest-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    mobActiveIdx = Math.min(mobActiveIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === mobActiveIdx));
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    mobActiveIdx = Math.max(mobActiveIdx - 1, -1);
+    items.forEach((el, i) => el.classList.toggle('active', i === mobActiveIdx));
+  } else if (e.key === 'Enter') { mobDoSearch(); }
+  else if (e.key === 'Escape') { closeMobSearch(); }
+}
 function toggleMobMenu(){const d=document.getElementById('mob-nav-drawer');const o=d.classList.toggle('open');closeMobSearch();updateMenuIcon(o);}
 function updateMenuIcon(o){const i=document.getElementById('mob-menu-icon');if(!i)return;i.innerHTML=o?'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>':'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>';}
 </script>
