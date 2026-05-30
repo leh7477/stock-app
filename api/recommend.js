@@ -86,8 +86,9 @@ export default async function handler(req, res) {
     // ── 5종류 Top (필터 무관, 전체 기준 / ETF·레버리지 제외) ──────────────
     const pureStocks = all.filter(s => !isETF(s));
 
-    // KOSPI/KOSDAQ 각각 N개씩 뽑아 합치는 헬퍼
-    const mergeByMarket = (sorted, n = 20) => {
+    // 시총 필터 후에도 각 카테고리에서 20개 확보되도록 충분한 풀 확보
+    // 대형주(1조+)·중형주·소형주 각각 20개 → 최소 60개/시장 필요
+    const mergeByMarket = (sorted, n = 100) => {
       const kospi  = sorted.filter(s => (s.market || '').includes('KOSPI')).slice(0, n);
       const kosdaq = sorted.filter(s => (s.market || '').includes('KOSDAQ')).slice(0, n);
       const seen   = new Set();
