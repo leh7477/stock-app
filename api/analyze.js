@@ -1213,8 +1213,8 @@ if (dartEps === null) {
     let consensusDate = null;
     try {
       const oDates = estimateRaw?.output4;
-      const oEps   = estimateRaw?.output3?.[1];
-      const oPer   = estimateRaw?.output3?.[3];
+      const oEps   = estimateRaw?.output3?.[4]; // [4]=EPS(원/주), [1]은 영업이익(억원)
+      const oPer   = estimateRaw?.output3?.[5]; // [5]=PER(배), [3]은 당기순이익(억원)
       if (oDates && oEps) {
         const dataKeys  = ['data1','data2','data3','data4','data5'];
         const thisYear  = new Date().getFullYear();
