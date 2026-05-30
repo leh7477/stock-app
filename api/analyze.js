@@ -390,11 +390,11 @@ function calcRelStrengthScore(closes, weeklyCloses, market, marketReturns) {
   if (wTotal === 0) return { score: 0, excessReturn: null, available: false };
 
   const excess = wSum / wTotal;
-  const score  = excess >= 30 ? 15
-               : excess >= 20 ? 12
-               : excess >= 10 ? 9
-               : excess >= 5  ? 6
-               : excess >= 0  ? 3
+  const score  = excess >= 30 ? 5
+               : excess >= 20 ? 4
+               : excess >= 10 ? 3
+               : excess >= 5  ? 2
+               : excess >= 0  ? 1
                : 0;
 
   return {
@@ -412,6 +412,14 @@ function calcRelStrengthScore(closes, weeklyCloses, market, marketReturns) {
       b12m: bench?.['12m'] ?? null,
     },
   };
+}
+
+function calcMacroScore(relResult, marketAdj, newsBoostResult) {
+  const relScore  = relResult?.score ?? 0;
+  const mktScore  = Math.max(-3, Math.min(3, marketAdj ?? 0));
+  const newsScore = Math.max(-2, Math.min(2, newsBoostResult?.score ?? 0));
+  const total     = Math.max(-5, Math.min(10, relScore + mktScore + newsScore));
+  return { total, relScore, mktScore, newsScore, excessReturn: relResult?.excessReturn ?? null };
 }
 
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
@@ -1188,11 +1196,12 @@ if (dartEps === null) {
     const techDetail  = techResult.detail;
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0);
     const korScore  = ks.total;
-    const relResult            = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
-    const newsBoostResult      = calcNewsBoost(code, sector2, name, newsBoost);
-    const atrContractionResult = calcAtrContractionScore(closes);
-    // korScore(0~50) * 0.4 = 최대 20pt / 52주신고가는 korScore 내부로 이동
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + Math.round(korScore * 0.4) + marketAdj + relResult.score + newsBoostResult.score + atrContractionResult.score);
+    const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
+    const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
+    const atrContractionResult = calcAtrContractionScore(closes); // 표시용 유지
+    const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult);
+    // 기술(70) + 국장특화(20) + 매크로(10) = 100점
+    const liveScore = Math.min(100, Math.round(techScore * 0.7) + Math.round(korScore * 0.4) + macroResult.total);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1311,6 +1320,7 @@ if (dartEps === null) {
       relStrength: relResult,
       newHigh: { score: ks.newHighScore, pctFromHigh: ks.pctFromHigh },
       atrContraction: atrContractionResult,
+      macroScore: macroResult,
       competitors,
       moatAnalysis,
       dartFinancials: dartFinancials ? {

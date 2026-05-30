@@ -513,6 +513,12 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
           <div id="r-kor-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
+        <!-- 매크로·모멘텀 점수 -->
+        <div class="dl-card">
+          <div class="dl-title">🌐 매크로·모멘텀 <span style="font-weight:400;color:var(--muted);font-size:10px;">최대 10점</span></div>
+          <div id="r-macro-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
+        </div>
+
         <!-- 미래성장 가점 (항상 표시) -->
         <div class="dl-card">
           <div class="dl-title">🌱 미래성장 가점 <span style="font-size:10px;font-weight:400;color:var(--muted)">모멘텀·섹터 기반 PEG 근사</span></div>
@@ -1251,6 +1257,76 @@ function renderKoreanScore(ks) {
 }
 
 // ── 미래성장 가점 전용 카드 (모든 종목에 항상 표시) ─────────────────────
+function renderMacroScore(macro, marketAdj) {
+  const el = document.getElementById('r-macro-score');
+  if (!el || !macro) return;
+  const { total = 0, relScore = 0, mktScore = 0, newsScore = 0, excessReturn = null } = macro;
+  const c = scoreColor(Math.round(total / 10 * 100));
+
+  const bar = (pts, max, col) =>
+    `<div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${max>0?Math.min(100,Math.max(0,Math.abs(pts))/max*100):0}%;background:${col}"></div></div>`;
+  const row = (label, desc, pts, max, col = c, sign = false) => `
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.35;">${label}</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${desc}</div>
+        ${bar(pts, max, col)}
+      </div>
+      <div class="ma-score-val" style="color:${col};min-width:36px;text-align:right;">${sign && pts > 0 ? '+' : ''}${pts}<span style="font-size:10px;font-weight:400;color:var(--muted)">/${sign?'±':''}${max}</span></div>
+    </div>`;
+
+  const relLbl = excessReturn === null ? '벤치마크 데이터 없음'
+    : excessReturn >= 30 ? `시장 초과 +${excessReturn}% — 강한 상대강도`
+    : excessReturn >= 10 ? `시장 초과 +${excessReturn}%`
+    : excessReturn >= 0  ? `시장 소폭 초과 +${excessReturn}%`
+    : `시장 대비 ${excessReturn}% 부진`;
+  const mktLbl = mktScore >= 3 ? '시장 극도 공포 — 역발상 매수 구간'
+    : mktScore >= 2 ? '시장 공포 구간'
+    : mktScore >= 1 ? '시장 약세 구간'
+    : mktScore <= -3 ? '시장 극도 과열 — 주의'
+    : mktScore <= -2 ? '시장 과열 구간'
+    : mktScore <= -1 ? '시장 약간 과열'
+    : '시장 중립';
+  const newsLbl = newsScore > 0 ? `테마·뉴스 호재 (+${newsScore}점)` : newsScore < 0 ? `테마·뉴스 악재 (${newsScore}점)` : '뉴스 모멘텀 없음';
+  const mktCol  = mktScore > 0 ? '#22c55e' : mktScore < 0 ? '#ef4444' : 'var(--muted)';
+  const newsCol = newsScore > 0 ? '#22c55e' : newsScore < 0 ? '#ef4444' : 'var(--muted)';
+
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div>
+        <span style="font-size:22px;font-weight:800;color:${c};">${total}</span>
+        <span style="font-size:12px;font-weight:400;color:var(--muted);"> / 10점</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:right;">기술 70 + 국장 20 + 매크로&nbsp;<b style="font-size:14px;color:${c};">${total}</b></div>
+    </div>
+    <details>
+      <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0 8px;list-style:none;display:flex;align-items:center;gap:4px;">
+        <span class="details-arrow" style="font-size:9px;">▶</span> 세부 내역
+      </summary>
+      ${row('상대<br>강도', relLbl, relScore, 5)}
+      <div class="ma-score-row">
+        <div class="ma-score-label" style="font-size:9px;line-height:1.35;">시장<br>환경</div>
+        <div class="ma-score-bar-wrap">
+          <div style="font-size:10px;color:${mktCol};margin-bottom:3px">${mktLbl}</div>
+          ${bar(mktScore, 3, mktCol)}
+        </div>
+        <div class="ma-score-val" style="color:${mktCol};min-width:36px;text-align:right;">${mktScore > 0 ? '+' : ''}${mktScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±3</span></div>
+      </div>
+      <div class="ma-score-row" style="border-bottom:none;">
+        <div class="ma-score-label" style="font-size:9px;line-height:1.35;">뉴스<br>테마</div>
+        <div class="ma-score-bar-wrap">
+          <div style="font-size:10px;color:${newsCol};margin-bottom:3px">${newsLbl}</div>
+          ${bar(newsScore, 2, newsCol)}
+        </div>
+        <div class="ma-score-val" style="color:${newsCol};min-width:36px;text-align:right;">${newsScore > 0 ? '+' : ''}${newsScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±2</span></div>
+      </div>
+    </details>
+    <div class="ma-score-total" style="margin-top:8px;">
+      <div class="ma-score-total-label">매크로·모멘텀 합계</div>
+      <div class="ma-score-total-val" style="color:${c}">${total > 0 ? '+' : ''}${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 10점</span></div>
+    </div>`;
+}
+
 function renderGrowthScore(ks) {
   const el = document.getElementById('r-growth-score');
   if (!el || !ks) return;
@@ -1999,6 +2075,7 @@ function renderResult(data) {
   renderOneLiner(data);
   renderMAScore(data.maScore);
   renderKoreanScore(data.korScore);
+  renderMacroScore(data.macroScore);
   renderGrowthScore(data.korScore);
   renderTechScore(data.korScore?.techDetail, data.korScore?.techScore);
   renderStrategy(data.recommend, data.stock, data.atr);

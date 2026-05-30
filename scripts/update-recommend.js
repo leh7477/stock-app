@@ -665,9 +665,17 @@ function calcRelStrengthScore(closes, market, marketReturns) {
   if (wTotal === 0) return { score: 0 };
 
   const excess = wSum / wTotal;
-  const score  = excess >= 30 ? 15 : excess >= 20 ? 12 : excess >= 10 ? 9
-               : excess >= 5  ? 6  : excess >= 0  ? 3  : 0;
+  const score  = excess >= 30 ? 5 : excess >= 20 ? 4 : excess >= 10 ? 3
+               : excess >= 5  ? 2 : excess >= 0  ? 1 : 0;
   return { score, excessReturn: Math.round(excess * 10) / 10 };
+}
+
+function calcMacroScore(relResult, marketAdj, newsBoostResult) {
+  const relScore  = relResult?.score ?? 0;                              // 0~5pt
+  const mktScore  = Math.max(-3, Math.min(3, marketAdj ?? 0));          // ±3pt
+  const newsScore = Math.max(-2, Math.min(2, newsBoostResult?.score ?? 0)); // ±2pt
+  const total     = Math.max(-5, Math.min(10, relScore + mktScore + newsScore));
+  return { total, relScore, mktScore, newsScore, excessReturn: relResult?.excessReturn ?? null };
 }
 
 function analyze(stock, closes, volumes, extra = {}) {
@@ -714,13 +722,13 @@ function analyze(stock, closes, volumes, extra = {}) {
     extra.dartFin ?? null, extra.forwardPer ?? null,
     d20FrgnInst, extra.divYield ?? 0, extra.mktCap ?? 0
   );
-  const korScore             = ks.total;
-  const marketAdj            = extra.marketAdj ?? 0;
-  const relResult            = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
-  const newsBoostResult      = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
-  const atrContractionResult = calcAtrContractionScore(closes);
-  // korScore(0~50) * 0.4 = 최대 20pt 기여 / 52주신고가는 korScore 내부로 이동
-  const score = Math.min(100, Math.round(techScore * 0.7) + Math.round(korScore * 0.4) + marketAdj + relResult.score + newsBoostResult.score + atrContractionResult.score);
+  const korScore        = ks.total;
+  const marketAdj       = extra.marketAdj ?? 0;
+  const relResult       = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
+  const newsBoostResult = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
+  const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult);
+  // 기술(70) + 국장특화(20) + 매크로(10) = 100점
+  const score = Math.min(100, Math.round(techScore * 0.7) + Math.round(korScore * 0.4) + macroResult.total);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
