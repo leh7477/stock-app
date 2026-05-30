@@ -1210,30 +1210,35 @@ function renderKoreanScore(ks) {
       </div>
     </div>
 
-    ${row('PBR', `${pbr > 0 ? pbr.toFixed(1)+'배' : 'N/A'} — ${pbr<=0?'데이터없음':pbr<=0.8?'강한 저평가':pbr<=1.5?'저평가':'적정/고평가'}`, pbrScore, 8)}
-    ${row('섹터<br>등급', secLbl, secScore, 8)}
-    ${row('forward<br>PER', fwdLbl, forwardPERScore, 10)}
-    ${row('수급<br>5일', `외인+기관 ${supplyD5 > 0 ? '✅ 순매수' : '❌ 없음'}`, supplyD5, 4)}
-    ${row('수급<br>20일', `외인+기관 ${supplyD20 > 0 ? '✅ 순매수 지속' : '❌ 없음'}`, supplyD20, 4)}
-    ${row('DART<br>재무', `ROE ${roScore} · EPS성장 ${epsGScore} · 영업마진 ${opMarginScore} · 매출성장 ${revGScore} · 부채 ${debtPenalty}`, dartTotal, 15, debtPenalty < -2 ? '#ef4444' : c, true)}
-    ${row('배당<br>수익률', divScore >= 3 ? `고배당 ${divScore}%↑ (${divScore}점)` : divScore >= 1 ? `배당 ${divScore}%↑` : '무배당 또는 데이터 없음', divScore, 4)}
-    ${row('52주<br>신고가', highLbl, newHighScore, 5)}
-    <div class="ma-score-row">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.35;">공시<br>모멘텀</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:${discColor};margin-bottom:3px">${discLbl}</div>
-        ${bar(Math.abs(disclosureScore), 2, discColor)}
+    <details>
+      <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0 8px;list-style:none;display:flex;align-items:center;gap:4px;">
+        <span class="details-arrow" style="font-size:9px;">▶</span> 세부 내역
+      </summary>
+      ${row('PBR', `${pbr > 0 ? pbr.toFixed(1)+'배' : 'N/A'} — ${pbr<=0?'데이터없음':pbr<=0.8?'강한 저평가':pbr<=1.5?'저평가':'적정/고평가'}`, pbrScore, 8)}
+      ${row('섹터<br>등급', secLbl, secScore, 8)}
+      ${row('forward<br>PER', fwdLbl, forwardPERScore, 10)}
+      ${row('수급<br>5일', `외인+기관 ${supplyD5 > 0 ? '✅ 순매수' : '❌ 없음'}`, supplyD5, 4)}
+      ${row('수급<br>20일', `외인+기관 ${supplyD20 > 0 ? '✅ 순매수 지속' : '❌ 없음'}`, supplyD20, 4)}
+      ${row('DART<br>재무', `ROE ${roScore} · EPS성장 ${epsGScore} · 영업마진 ${opMarginScore} · 매출성장 ${revGScore} · 부채 ${debtPenalty}`, dartTotal, 15, debtPenalty < -2 ? '#ef4444' : c, true)}
+      ${row('배당<br>수익률', divScore >= 3 ? `고배당 ${divScore}%↑ (${divScore}점)` : divScore >= 1 ? `배당 ${divScore}%↑` : '무배당 또는 데이터 없음', divScore, 4)}
+      ${row('52주<br>신고가', highLbl, newHighScore, 5)}
+      <div class="ma-score-row">
+        <div class="ma-score-label" style="font-size:9px;line-height:1.35;">공시<br>모멘텀</div>
+        <div class="ma-score-bar-wrap">
+          <div style="font-size:10px;color:${discColor};margin-bottom:3px">${discLbl}</div>
+          ${bar(Math.abs(disclosureScore), 2, discColor)}
+        </div>
+        <div class="ma-score-val" style="color:${discColor};min-width:36px;text-align:right;">${disclosureScore > 0 ? '+' : ''}${disclosureScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±2</span></div>
       </div>
-      <div class="ma-score-val" style="color:${discColor};min-width:36px;text-align:right;">${disclosureScore > 0 ? '+' : ''}${disclosureScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±2</span></div>
-    </div>
-    <div class="ma-score-row" style="border-bottom:none;">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.35;">시총<br>안정성</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};margin-bottom:3px">${mcLbl}</div>
-        ${bar(3 + mktCapScore, 3, mktCapScore < 0 ? '#ef4444' : c)}
+      <div class="ma-score-row" style="border-bottom:none;">
+        <div class="ma-score-label" style="font-size:9px;line-height:1.35;">시총<br>안정성</div>
+        <div class="ma-score-bar-wrap">
+          <div style="font-size:10px;color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};margin-bottom:3px">${mcLbl}</div>
+          ${bar(3 + mktCapScore, 3, mktCapScore < 0 ? '#ef4444' : c)}
+        </div>
+        <div class="ma-score-val" style="color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};min-width:36px;text-align:right;">${mktCapScore}<span style="font-size:10px;font-weight:400;color:var(--muted);"> pt</span></div>
       </div>
-      <div class="ma-score-val" style="color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};min-width:36px;text-align:right;">${mktCapScore}<span style="font-size:10px;font-weight:400;color:var(--muted);"> pt</span></div>
-    </div>
+    </details>
 
     <div class="ma-score-total" style="margin-top:8px;">
       <div class="ma-score-total-label">국장 특화 합계 (×0.4 최종 기여)</div>
@@ -1373,20 +1378,25 @@ function renderTechScore(techDetail, techContrib70) {
       <div style="font-size:11px;color:var(--muted);text-align:right;">×0.7 →&nbsp;<b style="font-size:14px;color:${c};">${contrib}</b><span style="color:var(--muted)"> / 70점</span></div>
     </div>
 
-    ${row('이평선<br>배열', '5/20/60/120 배열 정렬 상태', arrangement, 20)}
-    ${row('MA20<br>이격도', 'MA20 대비 현재가 위치', deviation, 20)}
-    ${row('RSI', rsiLbl, rsi, 15)}
-    ${row('MACD', macdLbl, macd, 15)}
-    ${row('거래량', '최근 5일 평균 대비 거래량 강도', volume, 15)}
-    ${row('OBV', '60일 최고 OBV 대비 현재 위치', obv, 15)}
-    <div class="ma-score-row" style="border-bottom:none;">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.35;">볼린저<br>조정</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:${bollColor};margin-bottom:3px">${bollLbl}</div>
-        ${bar(Math.abs(boll), 10, bollColor)}
+    <details>
+      <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0 8px;list-style:none;display:flex;align-items:center;gap:4px;">
+        <span class="details-arrow" style="font-size:9px;">▶</span> 세부 내역
+      </summary>
+      ${row('이평선<br>배열', '5/20/60/120 배열 정렬 상태', arrangement, 20)}
+      ${row('MA20<br>이격도', 'MA20 대비 현재가 위치', deviation, 20)}
+      ${row('RSI', rsiLbl, rsi, 15)}
+      ${row('MACD', macdLbl, macd, 15)}
+      ${row('거래량', '최근 5일 평균 대비 거래량 강도', volume, 15)}
+      ${row('OBV', '60일 최고 OBV 대비 현재 위치', obv, 15)}
+      <div class="ma-score-row" style="border-bottom:none;">
+        <div class="ma-score-label" style="font-size:9px;line-height:1.35;">볼린저<br>조정</div>
+        <div class="ma-score-bar-wrap">
+          <div style="font-size:10px;color:${bollColor};margin-bottom:3px">${bollLbl}</div>
+          ${bar(Math.abs(boll), 10, bollColor)}
+        </div>
+        <div class="ma-score-val" style="color:${bollColor};min-width:36px;text-align:right;">${boll > 0 ? '+' : ''}${boll}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±10</span></div>
       </div>
-      <div class="ma-score-val" style="color:${bollColor};min-width:36px;text-align:right;">${boll > 0 ? '+' : ''}${boll}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±10</span></div>
-    </div>
+    </details>
 
     <div class="ma-score-total" style="margin-top:8px;">
       <div class="ma-score-total-label">기술지표 합계 (×0.7 최종 기여)</div>
