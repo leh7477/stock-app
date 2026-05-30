@@ -1162,6 +1162,7 @@ function renderKoreanScore(ks) {
     supplyScore = 0, supplyD5 = 0, supplyD20 = 0,
     disclosureScore = 0,
     roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0,
+    epsAccelScore = 0, epsHistory = null,
     divScore = 0, mktCapScore = 0, personalScore = 0, frgnLowScore = 0, insolvencyScore = 0,
     tag = 'neutral',
   } = ks;
@@ -1206,6 +1207,20 @@ function renderKoreanScore(ks) {
               : mktCapScore <= -2 ? '중소형 2000억 미만'
               : '중대형주 — 감점 없음';
   const dartTotal = roScore + epsGScore + opMarginScore + revGScore + debtPenalty;
+  const epsAccelGrowth = (() => {
+    if (!epsHistory || epsHistory.filter(v => v !== null).length < 2) return null;
+    const v = epsHistory.filter(v => typeof v === 'number' && v !== null);
+    const prev = v[v.length - 2], latest = v[v.length - 1];
+    return prev !== 0 ? Math.round((latest - prev) / Math.abs(prev) * 100) : null;
+  })();
+  const epsAccelLbl = epsAccelScore === 0 && epsAccelGrowth === null
+    ? '데이터 없음 (0점)'
+    : epsAccelGrowth === null || epsHistory === null
+      ? '데이터 없음 (0점)'
+      : epsAccelGrowth < 0
+        ? `EPS ${epsAccelGrowth}% 역성장 (0점)`
+        : `EPS +${epsAccelGrowth}% 성장 (${epsAccelScore >= 10 ? '10점' : epsAccelScore >= 7 ? '7점' : '4점'}${epsAccelScore > (epsAccelGrowth >= 50 ? 10 : epsAccelGrowth >= 20 ? 7 : 4) ? ' + 2분기 연속 가속' : ''})`;
+
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:${tm.bg};margin-bottom:10px;">
@@ -1233,6 +1248,7 @@ function renderKoreanScore(ks) {
       ${row('수급<br>5일', `외인+기관 ${supplyD5 > 0 ? '✅ 순매수' : '❌ 없음'}`, supplyD5, 4)}
       ${row('수급<br>20일', `외인+기관 ${supplyD20 > 0 ? '✅ 순매수 지속' : '❌ 없음'}`, supplyD20, 4)}
       ${row('DART<br>재무', `EPS성장 ${epsGScore} · ROE ${roScore} · 영업마진 ${opMarginScore} · 매출성장 ${revGScore} · 부채 ${debtPenalty}`, dartTotal, 10, debtPenalty < -2 ? '#ef4444' : c, true)}
+      ${row('EPS<br>가속도', epsAccelLbl, epsAccelScore, 12, epsAccelScore >= 9 ? '#22c55e' : epsAccelScore >= 4 ? '#f59e0b' : 'var(--muted)')}
       ${row('배당<br>수익률', divScore >= 3 ? `고배당 ${divScore}%↑ (${divScore}점)` : divScore >= 1 ? `배당 ${divScore}%↑` : '무배당 또는 데이터 없음', divScore, 4)}
       <div class="ma-score-row">
         <div class="ma-score-label" style="font-size:9px;line-height:1.35;">공시<br>모멘텀</div>

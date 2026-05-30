@@ -541,10 +541,35 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
+// ─── EPS 가속도 점수 (0~12pt) ─────────────────────────────────────────────────
+// epsHistory: [2년전EPS, 1년전EPS, 최신EPS] — DART 연간/분기 기준
+function calcEpsAcceleration(epsHistory) {
+  if (!epsHistory || epsHistory.length < 2) return 0;
+  const valid = epsHistory.filter(v => typeof v === 'number' && v !== null);
+  if (valid.length < 2) return 0;
+
+  const latest = valid[valid.length - 1];
+  const prev   = valid[valid.length - 2];
+  if (prev === 0) return 0;
+
+  const growth = (latest - prev) / Math.abs(prev) * 100;
+  let score = growth >= 50 ? 10 : growth >= 20 ? 7 : growth >= 0 ? 4 : 0;
+
+  // 2분기 연속 가속 보너스 (+2pt)
+  if (valid.length >= 3 && score > 0) {
+    const prevPrev = valid[valid.length - 3];
+    if (prevPrev !== 0 && prevPrev !== null) {
+      const prevGrowth = (prev - prevPrev) / Math.abs(prevPrev) * 100;
+      if (growth > prevGrowth) score = Math.min(12, score + 2);
+    }
+  }
+  return score;
+}
+
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
 // PBR(8) + 섹터(0~8) + forwardPER(0~10) + 수급(0~8) + 공시(±2) + DART(+15/-4)
-// + 배당(0~4) + 52주신고가(0~5) + 시총(-3~0) = cap 50pt → ×0.4 = 최대 20pt
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null) {
+// + EPS가속(0~12) + 배당(0~4) + 시총(-3~0) = cap 50pt → ×0.5 = 최대 25pt
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -637,12 +662,13 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
+    epsAccelScore + divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
            pbrScore, secScore, forwardPERScore, perFinal,
            supplyScore, supplyD5, supplyD20, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
+           epsAccelScore,
            divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
 }
 
@@ -1265,7 +1291,8 @@ if (dartEps === null) {
     const techResult  = calcScore(closes, volumes, boll);
     const techScore   = techResult.total;
     const techDetail  = techResult.detail;
-    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2);
+    const epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2);
     const korScore  = ks.total;
     const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
@@ -1369,6 +1396,7 @@ if (dartEps === null) {
           supplyScore: supplyS, supplyD5: sd5, supplyD20: sd20,
           disclosureScore: discS,
           roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
+          epsAccelScore: epsAccel2, epsHistory: dartFinancials?.epsHistory ?? null,
           divScore: divS, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
           techScore: Math.round(techScore * 0.7),

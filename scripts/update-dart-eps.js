@@ -279,7 +279,11 @@ async function fetchDartFinancials(corpCode) {
         if (eq2 > 0) debtRatio = Math.round(debt / eq2 * 1000) / 10;
       }
 
-      return { eps, epsGrowth, operatingMargin, roe, revenueGrowth, debtRatio };
+      const epsH2 = epsItem ? parseSigned(epsItem.bfefrmtrm_amount || '0') : 0;
+      const epsH1 = epsItem ? parseSigned(epsItem.frmtrm_amount   || '0') : 0;
+      const epsH0 = epsItem ? parseSigned(epsItem.thstrm_amount   || '0') : 0;
+      return { eps, epsGrowth, operatingMargin, roe, revenueGrowth, debtRatio,
+               epsHistory: [epsH2 || null, epsH1 || null, epsH0 || null] };
 
     } catch (_) {
       continue;

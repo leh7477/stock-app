@@ -526,7 +526,26 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null) {
+function calcEpsAcceleration(epsHistory) {
+  if (!epsHistory || epsHistory.length < 2) return 0;
+  const valid = epsHistory.filter(v => typeof v === 'number' && v !== null);
+  if (valid.length < 2) return 0;
+  const latest = valid[valid.length - 1];
+  const prev   = valid[valid.length - 2];
+  if (prev === 0) return 0;
+  const growth = (latest - prev) / Math.abs(prev) * 100;
+  let score = growth >= 50 ? 10 : growth >= 20 ? 7 : growth >= 0 ? 4 : 0;
+  if (valid.length >= 3 && score > 0) {
+    const prevPrev = valid[valid.length - 3];
+    if (prevPrev !== 0 && prevPrev !== null) {
+      const prevGrowth = (prev - prevPrev) / Math.abs(prevPrev) * 100;
+      if (growth > prevGrowth) score = Math.min(12, score + 2);
+    }
+  }
+  return score;
+}
+
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -609,7 +628,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
+    epsAccelScore + divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
            pbrScore, secScore, forwardPERScore,
@@ -745,12 +764,13 @@ function analyze(stock, closes, volumes, extra = {}) {
   const d5Personal  = _d5  ? (_d5.personal || 0) : null;
 
   const finalPer  = extra.per ?? 0;
+  const epsAccel  = calcEpsAcceleration(extra.dartFin?.epsHistory ?? null);
   const ks        = calcKoreanScore(
     extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '',
     d5FrgnInst, [], stock.name || '', stock.code || '',
     extra.dartFin ?? null, extra.forwardPer ?? null,
     d20FrgnInst, extra.divYield ?? 0, extra.mktCap ?? 0,
-    extra.frgnRatio ?? 0, d5Personal
+    extra.frgnRatio ?? 0, d5Personal, epsAccel
   );
   const korScore        = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
