@@ -542,12 +542,24 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const n   = closes.length - 1;
   const cur = closes[n];
 
-  // PBR (최대 8점)
-  const pbrScore = pbr > 0 ? Math.max(0, 8 * (1.5 - pbr) / 1.5) : 0;
+  // PBR 구간 이산 (0~8pt)
+  const pbrScore = pbr <= 0 ? 0
+                 : pbr <= 0.5 ? 8
+                 : pbr <= 0.8 ? 6
+                 : pbr <= 1.0 ? 4
+                 : pbr <= 1.2 ? 2
+                 : pbr <= 1.5 ? 1
+                 : 0;
 
-  // 섹터점수 (0~8pt) + PER저평가 (0~10pt) — 분리 합산
+  // 섹터점수 (0~8pt) + forwardPER 구간 이산 (0~10pt)
   const secScore        = sectorGrowthScore(sector, stockName, stockCode);
-  const forwardPERScore = per > 0 ? Math.max(0, Math.min(10, 10 * (25 - per) / 25)) : 0;
+  const forwardPERScore = per <= 0  ? 0
+                        : per <= 8  ? 10
+                        : per <= 12 ? 8
+                        : per <= 15 ? 6
+                        : per <= 20 ? 4
+                        : per <= 25 ? 2
+                        : 0;
   const perFinal        = secScore + forwardPERScore;
 
   // 외인기관 수급 (0~8pt): 5일 + 20일 분리
@@ -622,10 +634,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
     divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
-           pbrScore:        Math.round(pbrScore * 10) / 10,
-           secScore:        Math.round(secScore * 10) / 10,
-           forwardPERScore: Math.round(forwardPERScore * 10) / 10,
-           perFinal:        Math.round(perFinal * 10) / 10,
+           pbrScore, secScore, forwardPERScore, perFinal,
            supplyScore, supplyD5, supplyD20, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
            divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
