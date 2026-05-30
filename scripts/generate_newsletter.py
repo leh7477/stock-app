@@ -29,11 +29,11 @@ log = logging.getLogger(__name__)
 
 # ─── 뉴스 수집 ───────────────────────────────────────────────────────────────
 
-def fetch_news() -> str:
+def fetch_news(query: str = "코스피+코스닥+주식시장+증시") -> str:
     """Google News RSS에서 한국 증시 최신 뉴스 15건 수집 (URL 포함)"""
     url = (
-        "https://news.google.com/rss/search"
-        "?q=코스피+코스닥+주식시장+증시&hl=ko&gl=KR&ceid=KR:ko"
+        f"https://news.google.com/rss/search"
+        f"?q={query}&hl=ko&gl=KR&ceid=KR:ko"
     )
     try:
         resp = requests.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
@@ -57,27 +57,37 @@ def fetch_news() -> str:
 
 # ─── 시장 데이터 수집 ─────────────────────────────────────────────────────────
 
-def fetch_market() -> str:
-    """Yahoo Finance에서 KOSPI·KOSDAQ·나스닥·S&P500 최근 종가 수집"""
+def fetch_market(weekly: bool = False) -> str:
+    """Yahoo Finance에서 KOSPI·KOSDAQ·나스닥·S&P500 최근 종가 수집
+    weekly=True 이면 주간 등락률도 함께 반환"""
     symbols = {
         "KOSPI":  "^KS11",
         "KOSDAQ": "^KQ11",
         "나스닥":  "^IXIC",
         "S&P500": "^GSPC",
+        "VIX":    "^VIX",
+        "달러/원": "USDKRW=X",
     }
+    range_str = "1mo" if weekly else "5d"
     lines = []
     for name, sym in symbols.items():
         try:
-            url  = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=5d"
+            url  = f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range={range_str}"
             data = requests.get(url, timeout=8, headers={"User-Agent": "Mozilla/5.0"}).json()
             result = data["chart"]["result"][0]
             closes = result["indicators"]["quote"][0]["close"]
             valid  = [c for c in closes if c is not None]
             if len(valid) >= 2:
-                prev, last = valid[-2], valid[-1]
-                chg = (last - prev) / prev * 100
-                sign = "+" if chg >= 0 else ""
-                lines.append(f"- {name}: {last:,.2f}  전일대비 {sign}{chg:.2f}%")
+                prev_day, last = valid[-2], valid[-1]
+                chg_day = (last - prev_day) / prev_day * 100
+                sign = "+" if chg_day >= 0 else ""
+                if weekly and len(valid) >= 5:
+                    week_start = valid[-6] if len(valid) >= 6 else valid[0]
+                    chg_week = (last - week_start) / week_start * 100
+                    wsign = "+" if chg_week >= 0 else ""
+                    lines.append(f"- {name}: {last:,.2f}  전일대비 {sign}{chg_day:.2f}%  주간 {wsign}{chg_week:.2f}%")
+                else:
+                    lines.append(f"- {name}: {last:,.2f}  전일대비 {sign}{chg_day:.2f}%")
             elif valid:
                 lines.append(f"- {name}: {valid[-1]:,.2f}")
         except Exception as e:
@@ -161,20 +171,213 @@ def run():
     if not kv_url or not kv_token:
         log.error("[!] Redis 환경변수 없음 — 종료"); return
 
+    content_type = os.environ.get("CONTENT_TYPE", "weekday").lower().strip()
     kst       = datetime.timezone(datetime.timedelta(hours=9))
-    today     = datetime.datetime.now(kst).strftime("%Y년 %m월 %d일")
-    today_iso = datetime.datetime.now(kst).strftime("%Y-%m-%d")
+    now_kst   = datetime.datetime.now(kst)
+    today     = now_kst.strftime("%Y년 %m월 %d일")
+    today_iso = now_kst.strftime("%Y-%m-%d")
+
+    log.info(f"[config] CONTENT_TYPE={content_type}")
 
     # 1단계: 데이터 먼저 수집
     log.info("[step 1] 뉴스·시장 데이터 수집 중...")
-    news_text   = fetch_news()
-    market_text = fetch_market()
-    time.sleep(1)  # 수집 후 잠시 대기
+    is_weekend = content_type in ("saturday", "sunday")
+
+    if content_type == "saturday":
+        news_query = "코스피+코스닥+이번주+주간+증시+수급+섹터"
+    elif content_type == "sunday":
+        news_query = "코스피+코스닥+다음주+전망+증시+글로벌+FOMC"
+    else:
+        news_query = "코스피+코스닥+주식시장+증시"
+
+    news_text   = fetch_news(query=news_query)
+    market_text = fetch_market(weekly=is_weekend)
+    time.sleep(1)
 
     # 2단계: Gemini에 단 1회 요청
-    log.info(f"[step 2] Gemini 브리핑 생성 시작 ({today})...")
+    log.info(f"[step 2] Gemini 브리핑 생성 시작 ({today}, type={content_type})...")
 
-    prompt = f"""오늘은 {today}이다.
+    # ── 토요일 프롬프트: 이번 주 마켓 리뷰 ──────────────────────────────────
+    if content_type == "saturday":
+        prompt = f"""오늘은 {today} (토요일)이다.
+
+[사전 수집된 이번 주 시장 데이터 — 주간 등락률 포함]
+{market_text}
+
+[사전 수집된 이번 주 뉴스 데이터]
+{news_text}
+
+---
+
+[역할 및 페르소나]
+너는 대한민국 주식 시장의 한 주 흐름을 날카롭고 명쾌하게 정리하는 전문 주간 리뷰 에디터이자 최고의 증시 분석가이다.
+주간 단위로 큰 그림을 그려주고, 다음 주를 대비하는 인사이트를 제공해라.
+
+[작성 원칙]
+- 제공된 데이터를 바탕으로 아래 HTML 구조를 엄격히 준수하여 한국어로 작성해라.
+- 이번 주 전체를 돌아보는 '주간 리뷰' 형식으로 작성해라.
+
+---
+
+[Content Guidelines]
+
+1. **Main Headline**
+   - 이번 주 대한민국 증시 흐름을 한 줄로 요약하는 주간 리뷰 제목.
+
+2. **Section 1: 이번 주 시황 정리**
+   - **H2 Title**: 코스피/코스닥 주간 등락 요약 문구
+   - **Content**: 이번 주 코스피·코스닥 주간 등락폭, 외인·기관·개인 주간 수급 흐름 요약 (2~3문장)
+   - **H3**: '주간 수급 포인트' — 외인·기관이 어떤 섹터를 사고 팔았는지 핵심 정리
+
+3. **Section 2: 이번 주 주도 섹터/테마**
+   - **H2 Title**: '이번 주 주도 섹터 & 핵심 테마'
+   - **Content**: 이번 주 가장 강했던 섹터/테마 2~3개와 그 이유를 분석
+   - **H3**: '섹터별 대장주 흐름' — 섹터 대표 종목들의 주간 움직임을 리스트로
+
+4. **Section 3: 다음 주 주목 이벤트**
+   - **H2 Title**: '다음 주 체크리스트'
+   - **Format**: `<li><b>[날짜/이벤트명]</b><br> - 시장 영향 예상 및 주목 포인트</li>` 형태로 3~5개
+
+5. **Section 4: 여의도 TMI — 이번 주 뒷이야기**
+   - **H2 Title**: '이번 주 여의도 TMI'
+   - **Content**: 이번 주 시장에서 화제가 된 숨은 뒷이야기, 흥미로운 사실
+
+---
+
+[HTML 출력 형식 — 마크다운·코드블록 없이 순수 HTML만, 마지막에 태그 5개 추가]
+
+HTML 출력 후 아래 5개 태그를 맨 마지막에 출력해라.
+
+<!--BOOST_CODES:코드1,코드2-->
+<!--BOOST_SECTORS:키워드1,키워드2-->
+<!--PENALTY_CODES:코드1,코드2-->
+<!--PENALTY_SECTORS:키워드1,키워드2-->
+<!--SENTIMENT:점수-->
+
+[HTML 구조]
+<h1 class="nl-headline">[Main Headline]</h1>
+<p class="nl-meta">{today} · 썸팁 주간 마켓 리뷰</p>
+
+<section class="nl-section">
+<h2>[Section 1 H2]</h2>
+<p>[Content]</p>
+<h3>주간 수급 포인트</h3>
+<p>[수급 분석]</p>
+</section>
+
+<section class="nl-section">
+<h2>이번 주 주도 섹터 &amp; 핵심 테마</h2>
+<p>[Content]</p>
+<h3>섹터별 대장주 흐름</h3>
+<ul class="nl-list">
+<li><b>[섹터/종목]</b><br> - 주간 흐름 요약</li>
+</ul>
+</section>
+
+<section class="nl-section">
+<h2>다음 주 체크리스트</h2>
+<ul class="nl-list">
+<li><b>[날짜/이벤트]</b><br> - 주목 포인트</li>
+</ul>
+</section>
+
+<section class="nl-section">
+<h2>이번 주 여의도 TMI</h2>
+<p>[TMI Content]</p>
+</section>"""
+
+    # ── 일요일 프롬프트: 다음 주 전략 ────────────────────────────────────────
+    elif content_type == "sunday":
+        prompt = f"""오늘은 {today} (일요일)이다.
+
+[사전 수집된 글로벌 시장 데이터 — 주간 등락률 포함]
+{market_text}
+
+[사전 수집된 다음 주 관련 뉴스 데이터]
+{news_text}
+
+---
+
+[역할 및 페르소나]
+너는 대한민국 주식 투자자들이 월요일 장 시작 전에 반드시 읽어야 할 '다음 주 전략 리포트'를 작성하는 전문 애널리스트다.
+다음 주 시장을 선제적으로 준비할 수 있도록 실질적이고 날카로운 인사이트를 제공해라.
+
+[작성 원칙]
+- 제공된 데이터를 바탕으로 아래 HTML 구조를 엄격히 준수하여 한국어로 작성해라.
+- 미래 지향적인 '전략 리포트' 형식으로 작성해라.
+
+---
+
+[Content Guidelines]
+
+1. **Main Headline**
+   - 다음 주 국장 전략을 한 줄로 요약하는 매력적인 제목.
+
+2. **Section 1: 글로벌 시장 동향 & 국장 전망**
+   - **H2 Title**: '다음 주 글로벌 변수 & 국장 전망'
+   - **Content**: 나스닥·S&P500·VIX·환율 흐름과 이것이 다음 주 국장에 미칠 영향 분석 (2~3문장)
+   - **H3**: '핵심 리스크 & 기회 요인' — 다음 주 국장에 영향줄 주요 변수 정리
+
+3. **Section 2: 다음 주 주요 일정**
+   - **H2 Title**: '다음 주 마켓 캘린더'
+   - **Format**: `<li><b>[날짜/이벤트명]</b><br> - 예상 시장 영향 및 대응 전략</li>` 형태로 4~6개
+   - FOMC, 실적발표, 경제지표, 국내 이벤트 등 포함
+
+4. **Section 3: 다음 주 추천 전략 & 주목 종목**
+   - **H2 Title**: '다음 주 투자 전략 & 관심 섹터'
+   - **Content**: 다음 주 시장 환경에 적합한 투자 전략 및 주목할 섹터/테마 제시
+   - **H3**: '관심 종목 미리보기' — 다음 주 주목할 종목 3~5개와 이유 (투자 권유 아님, 참고용)
+   - **Format**: `<li><b><a href='#'>[종목명(코드)]</a></b><br> - 주목 이유 및 체크 포인트</li>`
+
+5. **Section 4: 주말 여의도 인사이트**
+   - **H2 Title**: '주말 여의도 인사이트'
+   - **Content**: 주말 동안 주목받은 해외 이슈나 국내 증권가 뒷이야기, 다음 주 투자 마인드셋
+
+---
+
+[HTML 출력 형식 — 마크다운·코드블록 없이 순수 HTML만, 마지막에 태그 5개 추가]
+
+<!--BOOST_CODES:코드1,코드2-->
+<!--BOOST_SECTORS:키워드1,키워드2-->
+<!--PENALTY_CODES:코드1,코드2-->
+<!--PENALTY_SECTORS:키워드1,키워드2-->
+<!--SENTIMENT:점수-->
+
+[HTML 구조]
+<h1 class="nl-headline">[Main Headline]</h1>
+<p class="nl-meta">{today} · 썸팁 다음 주 전략</p>
+
+<section class="nl-section">
+<h2>[Section 1 H2]</h2>
+<p>[Content]</p>
+<h3>핵심 리스크 &amp; 기회 요인</h3>
+<p>[리스크/기회 분석]</p>
+</section>
+
+<section class="nl-section">
+<h2>다음 주 마켓 캘린더</h2>
+<ul class="nl-list">
+<li><b>[날짜/이벤트]</b><br> - 예상 영향 및 대응</li>
+</ul>
+</section>
+
+<section class="nl-section">
+<h2>다음 주 투자 전략 &amp; 관심 섹터</h2>
+<p>[전략 Content]</p>
+<h3>관심 종목 미리보기</h3>
+<ul class="nl-list">
+<li><b><a href='#'>[종목명(코드)]</a></b><br> - 주목 이유</li>
+</ul>
+</section>
+
+<section class="nl-section">
+<h2>주말 여의도 인사이트</h2>
+<p>[Insight Content]</p>
+</section>"""
+
+    # ── 평일 프롬프트: 기존 국장 브리핑 ─────────────────────────────────────
+    else:
+        prompt = f"""오늘은 {today}이다.
 
 [사전 수집된 시장 데이터]
 {market_text}

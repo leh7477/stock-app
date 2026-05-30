@@ -2,11 +2,15 @@ name: 국장 브리핑 생성 (매일 08:00 KST)
 
 on:
   schedule:
-    # KST 08:00 = UTC 23:00 (전날)
-    # 월~금 08:00 KST → UTC 일~목 23:00
-    - cron: '0 23 * * 0-4'
+    - cron: '0 23 * * 1-5'  # 평일 08:00 KST → 국장 브리핑
+    - cron: '0 23 * * 6'    # 토요일 08:00 KST → 이번 주 마켓 리뷰
+    - cron: '0 23 * * 0'    # 일요일 08:00 KST → 다음 주 전략
   workflow_dispatch:
-    # 수동 실행 가능 (GitHub Actions 탭 → Run workflow)
+    inputs:
+      content_type:
+        description: '콘텐츠 타입 (weekday / saturday / sunday)'
+        required: false
+        default: 'weekday'
 
 jobs:
   generate:
@@ -17,6 +21,22 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
+      - name: 콘텐츠 타입 결정
+        id: type
+        run: |
+          MANUAL="${{ github.event.inputs.content_type }}"
+          SCHED="${{ github.event.schedule }}"
+          if [ -n "$MANUAL" ]; then
+            echo "content_type=$MANUAL" >> $GITHUB_OUTPUT
+          elif [ "$SCHED" = "0 23 * * 6" ]; then
+            echo "content_type=saturday" >> $GITHUB_OUTPUT
+          elif [ "$SCHED" = "0 23 * * 0" ]; then
+            echo "content_type=sunday" >> $GITHUB_OUTPUT
+          else
+            echo "content_type=weekday" >> $GITHUB_OUTPUT
+          fi
+          echo "결정된 타입: $(cat $GITHUB_OUTPUT | grep content_type)"
+
       - name: Python 3.11 설정
         uses: actions/setup-python@v5
         with:
@@ -25,16 +45,19 @@ jobs:
       - name: 패키지 설치
         run: pip install -r requirements.txt
 
-      - name: 국장 브리핑 생성
+      - name: 브리핑 생성
         env:
           GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
           KV_REST_API_URL:   ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          CONTENT_TYPE:      ${{ steps.type.outputs.content_type }}
         run: python scripts/generate_newsletter.py
 
 # ──────────────────────────────────────────────────────────────────
-# 실행 주기: 평일 매일 1회 (월~금 08:00 KST)
-# 소요 시간: ~1~2분 (Gemini Search Grounding + Redis 저장)
-# 저장 키:   daily_newsletter (TTL 26시간 — 다음날 생성 전까지 유지)
-# 사용처:    api/daily.js → today.html
+# 실행 주기:
+#   평일(월~금) 08:00 KST → 당일 국장 브리핑
+#   토요일     08:00 KST → 이번 주 마켓 리뷰
+#   일요일     08:00 KST → 다음 주 전략
+# 소요 시간: ~1~2분
+# 저장 키:   daily_newsletter (TTL 26시간)
 # ──────────────────────────────────────────────────────────────────
