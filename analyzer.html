@@ -1198,16 +1198,19 @@ function renderKoreanScore(ks) {
   const dartTotal = roScore + epsGScore + opMarginScore + revGScore + debtPenalty;
 
   el.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:${tm.bg};margin-bottom:12px;">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:10px;background:${tm.bg};margin-bottom:10px;">
       <span style="font-size:18px;">${tm.emoji}</span>
-      <div style="flex:1;">
+      <div>
         <div style="font-size:12px;font-weight:700;color:${tm.color};">${tm.label}</div>
         <div style="font-size:10px;color:var(--muted);margin-top:1px;">${tag === 'value' ? 'PBR·PER 기준 저평가' : tag === 'growth' ? '섹터·수급 프리미엄 적용' : 'PBR·PER·모멘텀 기준 중립'}</div>
       </div>
-      <div style="text-align:right;">
-        <span style="font-size:20px;font-weight:800;color:${c};">${total}</span><span style="font-size:11px;color:var(--muted);"> / 50</span><br>
-        <span style="font-size:10px;color:var(--muted);">×0.4 → </span><span style="font-size:13px;font-weight:700;color:${c};">${Math.round(total*0.4)}점</span>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div>
+        <span style="font-size:22px;font-weight:800;color:${c};">${total}</span>
+        <span style="font-size:12px;font-weight:400;color:var(--muted);"> / 50점</span>
       </div>
+      <div style="font-size:11px;color:var(--muted);text-align:right;">×0.4 →&nbsp;<b style="font-size:14px;color:${c};">${Math.round(total*0.4)}</b><span style="color:var(--muted)"> / 20점</span></div>
     </div>
 
     <details>
