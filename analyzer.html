@@ -1153,12 +1153,13 @@ function renderKoreanScore(ks) {
   if (!el || !ks) return;
   const {
     total = 0, pbr = 0, per = 0,
-    pbrScore = 0, perFinal = 0, supplyScore = 0, panicScore = 0,
+    pbrScore = 0, secScore = 0, forwardPERScore = 0, perFinal = 0,
+    supplyScore = 0, panicScore = 0,
     disclosureScore = 0, isIVExtreme = false,
     techScore = 0, rsi = null, drawdown = 0,
     tag = 'neutral',
   } = ks;
-  const c = scoreColor(Math.round(total / 30 * 100));
+  const c = scoreColor(Math.round(total / 40 * 100));
 
   // 종목 성격 태그 뱃지 (카드 상단)
   const tagMeta = {
@@ -1187,13 +1188,21 @@ function renderKoreanScore(ks) {
                : pbr <= 1.5 ? `${pbr.toFixed(1)}배 — 약간 저평가`
                :              `${pbr.toFixed(1)}배 — 적정/고평가`;
 
-  // PER/성장 슬롯: 최종 적용 점수만 표시 (상세 내역은 미래성장 카드에서 확인)
-  const perSlotLbl = per <= 0  ? '적자 기업'
-                   : per <= 8  ? `PER ${per.toFixed(1)}배 — 극도 저평가`
-                   : per <= 12 ? `PER ${per.toFixed(1)}배 — 저평가`
-                   : per <= 18 ? `PER ${per.toFixed(1)}배 — 적정`
-                   : per <= 25 ? `PER ${per.toFixed(1)}배 — 약간 고평가`
-                   :             `PER ${per.toFixed(1)}배 — 고평가`;
+  // 섹터 등급 라벨 (0~8pt)
+  const secLbl = secScore >= 8 ? '반도체·방위산업 — 국장 최고 성장 테마'
+               : secScore >= 7 ? '배터리·로봇·원전'
+               : secScore >= 6 ? '바이오·게임·SW·조선'
+               : secScore >= 4 ? '자동차·통신·화학·전자'
+               : secScore >= 2 ? '금융·유통·건설'
+               :                 '전통·사양 산업';
+
+  // forward PER 라벨 (0~10pt)
+  const fwdPerLbl = per <= 0  ? '적자 기업 (0점)'
+                  : per <= 8  ? `forward PER ${per.toFixed(1)}배 — 극도 저평가`
+                  : per <= 12 ? `forward PER ${per.toFixed(1)}배 — 저평가`
+                  : per <= 18 ? `forward PER ${per.toFixed(1)}배 — 적정`
+                  : per <= 25 ? `forward PER ${per.toFixed(1)}배 — 약간 고평가`
+                  :             `forward PER ${per.toFixed(1)}배 — 고평가 (감점)`;
 
   const rsiTxt = rsi !== null ? `RSI ${rsi}` : 'RSI -';
   const ddTxt  = `고점대비 -${(+drawdown).toFixed(1)}%`;
@@ -1224,12 +1233,20 @@ function renderKoreanScore(ks) {
       <div class="ma-score-val" style="color:${c}">${(+pbrScore).toFixed(1)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
     </div>
     <div class="ma-score-row">
-      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">섹터/<br>PER</div>
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">섹터<br>등급</div>
       <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${perSlotLbl} <span style="color:var(--blue);font-size:9px;">↓ 미래성장 카드 참고</span></div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${perFinal/14*100}%;background:${c}"></div></div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${secLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${secScore/8*100}%;background:${c}"></div></div>
       </div>
-      <div class="ma-score-val" style="color:${c}">${(+perFinal).toFixed(1)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/14</span></div>
+      <div class="ma-score-val" style="color:${c}">${(+secScore).toFixed(1)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">forward<br>PER</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${fwdPerLbl}</div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${forwardPERScore/10*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${(+forwardPERScore).toFixed(1)}<span style="font-size:10px;font-weight:400;color:var(--muted)">/10</span></div>
     </div>
     <div class="ma-score-row">
       <div class="ma-score-label" style="font-size:9px;line-height:1.3;">외인기관<br>수급</div>
@@ -1261,7 +1278,7 @@ function renderKoreanScore(ks) {
     </div>
     <div class="ma-score-total">
       <div class="ma-score-total-label">국장 특화 합계</div>
-      <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 30점</span></div>
+      <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 40점</span></div>
     </div>
     `;
 }
@@ -1271,42 +1288,36 @@ function renderGrowthScore(ks) {
   const el = document.getElementById('r-growth-score');
   if (!el || !ks) return;
   const {
-    per = 0, perScore = 0,
+    per = 0, secScore = 0, forwardPERScore = 0,
     growthScore = 0, growthSector = 0, growthBuy = 0,
-    perFinal = 0, tag = 'neutral', growthComment = null,
+    tag = 'neutral', growthComment = null,
     perSource = 'kis', dartEps = null,
   } = ks;
 
-  const sectorScore  = growthSector ?? 0;   // 섹터 등급 점수 (0~14)
-  const buyScore     = growthBuy    ?? 0;   // 외인+기관 순매수 (0~4)
-  const totalGrowth  = sectorScore + buyScore;  // 실제 합산 (최대 18)
-  const isApplied = sectorScore > perScore;  // 섹터 점수가 PER보다 높으면 PER 대신 적용
-  const gc = isApplied ? '#f59e0b' : 'var(--muted)';
+  const sectorScore = growthSector ?? secScore ?? 0;  // 섹터 등급 점수 (0~8pt)
+  const buyScore    = growthBuy ?? 0;                 // 외인+기관 순매수 (0~4pt)
+  const gc = sectorScore >= 6 ? '#f59e0b' : 'var(--muted)';
 
-  // 섹터 등급 라벨
-  const secLbl = sectorScore >= 14 ? '반도체·방위산업 — 국장 최고 성장 테마 (14점)'
-               : sectorScore >= 11 ? '바이오·2차전지·로봇·우주항공 (11점)'
-               : sectorScore >= 8  ? '소프트웨어·인터넷·게임·의료기기·디스플레이 (8점)'
-               : sectorScore >= 4  ? '통신장비·전기장비 (4점)'
-               :                    '일반 섹터 — 성장 프리미엄 없음 (0점)';
+  // 섹터 등급 라벨 (0~8pt 기준)
+  const secLbl = sectorScore >= 8 ? '반도체·방위산업 — 국장 최고 성장 테마 (8점)'
+               : sectorScore >= 7 ? '배터리·로봇·원전 (7점)'
+               : sectorScore >= 6 ? '바이오·게임·SW·조선 (6점)'
+               : sectorScore >= 4 ? '자동차·통신·화학·전자 (4점)'
+               : sectorScore >= 2 ? '금융·유통·건설 (2점)'
+               :                   '전통·사양 산업 (0점)';
 
-  // 외인+기관 수급 라벨
-  const buyLbl = buyScore > 0 ? '외인+기관 5일 순매수 양수 — 스마트머니 유입 신호 (4점)'
-                               : '외인+기관 5일 순매수 없음 또는 데이터 미확인 (0점)';
-
-  const statusBadge = isApplied
-    ? `<span style="background:rgba(245,158,11,0.15);color:#f59e0b;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;">✅ PER 대신 적용 중</span>`
-    : `<span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">ℹ️ PER 점수 사용 중 (${perScore}점 ≥ ${sectorScore}점)</span>`;
+  const buyLbl = buyScore > 0 ? '외인+기관 5일 순매수 양수 — 스마트머니 유입 (4점)'
+                               : '외인+기관 5일 순매수 없음 (0점)';
 
   const perSrcBadge = perSource === 'dart'
     ? `<span style="background:rgba(34,197,94,0.12);color:#16a34a;font-size:9px;font-weight:700;padding:1px 6px;border-radius:99px;margin-left:5px;">📊 DART 분기EPS</span>`
     : `<span style="background:var(--card2);color:var(--muted);font-size:9px;font-weight:600;padding:1px 6px;border-radius:99px;margin-left:5px;">📋 KIS PER</span>`;
-  const dartEpsNote = (perSource === 'dart' && dartEps)
-    ? ` (EPS ${dartEps.toLocaleString()}원 기준)`
-    : '';
-  const perRef = per > 0
-    ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">PER ${per.toFixed(1)}배${dartEpsNote} 기준 점수: <b>${perScore}</b>점 / 섹터 가점: <b>${sectorScore}</b>점 + 수급: <b>${buyScore}</b>점 = <b style="color:${gc}">${totalGrowth}</b>점 합산 ${perSrcBadge}</div>`
-    : `<div style="font-size:10px;color:var(--muted);margin-top:6px;">적자 기업 — PER 0점, 섹터 <b style="color:${gc}">${sectorScore}</b>점 + 수급 <b style="color:${gc}">${buyScore}</b>점 적용 ${perSrcBadge}</div>`;
+  const dartEpsNote = (perSource === 'dart' && dartEps) ? ` (EPS ${dartEps.toLocaleString()}원 기준)` : '';
+  const perRef = `<div style="font-size:10px;color:var(--muted);margin-top:6px;">
+    ${per > 0 ? `forward PER ${per.toFixed(1)}배${dartEpsNote} → <b>${forwardPERScore}</b>점` : '적자 기업 — PER 0점'}
+    &nbsp;+&nbsp; 섹터 <b style="color:${gc}">${sectorScore}</b>점 &nbsp;+&nbsp; 수급 <b>${buyScore}</b>점
+    ${perSrcBadge}
+  </div>`;
 
   const commentHtml = growthComment ? `
     <div style="margin-top:10px;padding:10px 12px;background:rgba(245,158,11,0.08);border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;">
@@ -1316,16 +1327,16 @@ function renderGrowthScore(ks) {
 
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div style="font-size:22px;font-weight:800;color:${gc};">${totalGrowth}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 18점</span></div>
-      ${statusBadge}
+      <div style="font-size:22px;font-weight:800;color:${gc};">${sectorScore + buyScore}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 12점</span></div>
+      <span style="background:var(--card2);color:var(--muted);font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;">섹터 + 수급 합산</span>
     </div>
     <div class="ma-score-row">
       <div class="ma-score-label" style="font-size:9px;line-height:1.3;">섹터<br>등급</div>
       <div class="ma-score-bar-wrap">
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${secLbl}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${sectorScore/14*100}%;background:${gc}"></div></div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${sectorScore/8*100}%;background:${gc}"></div></div>
       </div>
-      <div class="ma-score-val" style="color:${gc}">${sectorScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/14</span></div>
+      <div class="ma-score-val" style="color:${gc}">${sectorScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
     </div>
     <div class="ma-score-row">
       <div class="ma-score-label" style="font-size:9px;line-height:1.3;">외인기관<br>수급</div>
@@ -1748,17 +1759,18 @@ function renderRadarChart(ks) {
   const container = document.getElementById('r-radar-chart');
   if (!container || !ks) return;
 
-  const growthScore = ks.growthScore     ?? 0;
-  const pbrScore    = ks.pbrScore        ?? 0;
-  const perFinal    = ks.perFinal        ?? 0;
-  const techScore   = ks.techScore       ?? 0;
-  const supplyScore = ks.supplyScore     ?? 0;
-  const panicScore  = ks.panicScore      ?? 0;
-  const discScore   = ks.disclosureScore ?? 0;
+  const growthScore    = ks.growthScore      ?? 0;
+  const pbrScore       = ks.pbrScore         ?? 0;
+  const secScore       = ks.secScore         ?? 0;
+  const forwardPERScore = ks.forwardPERScore ?? 0;
+  const techScore      = ks.techScore        ?? 0;
+  const supplyScore    = ks.supplyScore      ?? 0;
+  const panicScore     = ks.panicScore       ?? 0;
+  const discScore      = ks.disclosureScore  ?? 0;
 
-  const g = Math.round(growthScore / 18 * 100);
+  const g = Math.round((secScore + forwardPERScore) / 18 * 100);
   const v = Math.round(pbrScore    / 8  * 100);
-  const p = Math.round(perFinal    / 14 * 100);
+  const p = Math.round(secScore    / 8  * 100);
   const t = Math.round(techScore   / 70 * 100);
   const s = Math.max(0, Math.round(
     supplyScore / 4 * 60 + panicScore / 4 * 25 + (discScore + 2) / 4 * 15
