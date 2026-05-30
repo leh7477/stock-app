@@ -178,13 +178,58 @@ function calcATR14(rows, period = 14) {
   return recent.reduce((a, b) => a + b, 0) / recent.length;
 }
 
+// ─── Hurst 지수 (R/S 분석) ────────────────────────────────────────────────────
+function calcHurst(closes) {
+  if (!closes || closes.length < 30) return null;
+  const prices = closes.slice(-60);
+  const logR = [];
+  for (let i = 1; i < prices.length; i++) {
+    if (prices[i] > 0 && prices[i-1] > 0) logR.push(Math.log(prices[i] / prices[i-1]));
+  }
+  if (logR.length < 20) return null;
+
+  const lags = [4, 8, 16, 32].filter(l => Math.floor(logR.length / l) >= 2);
+  const pts  = [];
+  for (const lag of lags) {
+    const blocks = Math.floor(logR.length / lag);
+    const rsArr  = [];
+    for (let b = 0; b < blocks; b++) {
+      const sub  = logR.slice(b * lag, (b + 1) * lag);
+      const mean = sub.reduce((a, x) => a + x, 0) / sub.length;
+      let cum = 0;
+      const dev = sub.map(x => { cum += x - mean; return cum; });
+      const R   = Math.max(...dev) - Math.min(...dev);
+      const S   = Math.sqrt(sub.reduce((a, x) => a + (x - mean) ** 2, 0) / sub.length);
+      if (S > 0) rsArr.push(R / S);
+    }
+    if (rsArr.length > 0) {
+      const avg = rsArr.reduce((a, b) => a + b, 0) / rsArr.length;
+      if (avg > 0) pts.push({ x: Math.log(lag), y: Math.log(avg) });
+    }
+  }
+  if (pts.length < 2) return null;
+  const xm = pts.reduce((a, p) => a + p.x, 0) / pts.length;
+  const ym = pts.reduce((a, p) => a + p.y, 0) / pts.length;
+  let num = 0, den = 0;
+  for (const p of pts) { num += (p.x - xm) * (p.y - ym); den += (p.x - xm) ** 2; }
+  return den > 0 ? Math.round(num / den * 1000) / 1000 : null;
+}
+
+function calcHurstScore(h) {
+  if (h === null || h === undefined) return 0;
+  if (h >= 0.7)  return 5;  // 강한 추세 지속
+  if (h >= 0.6)  return 3;  // 추세 있음
+  if (h >= 0.4)  return 1;  // 랜덤워크
+  return 0;                  // 평균회귀
+}
+
 // ── 점수 계산 (최고 100점 / 최악 0점) ───────────────────────────────────────
-// 추세(40) + 모멘텀(30) + 수급(30) + 볼린저스퀴즈 보너스/패널티(±10)
-// 반환: { total: 0~100, detail: { arrangement, deviation, rsi, macd, volume, obv, boll } }
+// 추세(40) + 모멘텀(30) + 수급(30) + 볼린저(±10) + Hurst(0~5)
+// 반환: { total: 0~100, detail: { arrangement, deviation, rsi, macd, volume, obv, boll, hurst, hurstVal } }
 function calcScore(closes, volumes, boll) {
   const n = closes.length - 1;
   const cur = closes[n];
-  const ZERO = { total: 0, detail: { arrangement:0, deviation:0, rsi:0, macd:0, volume:0, obv:0, boll:0 } };
+  const ZERO = { total: 0, detail: { arrangement:0, deviation:0, rsi:0, macd:0, volume:0, obv:0, boll:0, hurst:0, hurstVal:null } };
   if (n < 21 || !cur) return ZERO;
 
   let arrangementPts = 0, deviationPts = 0, rsiPts = 0, macdPts = 0, volPts = 0, obvPts = 0, bollPts = 0;
@@ -314,8 +359,12 @@ function calcScore(closes, volumes, boll) {
     }
   }
 
-  const total = Math.max(0, Math.min(100, Math.round(arrangementPts + deviationPts + rsiPts + macdPts + volPts + obvPts + bollPts)));
-  return { total, detail: { arrangement: arrangementPts, deviation: deviationPts, rsi: rsiPts, macd: macdPts, volume: volPts, obv: obvPts, boll: bollPts } };
+  // ── Hurst 지수 (0~5점) ──────────────────────────────────────────────────────
+  const hurstVal = calcHurst(closes);
+  const hurstPts = calcHurstScore(hurstVal);
+
+  const total = Math.max(0, Math.min(100, Math.round(arrangementPts + deviationPts + rsiPts + macdPts + volPts + obvPts + bollPts + hurstPts)));
+  return { total, detail: { arrangement: arrangementPts, deviation: deviationPts, rsi: rsiPts, macd: macdPts, volume: volPts, obv: obvPts, boll: bollPts, hurst: hurstPts, hurstVal } };
 }
 
 // ── AI 브리핑 뉴스 기반 가점/감점 (±3pt) ────────────────────────────────────

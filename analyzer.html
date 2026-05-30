@@ -1465,12 +1465,12 @@ function renderTechScore(techDetail, techContrib70) {
     el.innerHTML = '<div style="color:var(--muted);font-size:12px">세부 데이터 없음</div>';
     return;
   }
-  const { arrangement=0, deviation=0, rsi=0, macd=0, volume=0, obv=0, boll=0 } = techDetail;
+  const { arrangement=0, deviation=0, rsi=0, macd=0, volume=0, obv=0, boll=0, hurst=0, hurstVal=null } = techDetail;
 
   const trendTotal  = arrangement + deviation;    // max 40
   const momTotal    = rsi + macd;                 // max 30
   const supplyTotal = volume + obv;               // max 30
-  const rawTotal    = trendTotal + momTotal + supplyTotal + boll;
+  const rawTotal    = trendTotal + momTotal + supplyTotal + boll + hurst;
   const contrib     = techContrib70 ?? Math.round(Math.min(100, Math.max(0, rawTotal)) * 0.65);
 
   const c = scoreColor(Math.round(rawTotal));
@@ -1531,7 +1531,7 @@ function renderTechScore(techDetail, techContrib70) {
       ${row('MACD', macdLbl, macd, 15)}
       ${row('거래량', '최근 5일 평균 대비 거래량 강도', volume, 15)}
       ${row('OBV', '60일 최고 OBV 대비 현재 위치', obv, 15)}
-      <div class="ma-score-row" style="border-bottom:none;">
+      <div class="ma-score-row">
         <div class="ma-score-label" style="font-size:9px;line-height:1.35;">볼린저<br>조정</div>
         <div class="ma-score-bar-wrap">
           <div style="font-size:10px;color:${bollColor};margin-bottom:3px">${bollLbl}</div>
@@ -1539,6 +1539,23 @@ function renderTechScore(techDetail, techContrib70) {
         </div>
         <div class="ma-score-val" style="color:${bollColor};min-width:36px;text-align:right;">${boll > 0 ? '+' : ''}${boll}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±10</span></div>
       </div>
+      ${(() => {
+        const hv = hurstVal !== null ? hurstVal.toFixed(3) : null;
+        const hurstLbl = hv === null ? '데이터 부족 (0점)'
+          : hurstVal >= 0.7 ? `Hurst ${hv} — 강한 추세 지속 (5점)`
+          : hurstVal >= 0.6 ? `Hurst ${hv} — 추세 있음 (3점)`
+          : hurstVal >= 0.4 ? `Hurst ${hv} — 랜덤워크 (1점)`
+          : `Hurst ${hv} — 평균회귀 (0점)`;
+        const hurstCol = hurst >= 4 ? '#22c55e' : hurst >= 2 ? '#f59e0b' : 'var(--muted)';
+        return `<div class="ma-score-row" style="border-bottom:none;">
+          <div class="ma-score-label" style="font-size:9px;line-height:1.35;">추세<br>지속성</div>
+          <div class="ma-score-bar-wrap">
+            <div style="font-size:10px;color:${hurstCol};margin-bottom:3px">${hurstLbl}</div>
+            ${bar(hurst, 5, hurstCol)}
+          </div>
+          <div class="ma-score-val" style="color:${hurstCol};min-width:36px;text-align:right;">${hurst}<span style="font-size:10px;font-weight:400;color:var(--muted)">/5</span></div>
+        </div>`;
+      })()}
     </details>
 
     <div class="ma-score-total" style="margin-top:8px;">
