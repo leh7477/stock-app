@@ -941,6 +941,12 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
           eps      = parseF(o.eps       || '0');
           divYield = parseF(o.dvdn_yedn || '0');
           sector   = (o.bstp_kor_isnm || o.bstp_kor_isn_nm || '').trim();
+          // hts_avls 가 0이면 상장주수 × 현재가로 보정 (KOSDAQ 소형주 누락 방지)
+          if (!mktCap && o.lstn_stcn && o.stck_prpr) {
+            const shares = parseNum(o.lstn_stcn);
+            const price  = parseNum(o.stck_prpr);
+            if (shares > 0 && price > 0) mktCap = Math.round(shares * price / 1e8); // 억원
+          }
         }
       } catch (_) {}
 
