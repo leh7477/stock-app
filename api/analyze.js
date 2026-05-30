@@ -538,7 +538,7 @@ function calcDisclosureBonus(disclosures) {
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
 // PBR(8) + 섹터(0~8) + forwardPER(0~10) + 수급(0~8) + 공시(±2) + DART(+15/-4)
 // + 배당(0~4) + 52주신고가(0~5) + 시총(-3~0) = cap 50pt → ×0.4 = 최대 20pt
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -588,10 +588,21 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 배당수익률 (0~4pt)
   const divScore = divYield >= 4 ? 4 : divYield >= 3 ? 3 : divYield >= 2 ? 2 : divYield >= 1 ? 1 : 0;
 
-  // 시총 안정성 (-3~0pt)
-  const mktCapScore = mktCap > 0 && mktCap < 500  ? -3
-                    : mktCap > 0 && mktCap < 2000 ? -1
+  // 시총 안정성 강화 (-8~0pt)
+  const mktCapScore = mktCap > 0 && mktCap < 500  ? -8
+                    : mktCap > 0 && mktCap < 1000 ? -4
+                    : mktCap > 0 && mktCap < 2000 ? -2
                     : 0;
+
+  // 개인집중 감점 — 작전주 핵심 신호
+  const personalScore = (typeof d5Personal === 'number' && d5Personal > 0
+                        && (typeof d5FrgnInst !== 'number' || d5FrgnInst <= 0)) ? -4 : 0;
+
+  // 외인 보유율 극저 감점
+  const frgnLowScore = frgnRatio > 0 && frgnRatio < 1 ? -2 : 0;
+
+  // 자본잠식 감점
+  const insolvencyScore = pbr <= 0 ? -3 : 0;
 
   // BB width (isIVExtreme) — 표시용
   const boll2    = calcBollinger(closes);
@@ -608,7 +619,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    divScore + mktCapScore
+    divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
            pbrScore:        Math.round(pbrScore * 10) / 10,
@@ -617,7 +628,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
            perFinal:        Math.round(perFinal * 10) / 10,
            supplyScore, supplyD5, supplyD20, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
-           divScore, mktCapScore };
+           divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -1185,17 +1196,19 @@ if (dartEps === null) {
     const _d20 = investorSupply?.d20;
     const d5FrgnInst2  = _d5  ? (_d5.foreign  || 0) + (_d5.inst  || 0) : null;
     const d20FrgnInst2 = _d20 ? (_d20.foreign || 0) + (_d20.inst || 0) : null;
+    const d5Personal2  = _d5  ? (_d5.personal || 0) : null;
+    const frgnRatio2   = parseF(pOut.hts_frgn_ehrt || '0');
     const techResult  = calcScore(closes, volumes, boll);
     const techScore   = techResult.total;
     const techDetail  = techResult.detail;
-    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2);
     const korScore  = ks.total;
     const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
     const atrContractionResult = calcAtrContractionScore(closes); // 표시용 유지
     const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult);
-    // 기술(70) + 국장특화(20) + 매크로(10) = 100점
-    const liveScore = Math.min(100, Math.round(techScore * 0.7) + Math.round(korScore * 0.4) + macroResult.total);
+    // 기술(65) + 국장특화(25) + 매크로(10) = 100점
+    const liveScore = Math.min(100, Math.round(techScore * 0.65) + Math.round(korScore * 0.5) + macroResult.total);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;

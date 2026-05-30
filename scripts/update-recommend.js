@@ -514,7 +514,7 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null, d20FrgnInst = null, divYield = 0, mktCap = 0) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
@@ -566,15 +566,26 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 배당수익률 (0~4pt)
   const divScore = divYield >= 4 ? 4 : divYield >= 3 ? 3 : divYield >= 2 ? 2 : divYield >= 1 ? 1 : 0;
 
-  // 시총 안정성 (-3~0pt)
-  const mktCapScore = mktCap > 0 && mktCap < 500  ? -3
-                    : mktCap > 0 && mktCap < 2000 ? -1
+  // 시총 안정성 강화 (-8~0pt)
+  const mktCapScore = mktCap > 0 && mktCap < 500  ? -8
+                    : mktCap > 0 && mktCap < 1000 ? -4
+                    : mktCap > 0 && mktCap < 2000 ? -2
                     : 0;
+
+  // 개인집중 감점 — 외인기관 없고 개인만 사는 패턴 (작전주 핵심 신호)
+  const personalScore = (typeof d5Personal === 'number' && d5Personal > 0
+                        && (typeof d5FrgnInst !== 'number' || d5FrgnInst <= 0)) ? -4 : 0;
+
+  // 외인 보유율 극저 감점
+  const frgnLowScore = frgnRatio > 0 && frgnRatio < 1 ? -2 : 0;
+
+  // 자본잠식 감점
+  const insolvencyScore = pbr <= 0 ? -3 : 0;
 
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    divScore + mktCapScore
+    divScore + mktCapScore + personalScore + frgnLowScore + insolvencyScore
   ));
   return { total,
            pbrScore:        Math.round(pbrScore * 10) / 10,
@@ -583,7 +594,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
            perFinal:        Math.round(perFinal * 10) / 10,
            supplyScore, supplyD5, supplyD20, discScore,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
-           divScore, mktCapScore };
+           divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
 }
 
 function maSignal(price, ma) {
@@ -709,21 +720,23 @@ function analyze(stock, closes, volumes, extra = {}) {
   const _d20 = extra.investorSupply?.d20;
   const d5FrgnInst  = _d5  ? (_d5.foreign  || 0) + (_d5.inst  || 0) : null;
   const d20FrgnInst = _d20 ? (_d20.foreign || 0) + (_d20.inst || 0) : null;
+  const d5Personal  = _d5  ? (_d5.personal || 0) : null;
 
   const finalPer  = extra.per ?? 0;
   const ks        = calcKoreanScore(
     extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '',
     d5FrgnInst, [], stock.name || '', stock.code || '',
     extra.dartFin ?? null, extra.forwardPer ?? null,
-    d20FrgnInst, extra.divYield ?? 0, extra.mktCap ?? 0
+    d20FrgnInst, extra.divYield ?? 0, extra.mktCap ?? 0,
+    extra.frgnRatio ?? 0, d5Personal
   );
   const korScore        = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
   const relResult       = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
   const newsBoostResult = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
   const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult);
-  // 기술(70) + 국장특화(20) + 매크로(10) = 100점
-  const score = Math.min(100, Math.round(techScore * 0.7) + Math.round(korScore * 0.4) + macroResult.total);
+  // 기술(65) + 국장특화(25) + 매크로(10) = 100점
+  const score = Math.min(100, Math.round(techScore * 0.65) + Math.round(korScore * 0.5) + macroResult.total);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
