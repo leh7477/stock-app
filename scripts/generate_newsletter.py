@@ -128,6 +128,47 @@ def _generate(client: genai.Client, prompt: str) -> str:
 
 # ─── Redis 저장 ──────────────────────────────────────────────────────────────
 
+def update_briefing_archive(payload: dict, kv_url: str, kv_token: str):
+    """날짜별 브리핑 아카이브 갱신 — 최근 30일만 유지"""
+    date_iso = payload.get("dateIso", "")
+    if not date_iso:
+        return
+
+    try:
+        # 기존 아카이브 읽기
+        raw = requests.get(
+            f"{kv_url}/get/briefing_archive",
+            headers={"Authorization": f"Bearer {kv_token}"},
+            timeout=8,
+        ).json()
+        archive = json.loads(raw.get("result") or "{}") if raw.get("result") else {}
+
+        # 오늘 데이터 저장 (html은 유지, 용량 절약 위해 signals 제거)
+        archive[date_iso] = {
+            "html":        payload.get("html", ""),
+            "date":        payload.get("date", ""),
+            "dateIso":     date_iso,
+            "generatedAt": payload.get("generatedAt", ""),
+            "contentType": payload.get("contentType", "weekday"),
+        }
+
+        # 30일 초과분 삭제
+        cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+        archive = {k: v for k, v in archive.items() if k >= cutoff}
+
+        requests.post(
+            f"{kv_url}/pipeline",
+            headers={"Authorization": f"Bearer {kv_token}", "Content-Type": "application/json"},
+            data=json.dumps([["SET", "briefing_archive",
+                              json.dumps(archive, ensure_ascii=False),
+                              "EX", str(35 * 86400)]]),  # 35일 TTL (30일 보관 + 여유)
+            timeout=15,
+        ).raise_for_status()
+        log.info(f"[archive] 저장 완료 — 총 {len(archive)}일치")
+    except Exception as e:
+        log.warning(f"[archive] 저장 실패 (무시): {e}")
+
+
 def save_to_redis(payload: dict, kv_url: str, kv_token: str, sentiment_score: int | None = None,
                   news_boost: dict | None = None):
     pipeline = [
@@ -547,7 +588,9 @@ HTML 출력이 모두 끝난 후 아래 5개 태그를 순서대로 맨 마지�
         "storedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     } if (boost_codes or boost_sectors or penalty_codes or penalty_sectors) else None
 
+    payload["contentType"] = content_type
     save_to_redis(payload, kv_url, kv_token, sentiment_score, news_boost_payload)
+    update_briefing_archive(payload, kv_url, kv_token)
     log.info("=== 완료 ===")
 
 

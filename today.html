@@ -209,16 +209,32 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   <!-- 뉴스레터 본문 -->
   <div id="state-content" style="display:none;">
     <div class="nl-card">
-      <div class="nl-badge">🤖 Gemini AI 생성 · 오늘의 국장 브리핑</div>
+      <div class="nl-badge" id="nl-badge">🤖 Gemini AI 생성 · 오늘의 국장 브리핑</div>
       <div id="nl-content"></div>
       <div class="nl-footer">
         <div class="nl-footer-left">생성 시각: <span id="nl-time">-</span></div>
         <div class="nl-ai-badge">✨ Gemini 2.5 Flash</div>
       </div>
     </div>
-
     <div class="disc-box" style="margin-top:16px;">
       <p>⚠️ 본 브리핑은 AI가 공개 정보를 기반으로 생성한 참고 자료입니다. <strong>투자 권유가 아니며</strong>, 실제 투자 판단과 책임은 본인에게 있습니다.</p>
+    </div>
+  </div>
+
+  <!-- 과거 브리핑 아카이브 -->
+  <div id="state-archive" style="display:none; margin-top:32px;">
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:14px;padding:0 4px;">📂 과거 브리핑</div>
+    <div id="archive-list"></div>
+  </div>
+
+  <!-- 브리핑 뷰어 모달 -->
+  <div id="archive-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.7);overflow-y:auto;padding:20px 0;">
+    <div style="max-width:720px;margin:0 auto;background:var(--card);border-radius:16px;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);">
+        <div id="modal-title" style="font-size:15px;font-weight:700;color:var(--text);"></div>
+        <button onclick="closeArchiveModal()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0 4px;">✕</button>
+      </div>
+      <div id="modal-content" style="padding:20px 20px 32px;"></div>
     </div>
   </div>
 
@@ -261,31 +277,85 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 </footer>
 
 <script>
+const TYPE_LABEL = { saturday: '📅 주간 마켓 리뷰', sunday: '🔭 다음 주 전략', weekday: '🤖 오늘의 국장 브리핑' };
+
+function fmtKst(isoStr) {
+  if (!isoStr) return '-';
+  const kst = new Date(new Date(isoStr).getTime() + 9 * 3600 * 1000);
+  return kst.toISOString().replace('T', ' ').slice(0, 16) + ' KST';
+}
+
+function renderArchive(list) {
+  if (!list || !list.length) return;
+  const TYPE_ICON = { saturday: '📅', sunday: '🔭', weekday: '📰' };
+  document.getElementById('state-archive').style.display = 'block';
+  document.getElementById('archive-list').innerHTML = list.map(a => {
+    const icon  = TYPE_ICON[a.contentType] || '📰';
+    const label = TYPE_LABEL[a.contentType] || '국장 브리핑';
+    // 날짜 포맷: "2026-05-30" → "2026.05.30"
+    const dateFmt = (a.dateIso || '').replace(/-/g, '.');
+    return `<div onclick="openArchiveModal(${JSON.stringify(a.dateIso)})"
+      style="display:flex;align-items:center;gap:12px;padding:14px 16px;
+             background:var(--card);border-radius:12px;margin-bottom:8px;
+             cursor:pointer;border:1px solid var(--border);transition:background .15s;"
+      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='var(--card)'">
+      <div style="font-size:22px;flex-shrink:0;">${icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:700;color:var(--text);">${dateFmt} · ${label}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${fmtKst(a.generatedAt)}</div>
+      </div>
+      <div style="color:var(--muted);font-size:18px;">›</div>
+    </div>`;
+  }).join('');
+}
+
+let _archiveData = {};
+
+function openArchiveModal(dateIso) {
+  const a = _archiveData[dateIso];
+  if (!a) return;
+  const label = TYPE_LABEL[a.contentType] || '국장 브리핑';
+  document.getElementById('modal-title').textContent = (a.dateIso||'').replace(/-/g,'.') + ' · ' + label;
+  document.getElementById('modal-content').innerHTML = (a.html || '') +
+    `<div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:11px;color:var(--muted);">
+      ⚠️ AI가 공개 정보를 기반으로 생성한 참고 자료입니다. 투자 권유가 아닙니다.</div>`;
+  document.getElementById('archive-modal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeArchiveModal() {
+  document.getElementById('archive-modal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
 async function loadBriefing() {
   try {
     const res  = await fetch('/api/daily');
     const data = await res.json();
 
+    // 아카이브 저장 (모달 열기용)
+    if (data.archive) {
+      data.archive.forEach(a => { _archiveData[a.dateIso] = a; });
+    }
+
     if (!data.success) {
       document.getElementById('state-loading').style.display = 'none';
       document.getElementById('error-msg').textContent = data.error || '브리핑을 불러올 수 없습니다.';
       document.getElementById('state-error').style.display = 'block';
+      renderArchive(data.archive);
       return;
     }
 
-    // 생성 시각 포맷
-    if (data.generatedAt) {
-      const d   = new Date(data.generatedAt);
-      const kst = new Date(d.getTime() + 9 * 3600 * 1000);
-      document.getElementById('nl-time').textContent =
-        kst.toISOString().replace('T', ' ').slice(0, 16) + ' KST';
-    }
-
-    // HTML 렌더링
+    // 오늘 브리핑 배지
+    const badge = TYPE_LABEL[data.contentType] || '🤖 Gemini AI 생성 · 오늘의 국장 브리핑';
+    document.getElementById('nl-badge').textContent = '🤖 Gemini AI 생성 · ' + badge.replace(/^[^ ]+ /, '');
+    document.getElementById('nl-time').textContent = fmtKst(data.generatedAt);
     document.getElementById('nl-content').innerHTML = data.html || '';
+    document.getElementById('state-loading').style.display = 'none';
+    document.getElementById('state-content').style.display = 'block';
 
-    document.getElementById('state-loading').style.display  = 'none';
-    document.getElementById('state-content').style.display  = 'block';
+    // 과거 목록
+    renderArchive(data.archive);
 
   } catch (e) {
     document.getElementById('state-loading').style.display  = 'none';
@@ -293,6 +363,11 @@ async function loadBriefing() {
     document.getElementById('state-error').style.display    = 'block';
   }
 }
+
+// 모달 배경 클릭 닫기
+document.getElementById('archive-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeArchiveModal();
+});
 
 loadBriefing();
 
