@@ -86,50 +86,90 @@ export default async function handler(req, res) {
     // ── 5종류 Top (필터 무관, 전체 기준 / ETF·레버리지 제외) ──────────────
     const pureStocks = all.filter(s => !isETF(s));
 
-    // KOSPI/KOSDAQ 각각 N개씩 뽑아 합치는 헬퍼 (전체 탭용 전체 + 시장 탭용 보장)
-    const mergeByMarket = (sorted, n = 15) => {
+    // KOSPI/KOSDAQ 각각 N개씩 뽑아 합치는 헬퍼
+    const mergeByMarket = (sorted, n = 20) => {
       const kospi  = sorted.filter(s => (s.market || '').includes('KOSPI')).slice(0, n);
       const kosdaq = sorted.filter(s => (s.market || '').includes('KOSDAQ')).slice(0, n);
       const seen   = new Set();
       const merged = [...kospi, ...kosdaq].filter(s => seen.has(s.code) ? false : seen.add(s.code));
-      return merged.sort((a, b) => sorted.indexOf(a) - sorted.indexOf(b)); // 원래 정렬 유지
+      return merged.sort((a, b) => sorted.indexOf(a) - sorted.indexOf(b));
     };
 
-    // 분석 상위
-    const top10Score = mergeByMarket(pureStocks);
+    const d5NetBuy = s => {
+      const d5 = s.investorSupply?.d5;
+      if (d5 != null) return (d5.foreign || 0) + (d5.inst || 0);
+      return s.frgnBuyQty || 0;
+    };
+    const d5Foreign = s => s.investorSupply?.d5?.foreign || 0;
 
-    // 추천 매수: 점수 ≥ 55 + 현재가가 MA5 ±4% 이내 (매수 구간) → 점수 내림차순
-    const top10Buy = mergeByMarket(
+    // ── 1. AI추천: 퀀트점수(50%) + 수급(30%) + 모멘텀(20%) 복합 ──────────────
+    const aiScore = s => {
+      const supply  = d5NetBuy(s) > 0 ? 15 : d5NetBuy(s) < 0 ? -10 : 0;
+      const momentum = s.ma5Signal === 'up' ? 10 : s.ma5Signal === 'down' ? -5 : 0;
+      return (s.score || 0) * 0.5 + supply + momentum;
+    };
+    const top20AiPick = mergeByMarket(
+      [...pureStocks].sort((a, b) => aiScore(b) - aiScore(a))
+    );
+
+    // ── 2. 매수신호: 퀀트 55점+ + MA5 매수권 ────────────────────────────────
+    const top20Buy = mergeByMarket(
       pureStocks.filter(s => s.ma5 && s.price && s.score >= 55
                           && Math.abs(s.price - s.ma5) / s.ma5 <= 0.04)
     );
 
-    // 외인+기관 합산 순매수 상위 (5일 누적, 금액 기준)
-    // ※ investorSupply.d5 가 있으면 무조건 그 값 사용 (합이 0이어도 frgnBuyQty로 폴백 안 함)
-    const d5NetBuy = s => {
-      const d5 = s.investorSupply?.d5;
-      if (d5 != null) return (d5.foreign || 0) + (d5.inst || 0);
-      return s.frgnBuyQty || 0;  // investorSupply 없는 종목 단일일 폴백
-    };
-    const top10FrgnBuy = mergeByMarket(
+    // ── 3. 퀀트랭킹: 점수 순 ──────────────────────────────────────────────
+    const top20Score = mergeByMarket(pureStocks);
+
+    // ── 4. 모멘텀: MA5 상승 + 양봉 + 점수 40점+ ────────────────────────────
+    const top20Momentum = mergeByMarket(
       pureStocks
-        .filter(s => d5NetBuy(s) > 0)
-        .sort((a, b) => (d5NetBuy(b) * (b.price || 0)) - (d5NetBuy(a) * (a.price || 0)))
+        .filter(s => s.ma5Signal === 'up' && (s.chgRate || 0) > 0 && (s.score || 0) >= 40)
+        .sort((a, b) => (b.chgRate || 0) - (a.chgRate || 0))
     );
 
-    // 외인+기관 합산 순매도 상위 (5일 누적, 금액 기준, 절댓값 큰 순)
-    const top10FrgnSell = mergeByMarket(
+    // ── 5. 가치주: PBR ≤ 1.0 + 점수 기준 ──────────────────────────────────
+    const top20Value = mergeByMarket(
       pureStocks
-        .filter(s => d5NetBuy(s) < 0)
-        .sort((a, b) => (d5NetBuy(a) * (a.price || 0)) - (d5NetBuy(b) * (b.price || 0)))
+        .filter(s => (s.pbr || 0) > 0 && (s.pbr || 0) <= 1.0 && (s.score || 0) >= 30)
+        .sort((a, b) => (a.pbr || 99) - (b.pbr || 99))
     );
 
-    // 거래량 상위 (5일 평균 거래대금 기준)
-    const top10Volume = mergeByMarket(
+    // ── 6. 급등예비: 거래량 감소(조용한 수렴) + MA20 상승 ──────────────────
+    const top20Surge = mergeByMarket(
+      pureStocks
+        .filter(s => (s.avgVol5 || 0) > 0 && (s.volume || 0) < (s.avgVol5 || 0) * 0.8
+                  && s.ma20Signal === 'up' && (s.score || 0) >= 45)
+        .sort((a, b) => {
+          const ra = (a.volume || 0) / ((a.avgVol5 || 1));
+          const rb = (b.volume || 0) / ((b.avgVol5 || 1));
+          return ra - rb; // 거래량 감소폭 클수록 상위
+        })
+    );
+
+    // ── 7. 외인집중: 외인 순매수 상위 ──────────────────────────────────────
+    const top20Foreign = mergeByMarket(
+      pureStocks
+        .filter(s => d5Foreign(s) > 0)
+        .sort((a, b) => (d5Foreign(b) * (b.price || 0)) - (d5Foreign(a) * (a.price || 0)))
+    );
+
+    // ── 8. 거래대금 상위 ─────────────────────────────────────────────────
+    const top20Volume = mergeByMarket(
       pureStocks
         .filter(s => (s.avgVol5 || s.volume || 0) > 0)
         .sort((a, b) => ((b.avgVol5 || b.volume || 0) * (b.price || 0)) - ((a.avgVol5 || a.volume || 0) * (a.price || 0)))
     );
+
+    // 하위 호환 유지
+    const top10Score    = top20Score;
+    const top10Buy      = top20Buy;
+    const top10FrgnBuy  = top20Foreign;
+    const top10FrgnSell = mergeByMarket(
+      pureStocks.filter(s => d5NetBuy(s) < 0)
+        .sort((a, b) => (d5NetBuy(a) * (a.price||0)) - (d5NetBuy(b) * (b.price||0)))
+    );
+    const top10Volume = top20Volume;
 
     // 인기 섹터 집계 (전체 종목 기준)
     const sectorMap = {};
@@ -150,12 +190,13 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success:       true,
       stocks,
-      top10:         top10Score,   // 하위 호환성 유지
-      top10Score,
-      top10Buy,
-      top10FrgnBuy,
-      top10FrgnSell,
-      top10Volume,
+      // TOP20 신규
+      top20AiPick, top20Buy, top20Score,
+      top20Momentum, top20Value, top20Surge,
+      top20Foreign, top20Volume,
+      // 하위 호환
+      top10: top10Score, top10Score, top10Buy,
+      top10FrgnBuy, top10FrgnSell, top10Volume,
       sectors,
       baseDate:      payload.baseDate,
       updatedAt:     payload.updatedAt,

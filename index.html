@@ -485,23 +485,27 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
     <div class="t10-wrap">
       <!-- 1단: 카테고리 탭바 -->
-      <div class="t10-tab-bar">
-        <button class="t10-tab active" data-tab="buy"      onclick="switchTop10('buy')">💎 추천 매수</button>
-        <button class="t10-tab"        data-tab="score"    onclick="switchTop10('score')">📊 분석 상위</button>
-        <button class="t10-tab"        data-tab="frgnbuy"  onclick="switchTop10('frgnbuy')">🟢 외인+기관 순매수</button>
-        <button class="t10-tab"        data-tab="frgnsell" onclick="switchTop10('frgnsell')">🔴 외인+기관 순매도</button>
+      <div class="t10-tab-bar" style="overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;">
+        <button class="t10-tab active" data-tab="aipick"   onclick="switchTop10('aipick')">🤖 AI추천</button>
+        <button class="t10-tab"        data-tab="buy"      onclick="switchTop10('buy')">📈 매수신호</button>
+        <button class="t10-tab"        data-tab="score"    onclick="switchTop10('score')">📊 퀀트랭킹</button>
+        <button class="t10-tab"        data-tab="momentum" onclick="switchTop10('momentum')">🚀 모멘텀</button>
+        <button class="t10-tab"        data-tab="value"    onclick="switchTop10('value')">💰 가치주</button>
+        <button class="t10-tab"        data-tab="surge"    onclick="switchTop10('surge')">⚡ 급등예비</button>
+        <button class="t10-tab"        data-tab="foreign"  onclick="switchTop10('foreign')">🌍 외인집중</button>
         <button class="t10-tab"        data-tab="volume"   onclick="switchTop10('volume')">📦 거래대금</button>
       </div>
-      <!-- 2단: 소제목 + 시장 필터 -->
+      <!-- 2단: 소제목 + 시총 필터 -->
       <div class="t10-sub-row">
         <div class="t10-h-left">
-          <div class="t10-h-title" id="t10-h-title">💎 추천 매수</div>
-          <div class="t10-h-desc"  id="t10-h-desc">퀀트 점수 55점+ · MA5 매수권 진입 종목</div>
+          <div class="t10-h-title" id="t10-h-title">🤖 AI추천</div>
+          <div class="t10-h-desc"  id="t10-h-desc">퀀트·수급·모멘텀 복합 알고리즘 선별</div>
         </div>
         <div class="t10-mkt-filter">
-          <button class="t10-mkt-btn active" data-mkt="" onclick="switchTop10Mkt('')">전체</button>
-          <button class="t10-mkt-btn"        data-mkt="KOSPI"  onclick="switchTop10Mkt('KOSPI')">KOSPI</button>
-          <button class="t10-mkt-btn"        data-mkt="KOSDAQ" onclick="switchTop10Mkt('KOSDAQ')">KOSDAQ</button>
+          <button class="t10-mkt-btn active" data-cap="all"   onclick="switchTop10Cap('all')">전체</button>
+          <button class="t10-mkt-btn"        data-cap="large" onclick="switchTop10Cap('large')">대형주</button>
+          <button class="t10-mkt-btn"        data-cap="mid"   onclick="switchTop10Cap('mid')">중형주</button>
+          <button class="t10-mkt-btn"        data-cap="small" onclick="switchTop10Cap('small')">소형주</button>
         </div>
       </div>
       <!-- 세로 리스트 (스켈레톤) -->
@@ -876,18 +880,28 @@ function stockMatchesTheme(stock, themeKey) {
 }
 
 // ── TOP10 카드 HTML 생성 ──────────────────────────────
-// ── TOP10 탭 메타데이터 ────────────────────────────────
+// ── TOP20 탭 메타데이터 ────────────────────────────────
 const TOP10_META = {
-  buy:      { title:'💎 추천 매수',         desc:'퀀트 점수 55점+ · MA5 매수권 진입 종목' },
-  score:    { title:'📊 종합 분석 상위',     desc:'기술·성장·국장 특화 지표 퀀트 스코어 순위' },
-  frgnbuy:  { title:'🟢 외인+기관 순매수',   desc:'5일간 외국인·기관 합산 순매수 금액 기준' },
-  frgnsell: { title:'🔴 외인+기관 순매도',   desc:'5일간 외국인·기관 합산 순매도 금액 기준' },
-  volume:   { title:'📦 거래대금 상위',      desc:'5일 평균 거래대금 기준 시장 관심 종목' },
+  aipick:   { title:'🤖 AI추천',     desc:'퀀트·수급·모멘텀 복합 알고리즘 선별' },
+  buy:      { title:'📈 매수신호',   desc:'퀀트 점수 55점+ · MA5 매수권 진입 종목' },
+  score:    { title:'📊 퀀트랭킹',   desc:'기술·성장·국장 특화 지표 퀀트 스코어 순위' },
+  momentum: { title:'🚀 모멘텀',     desc:'MA5 상승세 + 양봉 + RS 상위 종목' },
+  value:    { title:'💰 가치주',     desc:'저PBR(1.0 이하) · 실적 개선 종목' },
+  surge:    { title:'⚡ 급등예비',   desc:'거래량 수렴 + 상승 추세 유지 · 폭발 직전 패턴' },
+  foreign:  { title:'🌍 외인집중',   desc:'5일 외국인 순매수 금액 상위 종목' },
+  volume:   { title:'📦 거래대금',   desc:'5일 평균 거래대금 기준 시장 관심 종목' },
 };
 
-// ── TOP10 탭 전환 ──────────────────────────────────────
-let curTop10Tab = 'buy';
-let curTop10Mkt = '';
+// ── 시총 필터 기준 ─────────────────────────────────────
+const CAP_FILTER = {
+  all:   () => true,
+  large: s => (s.mktCap || 0) >= 10000,   // 1조 이상 (억원)
+  mid:   s => (s.mktCap || 0) >= 1000 && (s.mktCap || 0) < 10000,
+  small: s => (s.mktCap || 0) > 0 && (s.mktCap || 0) < 1000,
+};
+
+let curTop10Tab = 'aipick';
+let curTop10Cap = 'all';
 let _top10Data  = {};
 
 function switchTop10(tab) {
@@ -896,41 +910,50 @@ function switchTop10(tab) {
     el.classList.toggle('active', el.dataset.tab === tab)
   );
   const m = TOP10_META[tab];
-  document.getElementById('t10-h-title').textContent = m.title;
-  document.getElementById('t10-h-desc').textContent  = m.desc;
+  if (m) {
+    document.getElementById('t10-h-title').textContent = m.title;
+    document.getElementById('t10-h-desc').textContent  = m.desc;
+  }
   renderTop10Tab(tab);
 }
 
-function switchTop10Mkt(mkt) {
-  curTop10Mkt = mkt;
+function switchTop10Cap(cap) {
+  curTop10Cap = cap;
   document.querySelectorAll('.t10-mkt-btn').forEach(el =>
-    el.classList.toggle('active', el.dataset.mkt === mkt)
+    el.classList.toggle('active', el.dataset.cap === cap)
   );
   renderTop10Tab(curTop10Tab);
 }
 
+// 하위 호환: 구버전 KOSPI/KOSDAQ 탭 전환 호출 대응
+function switchTop10Mkt(mkt) {}
+
 function renderTop10Tab(tab) {
   const map = {
-    buy:      _top10Data.top10Buy,
-    score:    _top10Data.top10Score || _top10Data.top10,
-    frgnbuy:  _top10Data.top10FrgnBuy,
-    frgnsell: _top10Data.top10FrgnSell,
-    volume:   _top10Data.top10Volume,
+    aipick:   _top10Data.top20AiPick,
+    buy:      _top10Data.top20Buy      || _top10Data.top10Buy,
+    score:    _top10Data.top20Score    || _top10Data.top10Score || _top10Data.top10,
+    momentum: _top10Data.top20Momentum,
+    value:    _top10Data.top20Value,
+    surge:    _top10Data.top20Surge,
+    foreign:  _top10Data.top20Foreign  || _top10Data.top10FrgnBuy,
+    volume:   _top10Data.top20Volume   || _top10Data.top10Volume,
   };
-  let stocks = map[tab] || [];
-  if (curTop10Mkt) stocks = stocks.filter(s => (s.market || '').toUpperCase().includes(curTop10Mkt));
-  document.getElementById('t10-list').innerHTML = makeTop10List(stocks.slice(0, 10), tab);
+  let stocks = (map[tab] || []).filter(CAP_FILTER[curTop10Cap] || CAP_FILTER.all);
+  document.getElementById('t10-list').innerHTML = makeTop10List(stocks.slice(0, 20), tab);
 }
 
 function makeTop10List(stocks, tab) {
   if (!stocks?.length) return '<div style="color:var(--muted);font-size:13px;padding:28px;text-align:center;">데이터 없음</div>';
   const fmtAmt = v => {
     const a = Math.abs(v);
-    if (a >= 1e12) return (v / 1e12).toFixed(1) + '조';
-    if (a >= 1e8)  return Math.round(v / 1e8).toLocaleString() + '억';
-    return Math.round(v / 1e4).toLocaleString() + '만';
+    if (a >= 1e12) return (v/1e12).toFixed(1) + '조';
+    if (a >= 1e8)  return Math.round(v/1e8).toLocaleString() + '억';
+    return Math.round(v/1e4).toLocaleString() + '만';
   };
+  const fmtCap = c => !c ? '' : c >= 10000 ? (c/10000).toFixed(1)+'조' : c.toLocaleString()+'억';
   const rankIcon = i => ['🥇','🥈','🥉'][i] || '';
+
   return stocks.map((s, i) => {
     const up     = (s.chgRate || 0) >= 0;
     const chgClr = up ? 'var(--red)' : 'var(--blue)';
@@ -942,23 +965,43 @@ function makeTop10List(stocks, tab) {
       ? `<div class="t10-i-rank">${rankIcon(i)}</div>`
       : `<div class="t10-i-rank num">${i + 1}</div>`;
 
+    // 소형주 경고 (시총 500억 미만)
+    const isSmallCap = (s.mktCap || 0) > 0 && (s.mktCap || 0) < 500;
+    const smallCapWarning = isSmallCap
+      ? `<div style="font-size:9px;color:#f59e0b;margin-top:2px;">⚠️ 소형주 주의 · 변동성 높음</div>`
+      : '';
+
+    const capBadge = s.mktCap ? `<span class="t10-i-code">${fmtCap(s.mktCap)}</span>` : '';
+    const priceTxt = s.price ? s.price.toLocaleString() + '원' : '';
+
     let metricHtml = '';
-    if (tab === 'buy' || tab === 'score') {
+    if (tab === 'aipick' || tab === 'buy' || tab === 'score') {
       metricHtml = `<div class="t10-i-metric">
         <div class="t10-i-mval" style="color:${scClr}">${sc}<span style="font-size:11px;font-weight:400;color:var(--muted)">점</span></div>
         <div class="t10-i-bar"><div class="t10-i-bar-fill" style="width:${sc}%;background:${scClr}"></div></div>
       </div>`;
-    } else if (tab === 'frgnbuy') {
-      const net5 = (s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0) || s.frgnBuyQty || 0;
+    } else if (tab === 'momentum') {
       metricHtml = `<div class="t10-i-metric">
-        <div class="t10-i-mval" style="color:var(--red)">+${fmtAmt(net5 * (s.price || 0))}</div>
-        <div class="t10-i-msub">5일 외인+기관</div>
+        <div class="t10-i-mval" style="color:var(--red)">${chgTxt}</div>
+        <div class="t10-i-msub">${sc}점 · MA5↑</div>
       </div>`;
-    } else if (tab === 'frgnsell') {
-      const net5 = (s.investorSupply?.d5?.foreign || 0) + (s.investorSupply?.d5?.inst || 0) || s.frgnBuyQty || 0;
+    } else if (tab === 'value') {
+      const pbrTxt = (s.pbr || 0) > 0 ? 'PBR ' + s.pbr.toFixed(2) + '배' : '';
       metricHtml = `<div class="t10-i-metric">
-        <div class="t10-i-mval" style="color:var(--blue)">-${fmtAmt(Math.abs(net5 * (s.price || 0)))}</div>
-        <div class="t10-i-msub">5일 외인+기관</div>
+        <div class="t10-i-mval" style="color:#22c55e">${pbrTxt}</div>
+        <div class="t10-i-msub">${sc}점</div>
+      </div>`;
+    } else if (tab === 'surge') {
+      const ratio = (s.avgVol5 || 0) > 0 ? Math.round((s.volume || 0) / s.avgVol5 * 100) : null;
+      metricHtml = `<div class="t10-i-metric">
+        <div class="t10-i-mval" style="color:#f59e0b">${ratio !== null ? '거래량 ' + ratio + '%' : '수렴중'}</div>
+        <div class="t10-i-msub">${sc}점 · 수렴</div>
+      </div>`;
+    } else if (tab === 'foreign') {
+      const fnet = s.investorSupply?.d5?.foreign || 0;
+      metricHtml = `<div class="t10-i-metric">
+        <div class="t10-i-mval" style="color:var(--red)">+${fmtAmt(fnet * (s.price||0))}</div>
+        <div class="t10-i-msub">5일 외인</div>
       </div>`;
     } else if (tab === 'volume') {
       const amt = (s.avgVol5 || s.volume || 0) * (s.price || 0);
@@ -968,22 +1011,25 @@ function makeTop10List(stocks, tab) {
       </div>`;
     }
 
-    const sigBadge = tab === 'buy' ? `<span class="t10-i-sig">매수권 ✓</span>` : '';
-    const priceTxt = s.price ? s.price.toLocaleString() + '원' : '';
+    const sigBadge = tab === 'buy' ? `<span class="t10-i-sig">매수권 ✓</span>`
+                   : tab === 'surge' ? `<span class="t10-i-sig" style="background:rgba(245,158,11,.15);color:#f59e0b;">수렴</span>`
+                   : '';
 
     return `<div class="t10-item" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
       ${rankHtml}
       <div class="t10-i-av" style="background:${av}">${s.name.charAt(0)}</div>
-      <div style="min-width:0;">
+      <div style="min-width:0;flex:1;">
         <div class="t10-i-name" title="${s.name}">${s.name}</div>
         <div class="t10-i-meta">
           <span class="t10-i-code">${s.code}</span>
           ${sigBadge}
           ${priceTxt ? `<span class="t10-i-code">${priceTxt}</span>` : ''}
+          ${capBadge}
         </div>
+        ${smallCapWarning}
       </div>
       ${metricHtml}
-      <div class="t10-i-chg" style="color:${chgClr}">${chgTxt}</div>
+      ${tab === 'momentum' ? '' : `<div class="t10-i-chg" style="color:${chgClr}">${chgTxt}</div>`}
     </div>`;
   }).join('');
 }
