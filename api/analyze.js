@@ -702,53 +702,70 @@ function buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr) {
   const supportNum    = Math.min(...closes.slice(-20));
   const supportGapPct = (cur - supportNum) / cur * 100;
 
+  // 크로스 없을 때 — 상승 추세면 ok, 하락이면 fail, 중립이면 warn
+  const noCrossStatus = (ma5 && ma20)
+    ? (ma5 > ma20 ? 'ok' : ma5 < ma20 ? 'fail' : 'warn')
+    : 'warn';
+
+  // 손절 여유: 3~15% 적정, 15~25% 넓음, 25%+ 너무 넓음, 3% 미만 위험
+  const gapStatus = supportGapPct >= 3 && supportGapPct <= 15 ? 'ok'
+                  : supportGapPct > 15 && supportGapPct <= 25  ? 'warn'
+                  : supportGapPct > 25 ? 'warn' : 'fail';
+  const gapDesc = supportGapPct >= 3 && supportGapPct <= 15
+    ? `최근 저점(${supportNum.toLocaleString()}원)까지 ${supportGapPct.toFixed(1)}% 여유 — 손절 기준으로 적당해요`
+    : supportGapPct > 15
+    ? `최근 저점까지 ${supportGapPct.toFixed(1)}% 차이 — 손절선이 많이 멀어요, 분할매수 고려`
+    : `현재가가 최근 저점(${supportNum.toLocaleString()}원)에 너무 가까워요 — 리스크 주의`;
+
   return [
     {
       status: isPerfect ? 'ok' : isReverse ? 'fail' : 'warn',
-      label: '이평선 배열',
-      desc:  isPerfect ? '정배열 — 5일>20일>60일, 강한 상승 추세' :
-             isReverse ? '역배열 — 하락 추세 진행 중, 매수 주의' :
-                         '혼조 배열 — 추세 불명확, 관망 권장',
+      label: '추세 흐름',
+      desc:  isPerfect ? '단기→중기→장기 모두 우상향이에요 — 트렌드가 살아있어요' :
+             isReverse ? '단기→중기→장기가 모두 내리막이에요 — 지금은 기다리는 게 나아요' :
+                         '이평선이 뒤섞여 있어요 — 추세가 불명확해요',
     },
     {
       status: aboveAll ? 'ok' : aboveSome ? 'warn' : 'fail',
       label: '현재가 위치',
-      desc:  aboveAll  ? 'MA5·MA20 모두 위 — 단기·중기 모두 강세' :
-             aboveSome ? '일부 이평선 위 — 혼조세, 추이 확인 필요' :
-                         '이평선 아래 — 매도 압력 우세',
+      desc:  aboveAll  ? '단기·중기 평균가 위에 있어요 — 상승 흐름이 살아있어요' :
+             aboveSome ? '일부 평균가 위에만 있어요 — 흐름이 엇갈려요' :
+                         '평균가 아래에 있어요 — 매도세가 우세해요',
     },
     {
-      status: rsi === null ? 'warn' : rsi < 30 ? 'ok' : rsi > 70 ? 'warn' : rsi >= 50 ? 'ok' : 'warn',
-      label: 'RSI 모멘텀',
-      desc:  rsi === null ? 'RSI 계산 불가 (데이터 부족)' :
-             rsi < 30    ? `RSI ${rsi} — 과매도 구간, 반등 가능성` :
-             rsi > 70    ? `RSI ${rsi} — 과매수 구간, 조정 주의` :
-             rsi >= 50   ? `RSI ${rsi} — 강세 흐름 유지` :
-                           `RSI ${rsi} — 약세 흐름, 하락 압력`,
+      status: rsi === null ? 'warn' : rsi < 30 ? 'ok' : rsi > 73 ? 'warn' : rsi >= 50 ? 'ok' : 'warn',
+      label: '매수·매도 강도',
+      desc:  rsi === null ? '데이터가 부족해요' :
+             rsi < 30    ? `매수 강도 ${Math.round(rsi)}점 — 많이 빠진 구간이에요, 반등 가능성 있어요` :
+             rsi > 73    ? `매수 강도 ${Math.round(rsi)}점 — 단기 과열 구간이에요, 신규 진입 주의` :
+             rsi >= 50   ? `매수 강도 ${Math.round(rsi)}점 — 매수세가 우세해요` :
+                           `매수 강도 ${Math.round(rsi)}점 — 매도세가 조금 우세해요`,
     },
     {
-      status: isGolden ? 'ok' : isDead ? 'fail' : 'warn',
-      label: '크로스 신호',
-      desc:  isGolden ? '골든크로스 발생 — 단기 매수 신호, 상승 전환 기대' :
-             isDead   ? '데드크로스 발생 — 하락 전환 신호, 손절 검토' :
-                        '크로스 없음 — 현재 추세 지속 중',
+      status: isGolden ? 'ok' : isDead ? 'fail' : noCrossStatus,
+      label: '전환 신호',
+      desc:  isGolden ? '단기 흐름이 중기를 뚫고 올라왔어요 — 상승 전환 신호예요' :
+             isDead   ? '단기 흐름이 중기 아래로 꺾였어요 — 하락 전환 주의' :
+             (ma5 && ma20 && ma5 > ma20) ? '상승 흐름이 안정적으로 유지 중이에요' :
+             (ma5 && ma20 && ma5 < ma20) ? '하락 흐름이 지속되고 있어요' :
+                        '뚜렷한 전환 신호가 없어요',
     },
     {
-      status: supportGapPct > 7 ? 'ok' : supportGapPct > 3 ? 'warn' : 'fail',
-      label: '손절 여유',
-      desc:  `20일 지지선 ${supportNum.toLocaleString()}원 · 현재가에서 -${supportGapPct.toFixed(1)}% 아래`,
+      status: gapStatus,
+      label: '리스크 여유',
+      desc:  gapDesc,
     },
     {
       status: pctFromHigh === null ? 'warn'
              : pctFromHigh >= 0   ? 'ok'
              : pctFromHigh >= -5  ? 'ok'
              : pctFromHigh >= -10 ? 'warn' : 'fail',
-      label: '52주 신고가',
+      label: '52주 최고가',
       desc:  pctFromHigh === null  ? '데이터 부족' :
-             pctFromHigh >= 0      ? `신고가 돌파 중 — CAN SLIM N 조건 충족 (+${pctFromHigh.toFixed(1)}%)` :
-             pctFromHigh >= -5     ? `신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 이내 — 돌파 임박` :
-             pctFromHigh >= -10    ? `신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 아래 — 진입 검토 가능` :
-                                     `신고가 ${Math.abs(pctFromHigh).toFixed(1)}% 아래 — 아직 이르다`,
+             pctFromHigh >= 0      ? `52주 최고가를 넘어섰어요 — 강한 상승 모멘텀이에요` :
+             pctFromHigh >= -5     ? `52주 최고가 근처예요 (${Math.abs(pctFromHigh).toFixed(1)}% 아래) — 돌파하면 강세 신호` :
+             pctFromHigh >= -10    ? `52주 최고가에서 ${Math.abs(pctFromHigh).toFixed(1)}% 아래에 있어요` :
+                                     `52주 최고가에서 ${Math.abs(pctFromHigh).toFixed(1)}% 아래 — 아직 거리가 있어요`,
     },
   ];
 }
