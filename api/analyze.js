@@ -1362,6 +1362,7 @@ if (dartEps === null) {
           dartEps,
           consensusEps, consensusDate,
           hasFwdPer,
+          _estimateDebug: { rt_cd: estimateRaw?.rt_cd, msg: estimateRaw?.msg1, o4len: estimateRaw?.output4?.length, o3len: estimateRaw?.output3?.length, o1: estimateRaw?.output1?.sht_cd },
           perSource: consensusEps ? 'consensus' : dartEps ? 'dart' : 'kis',
         };
       })(),
