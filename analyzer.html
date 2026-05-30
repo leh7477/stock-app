@@ -1158,7 +1158,7 @@ function renderKoreanScore(ks) {
   if (!el || !ks) return;
   const {
     total = 0, pbr = 0, per = 0,
-    pbrScore = 0, secScore = 0, forwardPERScore = 0,
+    pbrScore = 0, secScore = 0, forwardPERScore = 0, hasFwdPer = true, consensusDate = null,
     supplyScore = 0, supplyD5 = 0, supplyD20 = 0,
     disclosureScore = 0,
     roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0,
@@ -1190,13 +1190,15 @@ function renderKoreanScore(ks) {
   const secLbl = secScore >= 8 ? '반도체·방위산업' : secScore >= 7 ? '배터리·로봇·원전'
                : secScore >= 6 ? '바이오·게임·SW·조선' : secScore >= 4 ? '자동차·통신·화학'
                : secScore >= 2 ? '금융·유통·건설' : '전통·사양 산업';
-  const fwdLbl = per <= 0  ? '적자 기업 (0점)'
-               : per <= 8  ? `PER ${per.toFixed(1)}배 — 극도 저평가 (10점)`
-               : per <= 12 ? `PER ${per.toFixed(1)}배 — 저평가 (8점)`
-               : per <= 15 ? `PER ${per.toFixed(1)}배 — 적정 (6점)`
-               : per <= 20 ? `PER ${per.toFixed(1)}배 — 약간 고평가 (4점)`
-               : per <= 25 ? `PER ${per.toFixed(1)}배 — 고평가 (2점)`
-               : `PER ${per.toFixed(1)}배 — 고PER (0점)`;
+  const fwdSrc  = consensusDate ? `KIS 컨센서스 ${consensusDate}` : 'DART 연간 EPS';
+  const fwdLbl = !hasFwdPer    ? '데이터없음 — 컨센서스 미집계 종목 (0점)'
+               : per <= 0      ? '적자 기업 (0점)'
+               : per <= 8      ? `PER ${per.toFixed(1)}배 — 극도 저평가 (10점) · ${fwdSrc}`
+               : per <= 12     ? `PER ${per.toFixed(1)}배 — 저평가 (8점) · ${fwdSrc}`
+               : per <= 15     ? `PER ${per.toFixed(1)}배 — 적정 (6점) · ${fwdSrc}`
+               : per <= 20     ? `PER ${per.toFixed(1)}배 — 약간 고평가 (4점) · ${fwdSrc}`
+               : per <= 25     ? `PER ${per.toFixed(1)}배 — 고평가 (2점) · ${fwdSrc}`
+               : `PER ${per.toFixed(1)}배 — 고PER (0점) · ${fwdSrc}`;
   const discColor = disclosureScore > 0 ? '#22c55e' : disclosureScore < 0 ? '#ef4444' : 'var(--muted)';
   const discLbl   = disclosureScore > 0 ? `호재 공시 +${disclosureScore}점` : disclosureScore < 0 ? `악재 공시 ${disclosureScore}점` : '호재·악재 공시 없음';
   const mcLbl = mktCapScore <= -8 ? '소형주 500억 미만 — 유동성 리스크'

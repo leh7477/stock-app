@@ -908,12 +908,14 @@ export default async function handler(req, res) {
     const priceUrl = (mktCd) =>
       `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=${mktCd}&FID_INPUT_ISCD=${code}`;
 
-    const [priceRaw, cd1, cw1, cw2, cw3] = await Promise.all([
+    const estimateUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform?SHT_CD=${code}`;
+    const [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await Promise.all([
       timedFetch(priceUrl('J'), { headers: kisHdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
       timedFetch(dailyUrl(fmtD(ago(240)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(estimateUrl,              { headers: kisHdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
     ]);
 
     // J로 가격 0이면 KOSDAQ(Q)으로 재시도
@@ -1188,15 +1190,41 @@ if (dartEps === null) {
     const recentCloses  = closes.slice(-20);
     const supportNum    = Math.min(...recentCloses);
     const resistanceNum = Math.max(...recentCloses);
-    // 국장 특화 점수 (항상 실시간 계산 — 분석기 상세 표시용)
-    // KIS per/pbr: KIS가 자체 계산한 연결 기준 PER·PBR — 네이버 등 외부 사이트와 동일 basis
-    // (EPS/BPS 직접 계산 시 KIS eps가 별도 기준이라 연결 기준 네이버 값과 괴리 발생)
-    // DART EPS 있으면 실시간 연결 PER 계산, 없으면 KIS PER fallback
-    // latest.close = 현재가 (parseNum(pOut.stck_prpr), 위에서 이미 정의)
-    const per2     = (dartEps && dartEps > 0 && latest.close > 0)
-      ? Math.round(latest.close / dartEps * 10) / 10
-      : parseF(pOut.per || '0');
-    const pbr2     = parseF(pOut.pbr || '0');
+    // ── 컨센서스 추정 EPS (estimate-perform) ────────────────────────────────
+    // output3[1] = EPS(원), output4[i].dt = 결산년월 ("2025.12E" 등 E=추정)
+    // 가장 가까운 미래 추정 연도의 EPS 사용 → forward PER 계산
+    let consensusEps  = null;  // 추정 EPS (원)
+    let consensusPer  = null;  // 추정 PER (KIS 계산값)
+    let consensusDate = null;  // 추정 결산년월 (예: "2025.12E")
+    try {
+      const oDates = estimateRaw?.output4;
+      const oEps   = estimateRaw?.output3?.[1];  // EPS 행
+      const oPer   = estimateRaw?.output3?.[3];  // PER 행
+      if (oDates && oEps) {
+        const dataKeys = ['data1','data2','data3','data4','data5'];
+        for (let i = 0; i < oDates.length; i++) {
+          const dt = oDates[i]?.dt || '';
+          if (dt.includes('E')) {  // 추정치
+            const eps = parseFloat(oEps[dataKeys[i]] || '0');
+            if (eps > 0) {
+              consensusEps  = eps;
+              consensusPer  = parseFloat(oPer?.[dataKeys[i]] || '0') || null;
+              consensusDate = dt;
+              break;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // PER 결정: 컨센서스 EPS 있으면 현재가/추정EPS, 없으면 DART EPS, 없으면 KIS PER
+    const per2 = consensusEps && consensusEps > 0 && latest.close > 0
+      ? Math.round(latest.close / consensusEps * 10) / 10
+      : dartEps && dartEps > 0 && latest.close > 0
+        ? Math.round(latest.close / dartEps * 10) / 10
+        : parseF(pOut.per || '0');
+    const hasFwdPer = consensusEps !== null;  // 컨센서스 데이터 존재 여부
+    const pbr2      = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     const divYield2  = parseF(pOut.dvdn_yedn || '0');
     const mktCap2    = marketCapV; // 억원 단위
@@ -1322,7 +1350,9 @@ if (dartEps === null) {
           tag,
           growthComment,
           dartEps,
-          perSource: dartEps ? 'dart' : 'kis',
+          consensusEps, consensusDate,
+          hasFwdPer,
+          perSource: consensusEps ? 'consensus' : dartEps ? 'dart' : 'kis',
         };
       })(),
       maScore,
