@@ -535,30 +535,30 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 공시 모멘텀 (±2pt)
   const discScore = calcDisclosureBonus(disclosures);
 
-  // DART 재무 보너스 (분기 1회, CAN SLIM A·C 기준)
+  // DART 재무 보너스 — max 10pt (분기 1회)
+  // EPS성장(4) + ROE(3) + 영업마진(2) + 매출성장(1) = 10pt, 부채비율 감점
   let roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0;
   if (dartFin) {
     if (dartFin.roe !== null) {
-      if      (dartFin.roe >= 25) roScore = 5;
-      else if (dartFin.roe >= 17) roScore = 4;
-      else if (dartFin.roe >= 10) roScore = 2;
+      if      (dartFin.roe >= 25) roScore = 3;
+      else if (dartFin.roe >= 17) roScore = 2;
+      else if (dartFin.roe >= 10) roScore = 1;
     }
     if (dartFin.epsGrowth !== null) {
-      if      (dartFin.epsGrowth >= 50) epsGScore = 5;
-      else if (dartFin.epsGrowth >= 25) epsGScore = 4;
-      else if (dartFin.epsGrowth >= 10) epsGScore = 2;
+      if      (dartFin.epsGrowth >= 50) epsGScore = 4;
+      else if (dartFin.epsGrowth >= 25) epsGScore = 3;
+      else if (dartFin.epsGrowth >= 10) epsGScore = 1;
     }
     if (dartFin.operatingMargin !== null) {
-      if      (dartFin.operatingMargin >= 20) opMarginScore = 3;
+      if      (dartFin.operatingMargin >= 20) opMarginScore = 2;
       else if (dartFin.operatingMargin >= 10) opMarginScore = 1;
     }
     if (dartFin.revenueGrowth !== null) {
-      if      (dartFin.revenueGrowth >= 20) revGScore = 2;
-      else if (dartFin.revenueGrowth >= 10) revGScore = 1;
+      if (dartFin.revenueGrowth >= 10) revGScore = 1;
     }
     if (dartFin.debtRatio !== null) {
-      if      (dartFin.debtRatio >= 300) debtPenalty = -4;
-      else if (dartFin.debtRatio >= 200) debtPenalty = -3;
+      if      (dartFin.debtRatio >= 300) debtPenalty = -3;
+      else if (dartFin.debtRatio >= 200) debtPenalty = -2;
       else if (dartFin.debtRatio >= 150) debtPenalty = -1;
     }
   }
@@ -566,11 +566,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 배당수익률 (0~4pt)
   const divScore = divYield >= 4 ? 4 : divYield >= 3 ? 3 : divYield >= 2 ? 2 : divYield >= 1 ? 1 : 0;
 
-  // 52주 신고가 근접 (0~5pt) — 기술점수에서 이동
-  const newHighResult = calc52WkHighScore(closes);
-  const newHighScore  = newHighResult.score;
-
-  // 시총 안정성 (-3~0pt): 소형주 유동성 리스크 감점
+  // 시총 안정성 (-3~0pt)
   const mktCapScore = mktCap > 0 && mktCap < 500  ? -3
                     : mktCap > 0 && mktCap < 2000 ? -1
                     : 0;
@@ -578,7 +574,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    divScore + newHighScore + mktCapScore
+    divScore + mktCapScore
   ));
   return { total,
            pbrScore:        Math.round(pbrScore * 10) / 10,
@@ -587,8 +583,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
            perFinal:        Math.round(perFinal * 10) / 10,
            supplyScore, supplyD5, supplyD20, discScore,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
-           divScore, newHighScore, mktCapScore,
-           pctFromHigh: newHighResult.pctFromHigh };
+           divScore, mktCapScore };
 }
 
 function maSignal(price, ma) {

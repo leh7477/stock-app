@@ -558,30 +558,29 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 공시 모멘텀 (±2pt)
   const discScore = calcDisclosureBonus(disclosures);
 
-  // DART 재무 보너스 (분기 1회)
+  // DART 재무 보너스 — max 10pt (분기 1회)
   let roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0;
   if (dartFin) {
     if (dartFin.roe !== null) {
-      if      (dartFin.roe >= 25) roScore = 5;
-      else if (dartFin.roe >= 17) roScore = 4;
-      else if (dartFin.roe >= 10) roScore = 2;
+      if      (dartFin.roe >= 25) roScore = 3;
+      else if (dartFin.roe >= 17) roScore = 2;
+      else if (dartFin.roe >= 10) roScore = 1;
     }
     if (dartFin.epsGrowth !== null) {
-      if      (dartFin.epsGrowth >= 50) epsGScore = 5;
-      else if (dartFin.epsGrowth >= 25) epsGScore = 4;
-      else if (dartFin.epsGrowth >= 10) epsGScore = 2;
+      if      (dartFin.epsGrowth >= 50) epsGScore = 4;
+      else if (dartFin.epsGrowth >= 25) epsGScore = 3;
+      else if (dartFin.epsGrowth >= 10) epsGScore = 1;
     }
     if (dartFin.operatingMargin !== null) {
-      if      (dartFin.operatingMargin >= 20) opMarginScore = 3;
+      if      (dartFin.operatingMargin >= 20) opMarginScore = 2;
       else if (dartFin.operatingMargin >= 10) opMarginScore = 1;
     }
     if (dartFin.revenueGrowth !== null) {
-      if      (dartFin.revenueGrowth >= 20) revGScore = 2;
-      else if (dartFin.revenueGrowth >= 10) revGScore = 1;
+      if (dartFin.revenueGrowth >= 10) revGScore = 1;
     }
     if (dartFin.debtRatio !== null) {
-      if      (dartFin.debtRatio >= 300) debtPenalty = -4;
-      else if (dartFin.debtRatio >= 200) debtPenalty = -3;
+      if      (dartFin.debtRatio >= 300) debtPenalty = -3;
+      else if (dartFin.debtRatio >= 200) debtPenalty = -2;
       else if (dartFin.debtRatio >= 150) debtPenalty = -1;
     }
   }
@@ -589,16 +588,12 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // 배당수익률 (0~4pt)
   const divScore = divYield >= 4 ? 4 : divYield >= 3 ? 3 : divYield >= 2 ? 2 : divYield >= 1 ? 1 : 0;
 
-  // 52주 신고가 근접 (0~5pt)
-  const newHighResult = calc52WkHighScore(closes);
-  const newHighScore  = newHighResult.score;
-
   // 시총 안정성 (-3~0pt)
   const mktCapScore = mktCap > 0 && mktCap < 500  ? -3
                     : mktCap > 0 && mktCap < 2000 ? -1
                     : 0;
 
-  // BB width (isIVExtreme) — 표시용으로만 유지
+  // BB width (isIVExtreme) — 표시용
   const boll2    = calcBollinger(closes);
   const bbWidths = boll2.upper.map((u, i) =>
     (u && boll2.lower[i] && boll2.mid[i]) ? (u - boll2.lower[i]) / boll2.mid[i] : null
@@ -613,7 +608,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const total = Math.min(50, Math.round(
     pbrScore + perFinal + supplyScore + discScore +
     roScore + epsGScore + opMarginScore + revGScore + debtPenalty +
-    divScore + newHighScore + mktCapScore
+    divScore + mktCapScore
   ));
   return { total,
            pbrScore:        Math.round(pbrScore * 10) / 10,
@@ -622,8 +617,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
            perFinal:        Math.round(perFinal * 10) / 10,
            supplyScore, supplyD5, supplyD20, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
-           divScore, newHighScore, mktCapScore,
-           pctFromHigh: newHighResult.pctFromHigh };
+           divScore, mktCapScore };
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -1284,7 +1278,7 @@ if (dartEps === null) {
         const { pbrScore: pbrS, secScore: secS, forwardPERScore: fwdPERs, perFinal: perFinalS,
                 supplyScore: supplyS, supplyD5: sd5, supplyD20: sd20, discScore: discS,
                 roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
-                divScore: divS, newHighScore: nhS, mktCapScore: mcS, pctFromHigh,
+                divScore: divS, mktCapScore: mcS,
                 drawdown: drawdownPct, isIVExtreme } = ks;
         const rsiNow = rsiArr[n];
         const growthComment = (tag === 'growth' && per2 > 30)
@@ -1298,7 +1292,7 @@ if (dartEps === null) {
           supplyScore: supplyS, supplyD5: sd5, supplyD20: sd20,
           disclosureScore: discS,
           roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
-          divScore: divS, newHighScore: nhS, mktCapScore: mcS, pctFromHigh,
+          divScore: divS, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
           techScore: Math.round(techScore * 0.7),
           techDetail,
@@ -1318,7 +1312,7 @@ if (dartEps === null) {
       atr: atrObj,
       rsRating,
       relStrength: relResult,
-      newHigh: { score: ks.newHighScore, pctFromHigh: ks.pctFromHigh },
+      newHigh: null,
       atrContraction: atrContractionResult,
       macroScore: macroResult,
       competitors,
