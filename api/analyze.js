@@ -1030,14 +1030,16 @@ if (dartEps === null) {
 }
     
     // 해자 분석 (update-moat-analysis.py 가 분기 1회 저장)
+    // 해자 분석 — 종목별 개별 키 moat:{code} 조회 (전체 맵은 1MB+ 초과)
     let moatAnalysis = null;
     try {
-      const maRaw = await timedFetch(`${_redisUrl}/get/moat_analysis`, {
+      const maRaw = await timedFetch(`${_redisUrl}/get/moat:${code}`, {
         headers: { Authorization: `Bearer ${_redisToken}` },
       }).then(r => r.json());
       if (maRaw.result) {
-        const maMap = JSON.parse(maRaw.result);
-        moatAnalysis = maMap[code] || null;
+        moatAnalysis = typeof maRaw.result === 'string'
+          ? JSON.parse(maRaw.result)
+          : maRaw.result;
       }
     } catch (_) {}
 

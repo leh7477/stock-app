@@ -134,15 +134,8 @@ def run():
     stocks = data.get("stocks", [])
     log.info(f"[1/3] recommend_v2 로드: {len(stocks)}개 종목")
 
-    # 2. 기존 데이터 로드 (부분 실패 시 병합용)
-    existing_raw = redis_get("moat_analysis")
+    # 2. 기존 데이터 초기화 (개별 키 방식으로 변경 — 전체 맵 GET 용량 초과 방지)
     moat_data = {}
-    if existing_raw:
-        try:
-            moat_data = json.loads(existing_raw) if isinstance(existing_raw, str) else existing_raw
-            log.info(f"      기존 moat_analysis: {len(moat_data)}개 로드 (병합 예정)")
-        except Exception:
-            pass
 
     # 3. Gemini 배치 분석
     client        = genai.Client(api_key=GEMINI_KEY)
@@ -170,9 +163,26 @@ def run():
     if not moat_data:
         raise RuntimeError("분석 결과 없음 — Redis 저장 중단")
 
-    # 4. Redis 저장 (TTL 95일)
-    redis_set("moat_analysis", moat_data, TTL_95D)
-    log.info(f"[3/3] Redis moat_analysis 저장 완료 ({len(moat_data)}개, TTL 95일)")
+    # 4. 종목별 개별 키로 저장 (moat:{code}) — 파이프라인 100개씩 분할
+    # 전체 맵 하나로 저장하면 1MB+ 초과로 GET 실패 → 개별 키 방식으로 해결
+    log.info(f"[3/3] Redis 개별 키 저장 중... (moat:{{code}}, {len(moat_data)}개)")
+    PIPE_SIZE = 100
+    codes = list(moat_data.keys())
+    saved = 0
+    for i in range(0, len(codes), PIPE_SIZE):
+        batch_codes = codes[i:i+PIPE_SIZE]
+        pipeline = [
+            ["SET", f"moat:{c}", json.dumps(moat_data[c], ensure_ascii=False), "EX", str(TTL_95D)]
+            for c in batch_codes
+        ]
+        requests.post(
+            f"{KV_URL}/pipeline",
+            headers={"Authorization": f"Bearer {KV_TOKEN}", "Content-Type": "application/json"},
+            json=pipeline,
+            timeout=TIMEOUT,
+        )
+        saved += len(batch_codes)
+    log.info(f"[3/3] 저장 완료: {saved}개 (TTL 95일)")
     log.info("=== 완료 ===")
 
 
