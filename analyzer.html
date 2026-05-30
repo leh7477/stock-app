@@ -1194,9 +1194,6 @@ function renderKoreanScore(ks) {
                : per <= 12 ? `forward PER ${per.toFixed(1)}배 — 저평가`
                : per <= 25 ? `forward PER ${per.toFixed(1)}배 — 적정`
                : `forward PER ${per.toFixed(1)}배 — 고평가`;
-  const highLbl = pctFromHigh !== null
-    ? (pctFromHigh >= 0 ? '신고가 달성' : `고점 대비 ${pctFromHigh.toFixed(1)}%`)
-    : '데이터 없음';
   const discColor = disclosureScore > 0 ? '#22c55e' : disclosureScore < 0 ? '#ef4444' : 'var(--muted)';
   const discLbl   = disclosureScore > 0 ? `호재 공시 +${disclosureScore}점` : disclosureScore < 0 ? `악재 공시 ${disclosureScore}점` : '호재·악재 공시 없음';
   const mcLbl = mktCapScore === -3 ? '소형주 500억 미만 — 유동성 리스크' : mktCapScore === -1 ? '중소형 2000억 미만' : '중대형주 — 감점 없음';
