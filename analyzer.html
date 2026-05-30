@@ -1065,66 +1065,66 @@ function generateOneLiner(data) {
   const rsiGood     = rsi !== null && rsi >= 52 && rsi < 68;
   const isDeepValue = pbr > 0 && pbr < 0.8;
 
-  // 탐욕 극단 경고 — 가장 먼저 체크
+  // 단기 과열 경고 — 가장 먼저 체크
   if (rsiHigh && score < 62) {
-    return { text: `RSI ${rsi} 과매수에 점수까지 흔들리는 중 — 지금 추격은 위험`, tone: 'warn' };
+    return { text: `단기에 많이 올랐는데 퀀트 점수도 불안해요 — 지금 추격 매수는 조심하세요`, tone: 'warn' };
   }
   if (rsiHigh) {
-    return { text: `RSI ${rsi} 과매수 구간 진입, 거래량도 빠지는 중 — 탐욕 정점 주의`, tone: 'warn' };
+    return { text: `단기에 많이 오른 구간이에요, 거래량도 줄고 있어요 — 신규 진입보다 관망이 나아요`, tone: 'warn' };
   }
 
-  // 공포 클라이맥스 (역발상 기회)
+  // 공포 클라이맥스 (저점 탐색 기회)
   if (panicScore >= 10 && isIVExtreme) {
-    if (isDeepValue) return { text: `변동성 극단 + PBR ${pbr.toFixed(1)}배 저평가 — 공포 속 역발상 진입 구간`, tone: 'bull' };
-    return { text: `변동성 역대 최고 근처, RSI ${rsi} 공포 클라이맥스 — 용기 있는 자에겐 기회`, tone: 'bull' };
+    if (isDeepValue) return { text: `주가 변동이 극심한데 자산 대비 가격이 싸요 — 공포 속 저가 매수 기회일 수 있어요`, tone: 'bull' };
+    return { text: `극도로 많이 빠진 구간이에요 — 무서운 자리지만 반등 가능성은 있어요`, tone: 'bull' };
   }
   if (panicScore >= 7) {
-    if (tag === 'value') return { text: `고점 대비 -${Math.round(drawdown)}% 빠진 가치주 — RSI ${rsi}, 역발상 저점 탐색 구간`, tone: 'bull' };
-    return { text: `강한 투매 구간 (RSI ${rsi} · -${Math.round(drawdown)}%) — 반등 가능성 있지만 추세는 확인 필요`, tone: 'neutral' };
+    if (tag === 'value') return { text: `고점 대비 ${Math.round(drawdown)}% 빠진 저평가 종목이에요 — 분할 매수로 접근해볼 자리`, tone: 'bull' };
+    return { text: `급격하게 빠지는 중이에요 — 단기 반등 가능성은 있지만 추세 확인 후 진입 권장`, tone: 'neutral' };
   }
 
-  // 강력 매수 신호
+  // 강한 매수 신호
   if (score >= 75 && isPerfect && isBull) {
-    if (tag === 'growth') return { text: `${growthSector >= 6 ? '반도체·방산 핵심주' : '성장 섹터'} 완벽 정배열 — 모멘텀 최상, 지금이 기회`, tone: 'bull' };
-    if (tag === 'value')  return { text: `저평가(PBR ${pbr.toFixed(1)}배) + 완벽 정배열 — 가치와 기술이 맞춰진 자리`, tone: 'bull' };
-    return { text: `이평선 정배열 + 수급까지 완벽 — 점수 ${score}점, 지금 자리 탐난다`, tone: 'bull' };
+    if (tag === 'growth') return { text: `${growthSector >= 6 ? '핵심 성장 섹터' : '성장주'} 상승 추세가 완벽해요 — 모든 신호가 좋은 자리예요`, tone: 'bull' };
+    if (tag === 'value')  return { text: `저렴한 가격에 상승 추세까지 맞았어요 — 가치와 기술이 만난 좋은 자리예요`, tone: 'bull' };
+    return { text: `상승 추세 + 수급까지 모두 좋아요 — 점수 ${score}점, 지금이 좋은 자리예요`, tone: 'bull' };
   }
 
-  // 골든크로스
+  // 추세 전환 신호
   if (isGolden && isBull) {
-    return { text: `골든크로스 발생 + RSI ${rsi || '-'} 강세 — 단기 추세 전환 신호`, tone: 'bull' };
+    return { text: `단기 흐름이 중기를 뚫고 올라왔어요 — 상승 전환 신호예요`, tone: 'bull' };
   }
 
-  // 점수 좋고 모멘텀 살아있음
+  // 점수 좋고 흐름 살아있음
   if (score >= 65 && isBull && rsiGood) {
-    if (tag === 'growth') return { text: `성장주 모멘텀 살아있음 — 이평선·수급 모두 우호적, 관심 구간`, tone: 'bull' };
-    if (tag === 'value')  return { text: `저평가 가치주 + RSI ${rsi} 상승 흐름 — 아직 늦지 않은 자리`, tone: 'bull' };
-    return { text: `점수 ${score}점, RSI ${rsi} — 추세와 수급 모두 긍정적`, tone: 'bull' };
+    if (tag === 'growth') return { text: `성장주 흐름이 살아있어요 — 상승 추세와 수급 모두 긍정적이에요`, tone: 'bull' };
+    if (tag === 'value')  return { text: `상대적으로 저렴한 종목이 상승 흐름을 타고 있어요 — 아직 늦지 않았어요`, tone: 'bull' };
+    return { text: `점수 ${score}점 — 상승 흐름과 매수세 모두 긍정적이에요`, tone: 'bull' };
   }
 
-  // 공시 모멘텀
+  // 공시 이슈
   if (disclosureScore > 0 && score >= 55) {
-    return { text: `호재 공시 + 기술적 흐름 양호 — 모멘텀 살아날 수 있는 자리`, tone: 'bull' };
+    return { text: `좋은 공시가 있고 차트 흐름도 괜찮아요 — 모멘텀이 살아날 수 있어요`, tone: 'bull' };
   }
   if (disclosureScore < 0) {
-    return { text: `악재 공시 감지됨 — 기술적으로도 주의 필요, 방어적 접근 권장`, tone: 'warn' };
+    return { text: `부정적인 공시가 있어요 — 흐름도 확인하며 신중하게 접근하세요`, tone: 'warn' };
   }
 
   // 중립 흐름
   if (isNeutral && rsiGood) {
-    return { text: `추세 흐름은 있는데 확신은 부족 — 눌림목 후 재진입 타이밍 탐색 중`, tone: 'neutral' };
+    return { text: `올라가는 흐름은 있는데 아직 확신이 부족해요 — 조금 더 지켜보세요`, tone: 'neutral' };
   }
   if (isNeutral) {
-    return { text: `뚜렷한 방향성 없음 — 추이 지켜보는 구간`, tone: 'neutral' };
+    return { text: `뚜렷한 방향을 잡지 못하고 있어요 — 관망하면서 추이를 지켜보세요`, tone: 'neutral' };
   }
 
   // 하락 추세
   if (isBear) {
-    if (rsiLow) return { text: `이평선 역배열에 RSI ${rsi} 과매도 — 반등 시도할 수 있지만 추세는 하락`, tone: 'warn' };
-    return { text: `이평선 하락 추세 진행 중 — 지지선 회복 확인 전까지 관망`, tone: 'warn' };
+    if (rsiLow) return { text: `하락 추세인데 많이 빠진 상태예요 — 단기 반등은 가능하지만 추세 회복 확인 후 진입`, tone: 'warn' };
+    return { text: `하락 추세가 진행 중이에요 — 저점이 회복될 때까지 기다리는 게 나아요`, tone: 'warn' };
   }
 
-  return { text: `점수 ${score}점 — 지금은 관망하며 추이 지켜보는 구간`, tone: 'neutral' };
+  return { text: `점수 ${score}점 — 지금은 지켜보면서 좋은 자리를 기다리세요`, tone: 'neutral' };
 }
 
 function renderOneLiner(data) {
