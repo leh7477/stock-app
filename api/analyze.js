@@ -1190,29 +1190,39 @@ if (dartEps === null) {
     const recentCloses  = closes.slice(-20);
     const supportNum    = Math.min(...recentCloses);
     const resistanceNum = Math.max(...recentCloses);
-    // ── 컨센서스 추정 EPS (estimate-perform) ────────────────────────────────
-    // output3[1] = EPS(원), output4[i].dt = 결산년월 ("2025.12E" 등 E=추정)
-    // 가장 가까운 미래 추정 연도의 EPS 사용 → forward PER 계산
-    let consensusEps  = null;  // 추정 EPS (원)
-    let consensusPer  = null;  // 추정 PER (KIS 계산값)
-    let consensusDate = null;  // 추정 결산년월 (예: "2025.12E")
+    // ── 컨센서스 EPS (estimate-perform) ─────────────────────────────────────
+    // output3[1]=EPS, output4[i].dt=결산년월 ("2025.12E"=추정 / "2025.12"=확정)
+    // 우선순위: ① E(추정) 중 첫 번째 → ② 확정 중 최신(올해-1 이상) → ③ 마지막 유효값
+    let consensusEps  = null;
+    let consensusPer  = null;
+    let consensusDate = null;
     try {
       const oDates = estimateRaw?.output4;
-      const oEps   = estimateRaw?.output3?.[1];  // EPS 행
-      const oPer   = estimateRaw?.output3?.[3];  // PER 행
+      const oEps   = estimateRaw?.output3?.[1];
+      const oPer   = estimateRaw?.output3?.[3];
       if (oDates && oEps) {
-        const dataKeys = ['data1','data2','data3','data4','data5'];
+        const dataKeys  = ['data1','data2','data3','data4','data5'];
+        const thisYear  = new Date().getFullYear();
+        let bestIdx = -1, bestIsEstimate = false;
+
         for (let i = 0; i < oDates.length; i++) {
-          const dt = oDates[i]?.dt || '';
-          if (dt.includes('E')) {  // 추정치
-            const eps = parseFloat(oEps[dataKeys[i]] || '0');
-            if (eps > 0) {
-              consensusEps  = eps;
-              consensusPer  = parseFloat(oPer?.[dataKeys[i]] || '0') || null;
-              consensusDate = dt;
-              break;
-            }
+          const dt  = oDates[i]?.dt || '';
+          const yr  = parseInt(dt);
+          const isE = dt.includes('E');
+          const eps = parseFloat(oEps[dataKeys[i]] || '0');
+          if (!eps || eps <= 0) continue;
+          if (isE && !bestIsEstimate) { bestIdx = i; bestIsEstimate = true; break; }
+          if (!isE && yr >= thisYear - 1)  bestIdx = i;
+        }
+        if (bestIdx === -1) {
+          for (let i = oDates.length - 1; i >= 0; i--) {
+            if (parseFloat(oEps[dataKeys[i]] || '0') > 0) { bestIdx = i; break; }
           }
+        }
+        if (bestIdx >= 0) {
+          consensusEps  = parseFloat(oEps[dataKeys[bestIdx]]);
+          consensusPer  = parseFloat(oPer?.[dataKeys[bestIdx]] || '0') || null;
+          consensusDate = oDates[bestIdx]?.dt || null;
         }
       }
     } catch (_) {}
