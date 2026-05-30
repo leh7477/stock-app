@@ -1377,7 +1377,15 @@ if (dartEps === null) {
           dartEps,
           consensusEps, consensusDate,
           hasFwdPer,
-          _estimateDebug: { rt_cd: estimateRaw?.rt_cd, msg: estimateRaw?.msg1, o4len: estimateRaw?.output4?.length, o3len: estimateRaw?.output3?.length, o1: estimateRaw?.output1?.sht_cd },
+          _estimateDebug: {
+            rt_cd: estimateRaw?.rt_cd, msg: estimateRaw?.msg1,
+            o4len: estimateRaw?.output4?.length, o3len: estimateRaw?.output3?.length,
+            o1: estimateRaw?.output1?.sht_cd,
+            latestClose: latest.close,
+            per2Raw: per2,
+            o3rows: (estimateRaw?.output3 || []).map(row => ({ nm: row?.itmn || row?.hqic_kor_isnm || JSON.stringify(row)?.slice(0,40), d1: row?.data1, d2: row?.data2, d3: row?.data3 })),
+            o4dates: (estimateRaw?.output4 || []).map(d => d?.dt),
+          },
           perSource: consensusEps ? 'consensus' : dartEps ? 'dart' : 'kis',
         };
       })(),
