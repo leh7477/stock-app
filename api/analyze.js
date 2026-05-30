@@ -1213,9 +1213,11 @@ if (dartEps === null) {
     let consensusDate = null;
     try {
       const oDates = estimateRaw?.output4;
-      const oEps   = estimateRaw?.output3?.[4]; // [4]=EPS(원/주), [1]은 영업이익(억원)
-      const oPer   = estimateRaw?.output3?.[5]; // [5]=PER(배), [3]은 당기순이익(억원)
-      if (oDates && oEps) {
+      // output3 구조: [0]영업이익(억원) [1]세전이익 [2]당기순이익 [3]EPS(원/주) [4]PER(배) [5]BPS [6]PBR [7]ROE
+      // → PER(배)를 직접 사용 (EPS 단위 혼선 방지)
+      const oPer   = estimateRaw?.output3?.[4]; // PER(배) 직접 사용
+      const oEps   = estimateRaw?.output3?.[3]; // EPS(원/주) — 표시용
+      if (oDates && oPer) {
         const dataKeys  = ['data1','data2','data3','data4','data5'];
         const thisYear  = new Date().getFullYear();
         let bestIdx = -1, bestIsEstimate = false;
@@ -1224,31 +1226,31 @@ if (dartEps === null) {
           const dt  = oDates[i]?.dt || '';
           const yr  = parseInt(dt);
           const isE = dt.includes('E');
-          const eps = parseFloat(oEps[dataKeys[i]] || '0');
-          if (!eps || eps <= 0) continue;
+          const per = parseFloat(oPer[dataKeys[i]] || '0');
+          if (!per || per <= 0) continue;
           if (isE && !bestIsEstimate) { bestIdx = i; bestIsEstimate = true; break; }
-          if (!isE && yr >= thisYear - 1)  bestIdx = i;
+          if (!isE && yr >= thisYear - 1) bestIdx = i;
         }
         if (bestIdx === -1) {
           for (let i = oDates.length - 1; i >= 0; i--) {
-            if (parseFloat(oEps[dataKeys[i]] || '0') > 0) { bestIdx = i; break; }
+            if (parseFloat(oPer[dataKeys[i]] || '0') > 0) { bestIdx = i; break; }
           }
         }
         if (bestIdx >= 0) {
-          consensusEps  = parseFloat(oEps[dataKeys[bestIdx]]);
-          consensusPer  = parseFloat(oPer?.[dataKeys[bestIdx]] || '0') || null;
+          consensusPer  = parseFloat(oPer[dataKeys[bestIdx]]);           // PER(배) 직접
+          consensusEps  = parseFloat(oEps?.[dataKeys[bestIdx]] || '0') || null; // 표시용
           consensusDate = oDates[bestIdx]?.dt || null;
         }
       }
     } catch (_) {}
 
-    // PER 결정: 컨센서스 EPS 있으면 현재가/추정EPS, 없으면 DART EPS, 없으면 KIS PER
-    const per2 = consensusEps && consensusEps > 0 && latest.close > 0
-      ? Math.round(latest.close / consensusEps * 10) / 10
+    // PER 결정: KIS 컨센서스 PER 직접 사용 → DART EPS → KIS 현재가 PER
+    const per2 = consensusPer && consensusPer > 0
+      ? Math.round(consensusPer * 10) / 10          // KIS 직접 제공 PER(배)
       : dartEps && dartEps > 0 && latest.close > 0
         ? Math.round(latest.close / dartEps * 10) / 10
         : parseF(pOut.per || '0');
-    const hasFwdPer = consensusEps !== null;  // 컨센서스 데이터 존재 여부
+    const hasFwdPer = consensusPer !== null;  // 컨센서스 PER 존재 여부
     const pbr2      = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     const divYield2  = parseF(pOut.dvdn_yedn || '0');
