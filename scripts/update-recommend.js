@@ -66,9 +66,13 @@ async function redisSet(key, value, ttlSec) {
 
 // ─── KIS 토큰 ──────────────────────────────────────────────────────────────
 
-async function getKisToken() {
-  const cached = await redisGet('kis_token');
-  if (cached) { console.log('[token] Redis 캐시 사용'); return cached; }
+let _currentToken = null; // 모듈 레벨 캐시 — processStock에서 갱신 가능
+
+async function getKisToken(force = false) {
+  if (!force) {
+    const cached = await redisGet('kis_token');
+    if (cached) { console.log('[token] Redis 캐시 사용'); _currentToken = cached; return cached; }
+  }
 
   const data = await timedFetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
     method: 'POST',
@@ -79,7 +83,15 @@ async function getKisToken() {
   if (!data.access_token) throw new Error('KIS 토큰 실패: ' + JSON.stringify(data));
   await redisSet('kis_token', data.access_token, 82800);
   console.log('[token] 신규 발급 완료');
+  _currentToken = data.access_token;
   return data.access_token;
+}
+
+async function refreshTokenIfExpired(response) {
+  if (response?.rt_cd !== '1') return false;
+  console.warn('[token] 만료 감지 → 강제 재발급');
+  await getKisToken(true);
+  return true;
 }
 
 // ─── KRX 상장종목 조회 ─────────────────────────────────────────────────────
@@ -810,7 +822,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
 
   for (const mkCode of markets) {
     try {
-      const raw = await fetchDailyCandles(token, stock.code, mkCode);
+      const raw = await fetchDailyCandles(_currentToken, stock.code, mkCode);
       const rawOutput = raw?.output2 ?? raw?.output;
       if (!rawOutput?.length) continue;
 
@@ -834,11 +846,19 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
 
       let investorSupply = null;
       try {
-        const invRaw = await timedFetch(
+        let invRaw = await timedFetch(
           `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor` +
           `?fid_cond_mrkt_div_code=${mkCode}&fid_input_iscd=${stock.code}`,
-          { headers: kisHeaders(token, 'FHKST01010900') }
+          { headers: kisHeaders(_currentToken, 'FHKST01010900') }
         ).then(r => r.json()).catch(() => null);
+
+        if (await refreshTokenIfExpired(invRaw)) {
+          invRaw = await timedFetch(
+            `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor` +
+            `?fid_cond_mrkt_div_code=${mkCode}&fid_input_iscd=${stock.code}`,
+            { headers: kisHeaders(_currentToken, 'FHKST01010900') }
+          ).then(r => r.json()).catch(() => null);
+        }
 
         const rows = Array.isArray(invRaw?.output) ? invRaw.output : [];
         if (rows.length >= 1) {  // 1개 이상이면 있는 데이터로 집계 (KOSDAQ 소형주 포함)
@@ -855,7 +875,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
 
       let mktCap = 0, per = 0, pbr = 0, eps = 0, sector = '', divYield = 0;
       try {
-        const info = await fetchStockInfo(token, stock.code, mkCode);
+        const info = await fetchStockInfo(_currentToken, stock.code, mkCode);
         const o = info?.output;
         if (o) {
           mktCap   = parseNum(o.hts_avls);
