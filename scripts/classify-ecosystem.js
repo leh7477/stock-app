@@ -342,6 +342,22 @@ fs.writeFileSync(
   'utf8'
 );
 
+// sector-labels.json — 코드→티어 플랫 맵 (update-recommend.js 동적 로드용)
+const sectorLabels = {};
+for (const [tier, { ecosystems }] of Object.entries(output.tiers)) {
+  for (const { stocks: ecoStocks } of Object.values(ecosystems)) {
+    for (const code of Object.keys(ecoStocks)) {
+      sectorLabels[code] = Number(tier);
+    }
+  }
+}
+fs.writeFileSync(
+  path.join(__dirname,'../data/sector-labels.json'),
+  JSON.stringify(sectorLabels),
+  'utf8'
+);
+console.log(`\nsector-labels.json 저장 완료: ${Object.keys(sectorLabels).length}개 종목`);
+
 // ── 통계 출력 ──────────────────────────────────────────────────────
 let total = 0;
 for (const [tier, ecos] of Object.entries(result)) {

@@ -419,8 +419,8 @@ function calcRelStrengthScore(closes, weeklyCloses, market, marketReturns) {
 
 // ── 생태계 기반 종목 티어 매핑 (코드 → Tier 1~6) ──────────────────────────────
 // scripts/classify-ecosystem.js 실행 시 regenerate → update-recommend.js / api/analyze.js 에 반영
-// Tier1=반도체·방산(14pt) / Tier2=배터리·로봇·원전(11pt) / Tier3=바이오·게임·SW·조선(8pt)
-// Tier4=자동차·통신·화학·전자(5pt) / Tier5=금융·유통·건설(2pt) / Tier6=전통산업(0pt)
+// Tier1=반도체·방산(8pt) / Tier2=배터리·로봇·원전(7pt) / Tier3=바이오·게임·SW·조선(6pt)
+// Tier4=자동차·통신·화학·전자(4pt) / Tier5=금융·유통·건설(2pt) / Tier6=전통산업(0pt)
 // prettier-ignore
 const ECO_TIER = {
 "000020":3,"000040":4,"000080":5,"000100":3,"000120":6,"000140":5,"000270":4,"000320":4,"000370":1,"000400":5,"000540":5,"000640":3,"000660":1,"000670":5,"000680":5,"000720":5,"000810":5,"000880":1,"000910":6,"000990":1,"001060":3,"001230":5,"001270":5,"001430":5,"001450":5,"001500":5,"001510":5,"001520":6,"001570":4,"001630":3,"001680":5,"001740":4,"001800":5,"002310":6,"002320":6,"002350":4,"002360":4,"002380":4,"002390":3,"002630":3,
@@ -444,7 +444,7 @@ const ECO_TIER = {
 "357780":1,"357880":1,"361390":1,"365340":2,"368770":1,"373170":3,"373220":2,"375500":5,"377300":3,"377330":1,"377480":3,"378340":2,"382900":2,"383220":6,"383310":2,"383800":5,"384470":2,"388050":6,"389260":6,"389500":2,"394280":1,"396270":1,"399720":1,"402030":3,"403550":3,"403870":1,"408900":3,"408920":3,"412350":1,"415380":3,"417200":5,"417840":1,"418420":1,"418470":4,"419050":4,"419540":3,"420770":1,"424960":3,"425420":1,"432470":2,
 "432720":1,"439090":5,"440110":1,"443060":3,"443250":3,"444530":3,"445090":1,"445680":1,"448710":1,"448900":1,"450080":2,"451220":1,"452190":3,"452260":1,"452430":1,"453450":3,"454910":2,"457550":2,"459510":2,"460860":5,"460870":3,"461030":1,"463020":3,"466100":2,"474650":3,"478340":1,"489790":1,"490470":1,"493280":1,"900070":3,"900140":1,"900310":3,"950190":3,"950210":3
 };
-const ECO_TIER_SCORES = { 1:14, 2:11, 3:8, 4:5, 5:2, 6:0 };
+const ECO_TIER_SCORES = { 1:8, 2:7, 3:6, 4:4, 5:2, 6:0 };
 
 // ── 테마 티어 오버라이드 (코드 → theme_tier) ────────────────────────────────
 // 본업 ECO_TIER와 별도로, 강한 테마 노출이 있는 종목에 테마 티어 부여
@@ -482,11 +482,11 @@ function sectorGrowthScore(sector, name = '', code = '') {
   }
   // 2순위: KIS 업종명 키워드 (미분류 종목 fallback)
   const s = sector || "";
-  if (GROWTH_TIER1.some(k => s.includes(k))) return 14;
-  if (GROWTH_TIER2.some(k => s.includes(k))) return 11;
-  if (GROWTH_TIER3.some(k => s.includes(k))) return 8;
+  if (GROWTH_TIER1.some(k => s.includes(k))) return 8;
+  if (GROWTH_TIER2.some(k => s.includes(k))) return 7;
+  if (GROWTH_TIER3.some(k => s.includes(k))) return 6;
   if (GROWTH_TIER4.some(k => s.includes(k))) return 4;
-  return 3; // 미분류 기본값
+  return 2; // 미분류 기본값
 }
 
 // 미래 성장성 가점 (최대 14점) — 표시용
@@ -528,8 +528,8 @@ function calcDisclosureBonus(disclosures) {
 }
 
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
-// PBR(8) + max(PER저평가[10], 섹터프리미엄[14])(14) + 수급(4) + 공포보너스(+4) + 공시(±2)
-// 슈퍼사이클 주도주(삼성전자·하이닉스 등)도 90점대 진입 가능한 구조
+// PBR(8) + 섹터(0~8) + PER저평가(0~10) + 수급(4) + 공포보너스(+4) + 공시(±2)
+// 섹터점수와 forwardPER점수는 분리 합산 (기존 max 방식 폐기)
 function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
@@ -537,10 +537,10 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   // PBR 저평가 (최대 8점) — 선형: PBR 0배=8점, 1.5배=0점
   const pbrScore = pbr > 0 ? Math.max(0, 8 * (1.5 - pbr) / 1.5) : 0;
 
-  // 섹터 프리미엄 vs PER 저평가 (최대 14점, 높은 값 선택)
-  const secScore  = sectorGrowthScore(sector, stockName, stockCode);
-  const perScore  = per > 0 ? Math.max(0, 10 * (25 - per) / 25) : 0;
-  const perFinal  = Math.max(perScore, secScore);
+  // 섹터점수 (0~8pt) + PER저평가 (0~10pt) — 분리 합산
+  const secScore        = sectorGrowthScore(sector, stockName, stockCode);
+  const forwardPERScore = per > 0 ? Math.max(0, Math.min(10, 10 * (25 - per) / 25)) : 0;
+  const perFinal        = secScore + forwardPERScore;
 
   // 수급 모멘텀 (최대 4점) — 외인+기관 5일 순매수 방향
   const supplyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
@@ -607,9 +607,10 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
 
   const total = Math.min(40, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore + roScore + epsGScore + opMarginScore + revGScore + debtPenalty));
   return { total,
-           pbrScore:    Math.round(pbrScore * 10) / 10,
-           perScore:    Math.round(perScore * 10) / 10,
-           perFinal:    Math.round(perFinal * 10) / 10,
+           pbrScore:        Math.round(pbrScore * 10) / 10,
+           secScore:        Math.round(secScore * 10) / 10,
+           forwardPERScore: Math.round(forwardPERScore * 10) / 10,
+           perFinal:        Math.round(perFinal * 10) / 10,
            supplyScore, panicScore, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty };
 }
@@ -1264,7 +1265,7 @@ if (dartEps === null) {
       score,
       korScore: (() => {
         // ks = calcKoreanScore 반환 객체 (위에서 이미 계산)
-        const { pbrScore: pbrS, perScore: perS, perFinal: perFinalS,
+        const { pbrScore: pbrS, secScore: secS, forwardPERScore: fwdPERs, perFinal: perFinalS,
                 supplyScore: supplyS, panicScore: panicS, discScore: discS,
                 drawdown: drawdownPct, isIVExtreme } = ks;
         // 미래성장 가점 상세 — 위에서 이미 계산된 growthS, growthSecS, growthBuyS, tag 재활용
@@ -1274,7 +1275,7 @@ if (dartEps === null) {
           : null;
         return {
           total: korScore, pbr: pbr2, per: per2,
-          pbrScore: pbrS, perScore: perS,
+          pbrScore: pbrS, secScore: secS, forwardPERScore: fwdPERs,
           growthScore: growthS, growthSector: growthSecS, growthBuy: growthBuyS,
           perFinal: perFinalS, supplyScore: supplyS, panicScore: panicS,
           disclosureScore: discS,

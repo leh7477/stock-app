@@ -11,6 +11,9 @@
 
 'use strict';
 
+const fs   = require('fs');
+const path = require('path');
+
 const KV_URL    = process.env.KV_REST_API_URL;
 const KV_TOKEN  = process.env.KV_REST_API_TOKEN;
 const KIS_KEY   = process.env.KIS_APP_KEY;
@@ -396,9 +399,9 @@ function calcScore(closes, volumes) {
 }
 
 // ── 생태계 기반 종목 티어 매핑 (코드 → Tier 1~6) ──────────────────────────────
-// scripts/classify-ecosystem.js 실행 시 regenerate → update-recommend.js / api/analyze.js 에 반영
-// Tier1=반도체·방산(14pt) / Tier2=배터리·로봇·원전(11pt) / Tier3=바이오·게임·SW·조선(8pt)
-// Tier4=자동차·통신·화학·전자(5pt) / Tier5=금융·유통·건설(2pt) / Tier6=전통산업(0pt)
+// scripts/classify-ecosystem.js 실행 시 regenerate → data/sector-labels.json 저장 → 동적 로드
+// Tier1=반도체·방산(8pt) / Tier2=배터리·로봇·원전(7pt) / Tier3=바이오·게임·SW·조선(6pt)
+// Tier4=자동차·통신·화학·전자(4pt) / Tier5=금융·유통·건설(2pt) / Tier6=전통산업(0pt)
 // prettier-ignore
 const ECO_TIER = {
 "000020":3,"000040":4,"000080":5,"000100":3,"000120":6,"000140":5,"000270":4,"000320":4,"000370":1,"000400":5,"000540":5,"000640":3,"000660":1,"000670":5,"000680":5,"000720":5,"000810":5,"000880":1,"000910":6,"000990":1,"001060":3,"001230":5,"001270":5,"001430":5,"001450":5,"001500":5,"001510":5,"001520":6,"001570":4,"001630":3,"001680":5,"001740":4,"001800":5,"002310":6,"002320":6,"002350":4,"002360":4,"002380":4,"002390":3,"002630":3,
@@ -422,7 +425,18 @@ const ECO_TIER = {
 "357780":1,"357880":1,"361390":1,"365340":2,"368770":1,"373170":3,"373220":2,"375500":5,"377300":3,"377330":1,"377480":3,"378340":2,"382900":2,"383220":6,"383310":2,"383800":5,"384470":2,"388050":6,"389260":6,"389500":2,"394280":1,"396270":1,"399720":1,"402030":3,"403550":3,"403870":1,"408900":3,"408920":3,"412350":1,"415380":3,"417200":5,"417840":1,"418420":1,"418470":4,"419050":4,"419540":3,"420770":1,"424960":3,"425420":1,"432470":2,
 "432720":1,"439090":5,"440110":1,"443060":3,"443250":3,"444530":3,"445090":1,"445680":1,"448710":1,"448900":1,"450080":2,"451220":1,"452190":3,"452260":1,"452430":1,"453450":3,"454910":2,"457550":2,"459510":2,"460860":5,"460870":3,"461030":1,"463020":3,"466100":2,"474650":3,"478340":1,"489790":1,"490470":1,"493280":1,"900070":3,"900140":1,"900310":3,"950190":3,"950210":3
 };
-const ECO_TIER_SCORES = { 1:14, 2:11, 3:8, 4:5, 5:2, 6:0 };
+
+// 동적 분류 오버라이드 — classify-ecosystem.js 가 data/sector-labels.json 생성 시 자동 반영
+try {
+  const labelsPath = path.join(__dirname, '../data/sector-labels.json');
+  if (fs.existsSync(labelsPath)) {
+    const dynamic = JSON.parse(fs.readFileSync(labelsPath, 'utf8'));
+    Object.assign(ECO_TIER, dynamic);
+    console.log(`[sector-labels] 동적 분류 로드: ${Object.keys(dynamic).length}개 종목 병합`);
+  }
+} catch (e) { console.warn('[sector-labels] 로드 실패, 하드코딩 ECO_TIER 사용:', e.message); }
+
+const ECO_TIER_SCORES = { 1:8, 2:7, 3:6, 4:4, 5:2, 6:0 };
 
 // ── 테마 티어 오버라이드 (코드 → theme_tier) ────────────────────────────────
 // 본업 ECO_TIER와 별도로, 강한 테마 노출이 있는 종목에 테마 티어 부여
@@ -460,11 +474,11 @@ function sectorGrowthScore(sector, name = '', code = '') {
   }
   // 2순위: KIS 업종명 키워드 (미분류 종목 fallback)
   const s = sector || "";
-  if (GROWTH_TIER1.some(k => s.includes(k))) return 14;
-  if (GROWTH_TIER2.some(k => s.includes(k))) return 11;
-  if (GROWTH_TIER3.some(k => s.includes(k))) return 8;
+  if (GROWTH_TIER1.some(k => s.includes(k))) return 8;
+  if (GROWTH_TIER2.some(k => s.includes(k))) return 7;
+  if (GROWTH_TIER3.some(k => s.includes(k))) return 6;
   if (GROWTH_TIER4.some(k => s.includes(k))) return 4;
-  return 3; // 미분류 기본값
+  return 2; // 미분류 기본값
 }
 
 function calcGrowthBonus(sector, d5FrgnInst, name = '', code = '') {
@@ -500,17 +514,18 @@ function calcDisclosureBonus(disclosures) {
   return Math.max(-2, Math.min(2, pts));
 }
 
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, forwardPer = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
   // PBR (최대 8점)
   const pbrScore = pbr > 0 ? Math.max(0, 8 * (1.5 - pbr) / 1.5) : 0;
 
-  // 섹터 프리미엄 vs PER 저평가 (최대 14점)
-  const secScore  = sectorGrowthScore(sector, stockName, stockCode);
-  const perScore  = per > 0 ? Math.max(0, 10 * (25 - per) / 25) : 0;
-  const perFinal  = Math.max(perScore, secScore);
+  // 섹터점수 (0~8pt) + forwardPER점수 (0~10pt) — 분리 합산
+  const secScore        = sectorGrowthScore(sector, stockName, stockCode);
+  const fwdPer          = forwardPer ?? per;
+  const forwardPERScore = fwdPer > 0 ? Math.max(0, Math.min(10, 10 * (25 - fwdPer) / 25)) : 0;
+  const perFinal        = secScore + forwardPERScore;
 
   // 수급 모멘텀 (최대 4점)
   const supplyScore = (typeof d5FrgnInst === 'number' && d5FrgnInst > 0) ? 4 : 0;
@@ -572,9 +587,10 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
 
   const total = Math.min(40, Math.round(pbrScore + perFinal + supplyScore + panicScore + discScore + roScore + epsGScore + opMarginScore + revGScore + debtPenalty));
   return { total,
-           pbrScore:    Math.round(pbrScore * 10) / 10,
-           perScore:    Math.round(perScore * 10) / 10,
-           perFinal:    Math.round(perFinal * 10) / 10,
+           pbrScore:         Math.round(pbrScore * 10) / 10,
+           secScore:         Math.round(secScore * 10) / 10,
+           forwardPERScore:  Math.round(forwardPERScore * 10) / 10,
+           perFinal:         Math.round(perFinal * 10) / 10,
            supplyScore, panicScore, discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty };
 }
@@ -695,7 +711,7 @@ function analyze(stock, closes, volumes, extra = {}) {
 
   // KIS PER 사용 (DART EPS는 analyze.js에서 dart_eps 읽어 실시간 계산)
   const finalPer  = extra.per ?? 0;
-  const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '', extra.dartFin ?? null);
+  const ks        = calcKoreanScore(extra.pbr || 0, finalPer, rsiArr2[n], closes, extra.sector || '', d5FrgnInst, [], stock.name || '', stock.code || '', extra.dartFin ?? null, extra.forwardPer ?? null);
   const korScore  = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
   const relResult            = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
@@ -733,9 +749,35 @@ function analyze(stock, closes, volumes, extra = {}) {
   };
 }
 
+// ─── Yahoo Finance forward PER 배치 조회 ──────────────────────────────────
+
+async function fetchAllForwardPERs(stocks) {
+  const YAHOO_UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' };
+  const BATCH    = 50;
+  const peMap    = {};
+
+  for (let i = 0; i < stocks.length; i += BATCH) {
+    const batch   = stocks.slice(i, i + BATCH);
+    const symbols = batch.map(s => `${s.code}.${s.market === 'KOSPI' ? 'KS' : 'KQ'}`).join(',');
+    try {
+      const url  = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols)}&fields=forwardPE`;
+      const data = await timedFetch(url, { headers: YAHOO_UA }).then(r => r.json());
+      for (const q of data?.quoteResponse?.result ?? []) {
+        const code = (q.symbol || '').replace(/\.(KS|KQ)$/, '');
+        if (code && q.forwardPE != null) peMap[code] = q.forwardPE;
+      }
+    } catch (e) {
+      console.warn(`[forwardPE] ${i}~${i + BATCH} 배치 실패:`, e.message);
+    }
+    if (i + BATCH < stocks.length) await sleep(300);
+  }
+  console.log(`      forwardPE 조회: ${Object.keys(peMap).length}개 종목`);
+  return peMap;
+}
+
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null) {
+async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null, forwardPERMap = null) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -801,7 +843,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, investorSupply, marketAdj, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null, forwardPer: forwardPERMap?.[stock.code] ?? null }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -873,6 +915,13 @@ async function main() {
     console.log('      dart_financials 조회 실패 (무시):', e.message);
   }
 
+  // 2.7.5 Yahoo Finance forward PER 배치 조회
+  console.log('[2.75/4] Yahoo Finance forward PER 조회...');
+  const forwardPERMap = await fetchAllForwardPERs(allStocks).catch(e => {
+    console.warn('      forward PER 조회 실패 (무시):', e.message);
+    return {};
+  });
+
   // 2.8 뉴스 가점/감점 데이터 (generate_newsletter.py 가 저장)
   let newsBoost = null;
   try {
@@ -894,7 +943,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap, forwardPERMap)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 
