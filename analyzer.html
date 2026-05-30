@@ -1154,8 +1154,9 @@ function renderKoreanScore(ks) {
   const {
     total = 0, pbr = 0, per = 0,
     pbrScore = 0, secScore = 0, forwardPERScore = 0, perFinal = 0,
-    supplyScore = 0, panicScore = 0,
-    disclosureScore = 0, isIVExtreme = false,
+    supplyScore = 0, supplyD5 = 0, supplyD20 = 0,
+    disclosureScore = 0,
+    divScore = 0, newHighScore = 0, mktCapScore = 0, pctFromHigh = null,
     techScore = 0, rsi = null, drawdown = 0,
     tag = 'neutral',
   } = ks;
@@ -1204,18 +1205,6 @@ function renderKoreanScore(ks) {
                   : per <= 25 ? `forward PER ${per.toFixed(1)}배 — 약간 고평가`
                   :             `forward PER ${per.toFixed(1)}배 — 고평가 (감점)`;
 
-  const rsiTxt = rsi !== null ? `RSI ${rsi}` : 'RSI -';
-  const ddTxt  = `고점대비 -${(+drawdown).toFixed(1)}%`;
-  // IV 극단 뱃지 — BB width가 역대 최고 근처 (공포 클라이맥스 신호)
-  const ivBadge = isIVExtreme
-    ? `<span style="margin-left:4px;background:rgba(239,68,68,0.12);color:#ef4444;font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;">🔴 IV극단</span>`
-    : '';
-  const panicLbl = panicScore >= 4  ? `극도 공포 클라이맥스 (${rsiTxt} · ${ddTxt})`
-                 : panicScore >= 3  ? `강한 투매 구간 (${rsiTxt} · ${ddTxt})`
-                 : panicScore >= 2  ? `과매도 구간 (${rsiTxt} · ${ddTxt})`
-                 : panicScore >= 1  ? `약세 구간 (${rsiTxt} · ${ddTxt})`
-                 :                   `해당 없음 (${rsiTxt} · ${ddTxt})`;
-
   // 공시 모멘텀 라벨
   const discColor = disclosureScore > 0 ? '#22c55e' : disclosureScore < 0 ? '#ef4444' : 'var(--muted)';
   const discLbl   = disclosureScore > 0  ? `호재 공시 감지 +${disclosureScore}점`
@@ -1252,19 +1241,11 @@ function renderKoreanScore(ks) {
       <div class="ma-score-label" style="font-size:9px;line-height:1.3;">외인기관<br>수급</div>
       <div class="ma-score-bar-wrap">
         <div style="font-size:10px;color:var(--muted);margin-bottom:3px">
-          ${supplyScore > 0 ? '외인+기관 5일 순매수 — 스마트머니 유입' : '외인+기관 5일 순매수 없음 (0점)'}
+          5일 ${supplyD5 > 0 ? '✅ 순매수' : '❌ 없음'} (+${supplyD5}) &nbsp;·&nbsp; 20일 ${supplyD20 > 0 ? '✅ 순매수' : '❌ 없음'} (+${supplyD20})
         </div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${supplyScore/4*100}%;background:${c}"></div></div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${supplyScore/8*100}%;background:${c}"></div></div>
       </div>
-      <div class="ma-score-val" style="color:${c}">${supplyScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/4</span></div>
-    </div>
-    <div class="ma-score-row">
-      <div class="ma-score-label" style="font-size:8px;line-height:1.3;">공포<br>보너스</div>
-      <div class="ma-score-bar-wrap">
-        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">${panicLbl}${ivBadge}</div>
-        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${panicScore/4*100}%;background:${c}"></div></div>
-      </div>
-      <div class="ma-score-val" style="color:${c}">+${panicScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/+4</span></div>
+      <div class="ma-score-val" style="color:${c}">${supplyScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/8</span></div>
     </div>
     <div class="ma-score-row">
       <div class="ma-score-label" style="font-size:9px;line-height:1.3;">공시<br>모멘텀</div>
@@ -1276,9 +1257,40 @@ function renderKoreanScore(ks) {
       </div>
       <div class="ma-score-val" style="color:${discColor}">${disclosureScore > 0 ? '+' : ''}${disclosureScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±2</span></div>
     </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">배당<br>수익률</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">
+          ${divScore >= 4 ? '배당 4%↑ — 고배당주' : divScore >= 3 ? '배당 3%↑' : divScore >= 2 ? '배당 2%↑' : divScore >= 1 ? '배당 1%↑' : '배당 데이터 없음 또는 무배당'}
+        </div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${divScore/4*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${divScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/4</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">52주<br>신고가</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">
+          ${pctFromHigh !== null ? `고점 대비 ${pctFromHigh >= 0 ? '신고가' : pctFromHigh.toFixed(1) + '%'}` : '데이터 없음'}
+          ${newHighScore >= 5 ? ' — 신고가 돌파' : newHighScore >= 3 ? ' — 신고가 근접' : newHighScore >= 1 ? ' — 10% 이내' : ''}
+        </div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${newHighScore/5*100}%;background:${c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${c}">${newHighScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/5</span></div>
+    </div>
+    <div class="ma-score-row">
+      <div class="ma-score-label" style="font-size:9px;line-height:1.3;">시총<br>안정성</div>
+      <div class="ma-score-bar-wrap">
+        <div style="font-size:10px;color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};margin-bottom:3px">
+          ${mktCapScore === -3 ? '소형주 (500억 미만) — 유동성 리스크 감점' : mktCapScore === -1 ? '중소형 (2000억 미만) — 소폭 감점' : '중대형주 — 감점 없음'}
+        </div>
+        <div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${(3+mktCapScore)/3*100}%;background:${mktCapScore < 0 ? '#ef4444' : c}"></div></div>
+      </div>
+      <div class="ma-score-val" style="color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'}">${mktCapScore}<span style="font-size:10px;font-weight:400;color:var(--muted)"> pt</span></div>
+    </div>
     <div class="ma-score-total">
       <div class="ma-score-total-label">국장 특화 합계</div>
-      <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 40점</span></div>
+      <div class="ma-score-total-val" style="color:${c}">${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 50점 &nbsp;×0.4 = ${Math.round(total * 0.4)}pt</span></div>
     </div>
     `;
 }
