@@ -45,13 +45,15 @@ async function timedFetch(url, options = {}) {
   } catch (e) { clearTimeout(id); throw e; }
 }
 
-async function getKisToken() {
+async function getKisToken(force = false) {
   const redisUrl = process.env.KV_REST_API_URL;
   const redisToken = process.env.KV_REST_API_TOKEN;
-  const cached = await timedFetch(`${redisUrl}/get/kis_token`, {
-    headers: { Authorization: `Bearer ${redisToken}` },
-  }).then(r => r.json());
-  if (cached.result) return cached.result;
+  if (!force) {
+    const cached = await timedFetch(`${redisUrl}/get/kis_token`, {
+      headers: { Authorization: `Bearer ${redisToken}` },
+    }).then(r => r.json());
+    if (cached.result) return cached.result;
+  }
 
   const data = await timedFetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
     method: 'POST',
@@ -66,6 +68,10 @@ async function getKisToken() {
     body: JSON.stringify([['SET','kis_token',token,'EX','82800']]),
   });
   return token;
+}
+
+function isTokenExpired(responses) {
+  return responses.some(r => r?.rt_cd === '1');
 }
 
 function parseNum(s) { return parseInt(String(s||'0').replace(/,/g,''))||0; }
@@ -909,14 +915,30 @@ export default async function handler(req, res) {
       `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=${mktCd}&FID_INPUT_ISCD=${code}`;
 
     const estimateUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform?SHT_CD=${code}`;
-    const [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await Promise.all([
-      timedFetch(priceUrl('J'), { headers: kisHdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
-      timedFetch(dailyUrl(fmtD(ago(240)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
-      timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
-      timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
-      timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: kisHdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
-      timedFetch(estimateUrl,              { headers: kisHdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
+
+    const fetchAllKis = (hdr) => Promise.all([
+      timedFetch(priceUrl('J'), { headers: hdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(dailyUrl(fmtD(ago(240)),  fmtD(now.getTime())), { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(chartUrl(fmtD(ago(700)),  fmtD(now.getTime())), { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
+      timedFetch(estimateUrl,              { headers: hdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
     ]);
+
+    let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(kisHdr);
+
+    if (isTokenExpired([priceRaw, cd1, cw1, cw2, cw3, estimateRaw])) {
+      const newToken = await getKisToken(true);
+      const newHdr = (tr) => ({
+        Authorization: `Bearer ${newToken}`,
+        appkey:    process.env.KIS_APP_KEY,
+        appsecret: process.env.KIS_APP_SECRET,
+        'tr_id':   tr,
+        custtype:  'P',
+        'Content-Type': 'application/json',
+      });
+      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(newHdr);
+    }
 
     // J로 가격 0이면 KOSDAQ(Q)으로 재시도
     let pOut = priceRaw?.output;
