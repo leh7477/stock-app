@@ -1791,26 +1791,27 @@ function renderRadarChart(ks) {
   const container = document.getElementById('r-radar-chart');
   if (!container || !ks) return;
 
-  const growthScore    = ks.growthScore      ?? 0;
   const pbrScore        = ks.pbrScore        ?? 0;
   const secScore        = ks.secScore        ?? 0;
   const forwardPERScore = ks.forwardPERScore ?? 0;
   const techScore       = ks.techScore       ?? 0;
   const supplyScore     = ks.supplyScore     ?? 0;
   const discScore       = ks.disclosureScore ?? 0;
+  const divScore        = ks.divScore        ?? 0;
   const roScore         = ks.roScore         ?? 0;
   const epsGScore       = ks.epsGScore       ?? 0;
   const opMarginScore   = ks.opMarginScore   ?? 0;
   const revGScore       = ks.revGScore       ?? 0;
   const debtPenalty     = ks.debtPenalty     ?? 0;
+  const hasDart         = (roScore + epsGScore + opMarginScore + revGScore) > 0;
   const dartTotal       = roScore + epsGScore + opMarginScore + revGScore + debtPenalty;
 
-  const g = Math.round((secScore + forwardPERScore) / 18 * 100);       // 성장성: 섹터+PER (0~18)
-  const v = Math.round(pbrScore    / 8  * 100);                         // 저평가: PBR (0~8)
-  const p = Math.max(0, Math.min(100, Math.round((dartTotal + 3) / 13 * 100))); // 수익성: DART (-3~10)
-  const t = Math.round(techScore   / 70 * 100);                         // 기술적 (0~70)
+  const g = Math.round((secScore + forwardPERScore) / 18 * 100);                     // 성장성: 섹터+PER (0~18)
+  const v = Math.min(100, Math.round((pbrScore + divScore) / 12 * 100));              // 저평가: PBR+배당 (0~12)
+  const p = hasDart ? Math.max(0, Math.min(100, Math.round((dartTotal + 3) / 13 * 100))) : 0; // 수익성: DART (없으면 0)
+  const t = Math.round(techScore / 70 * 100);                                         // 기술적 (0~70)
   const s = Math.max(0, Math.min(100, Math.round(
-    supplyScore / 8 * 85 + (discScore + 2) / 4 * 15                    // 수급 (0~8) + 공시 (±2)
+    supplyScore / 8 * 85 + (discScore + 2) / 4 * 15                                  // 수급(0~8) + 공시(±2)
   )));
 
   // 반시계 방향 Pentagon: 성장성=상단, 저평가=좌, 수익성=좌하, 기술적=우하, 수급=우
