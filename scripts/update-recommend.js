@@ -832,6 +832,7 @@ function analyze(stock, closes, volumes, extra = {}) {
     ma20Signal:  maSignal(cur, ma20),
     ma60Signal:  maSignal(cur, ma60),
     score,
+    rsi:         rsiArr2[n] != null ? Math.round(rsiArr2[n] * 10) / 10 : null,
     signals:     signals.slice(0, 2),
     volume:      extra.volume      || 0,
     avgVol5:     extra.avgVol5     || 0,
