@@ -1307,7 +1307,7 @@ function renderKoreanScore(ks) {
 function renderMacroScore(macro, marketAdj) {
   const el = document.getElementById('r-macro-score');
   if (!el || !macro) return;
-  const { total = 0, relScore = 0, mktScore = 0, newsScore = 0, excessReturn = null } = macro;
+  const { total = 0, relScore = 0, mktScore = 0, newsScore = 0, adxScore = 0, excessReturn = null } = macro;
   const c = scoreColor(Math.round(total / 10 * 100));
 
   const bar = (pts, max, col) =>
@@ -1359,7 +1359,7 @@ function renderMacroScore(macro, marketAdj) {
         </div>
         <div class="ma-score-val" style="color:${mktCol};min-width:36px;text-align:right;">${mktScore > 0 ? '+' : ''}${mktScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±3</span></div>
       </div>
-      <div class="ma-score-row" style="border-bottom:none;">
+      <div class="ma-score-row">
         <div class="ma-score-label" style="font-size:9px;line-height:1.35;">뉴스<br>테마</div>
         <div class="ma-score-bar-wrap">
           <div style="font-size:10px;color:${newsCol};margin-bottom:3px">${newsLbl}</div>
@@ -1367,6 +1367,23 @@ function renderMacroScore(macro, marketAdj) {
         </div>
         <div class="ma-score-val" style="color:${newsCol};min-width:36px;text-align:right;">${newsScore > 0 ? '+' : ''}${newsScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/±2</span></div>
       </div>
+      ${(() => {
+        const adxLbl = adxScore >= 5 ? 'ADX 60↑ · STRONG_BULL (5점)'
+          : adxScore >= 4 ? 'ADX 40~60 · 강한 상승 추세 (4점)'
+          : adxScore >= 3 ? 'ADX 25~40 · 상승 추세 (3점)'
+          : adxScore >= 1 ? 'ADX 25↓ · 추세 없음 (1점)'
+          : adxScore === 0 ? '하락 추세 또는 데이터 없음 (0점)'
+          : '데이터 없음 (0점)';
+        const adxCol = adxScore >= 4 ? '#22c55e' : adxScore >= 2 ? '#f59e0b' : 'var(--muted)';
+        return `<div class="ma-score-row" style="border-bottom:none;">
+          <div class="ma-score-label" style="font-size:9px;line-height:1.35;">시장<br>ADX</div>
+          <div class="ma-score-bar-wrap">
+            <div style="font-size:10px;color:${adxCol};margin-bottom:3px">${adxLbl}</div>
+            ${bar(adxScore, 5, adxCol)}
+          </div>
+          <div class="ma-score-val" style="color:${adxCol};min-width:36px;text-align:right;">${adxScore}<span style="font-size:10px;font-weight:400;color:var(--muted)">/5</span></div>
+        </div>`;
+      })()}
     </details>
     <div class="ma-score-total" style="margin-top:8px;">
       <div class="ma-score-total-label">매크로·모멘텀 합계</div>

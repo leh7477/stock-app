@@ -285,6 +285,93 @@ async function saveHistory(entry, history, url, token) {
   return trimmed;
 }
 
+// ─── ADX(14) 계산 ────────────────────────────────────────────────────────────
+// candles: [{high, low, close}, ...] 오래된 순 정렬, 최소 30개 권장
+function calcADX14(candles) {
+  const N = 14;
+  if (!candles || candles.length < N + 2) return null;
+
+  const trArr = [], dmPArr = [], dmMArr = [];
+  for (let i = 1; i < candles.length; i++) {
+    const h = candles[i].high, l = candles[i].low, c = candles[i].close;
+    const ph = candles[i-1].high, pl = candles[i-1].low, pc = candles[i-1].close;
+    trArr.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+    dmPArr.push(h - ph > pl - l && h - ph > 0 ? h - ph : 0);
+    dmMArr.push(pl - l > h - ph && pl - l > 0 ? pl - l : 0);
+  }
+
+  // Wilder 스무딩
+  const smooth = (arr, n) => {
+    let s = arr.slice(0, n).reduce((a, b) => a + b, 0);
+    const out = [s];
+    for (let i = n; i < arr.length; i++) { s = s - s / n + arr[i]; out.push(s); }
+    return out;
+  };
+
+  const sTR = smooth(trArr, N), sDMP = smooth(dmPArr, N), sDMM = smooth(dmMArr, N);
+  const diP = sTR.map((tr, i) => tr > 0 ? sDMP[i] / tr * 100 : 0);
+  const diM = sTR.map((tr, i) => tr > 0 ? sDMM[i] / tr * 100 : 0);
+  const dx  = diP.map((p, i) => {
+    const sum = p + diM[i];
+    return sum > 0 ? Math.abs(p - diM[i]) / sum * 100 : 0;
+  });
+
+  // ADX = DX의 Wilder 스무딩
+  let adx = dx.slice(0, N).reduce((a, b) => a + b, 0) / N;
+  for (let i = N; i < dx.length; i++) adx = (adx * (N - 1) + dx[i]) / N;
+
+  const lastIdx = diP.length - 1;
+  return {
+    adx:     Math.round(adx * 10) / 10,
+    diPlus:  Math.round(diP[lastIdx] * 10) / 10,
+    diMinus: Math.round(diM[lastIdx] * 10) / 10,
+    upTrend: diP[lastIdx] > diM[lastIdx],
+  };
+}
+
+// ADX 점수 (0~5pt)
+function scoreADX(adxResult) {
+  if (!adxResult) return 0;
+  const { adx, upTrend } = adxResult;
+  if (!upTrend) return 0;                      // 하락 추세
+  if (adx < 25)  return 1;                     // 추세 없음
+  if (adx < 40)  return 3;                     // 약한 상승 추세
+  if (adx < 60)  return 4;                     // 강한 상승 추세
+  return 5;                                    // 극강 상승 (STRONG_BULL)
+}
+
+// Yahoo Finance 캔들 파싱
+function parseYahooCandles(json) {
+  const r = json?.chart?.result?.[0];
+  if (!r) return null;
+  const ts    = r.timestamp    || [];
+  const q     = r.indicators?.quote?.[0] || {};
+  const highs  = q.high  || [];
+  const lows   = q.low   || [];
+  const closes = q.close || [];
+  const candles = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (highs[i] == null || lows[i] == null || closes[i] == null) continue;
+    candles.push({ high: highs[i], low: lows[i], close: closes[i] });
+  }
+  return candles.length >= 16 ? candles : null;
+}
+
+// Naver 지수 차트 캔들 파싱 (일봉)
+function parseNaverCandles(json) {
+  const items = json?.chartinfos || json?.priceinfos || null;
+  if (!Array.isArray(items)) return null;
+  const candles = items
+    .filter(d => d.closePrice && d.highPrice && d.lowPrice)
+    .map(d => ({
+      high:  parseFloat(String(d.highPrice).replace(/,/g,'')),
+      low:   parseFloat(String(d.lowPrice).replace(/,/g,'')),
+      close: parseFloat(String(d.closePrice).replace(/,/g,'')),
+    }))
+    .filter(d => d.high > 0);
+  return candles.length >= 16 ? candles : null;
+}
+
 // ─── 레이블 ──────────────────────────────────────────────────────────────────
 
 function scoreLabel(score) {
@@ -319,13 +406,19 @@ export default async function handler(req, res) {
   }
 
   /* ── 2) 데이터 병렬 조회 ────────────────────────────────────────── */
-  const [kospiRaw, kosdaqRaw, usdRaw, nasdaqRaw, vixRaw, supply, sentimentData, history] =
+  const [kospiRaw, kosdaqRaw, usdRaw, nasdaqRaw, vixRaw,
+         kospiChartRaw, kosdaqChartRaw, nasdaqChartRaw,
+         supply, sentimentData, history] =
     await Promise.all([
       timedFetch('https://m.stock.naver.com/api/index/KOSPI/basic',  {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
       timedFetch('https://m.stock.naver.com/api/index/KOSDAQ/basic', {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/USDKRW%3DX?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
+      // ADX 계산용 과거 40일 데이터
+      timedFetch('https://m.stock.naver.com/api/index/KOSPI/chart?timeframe=day&count=40',  {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
+      timedFetch('https://m.stock.naver.com/api/index/KOSDAQ/chart?timeframe=day&count=40', {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
+      timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=3mo').then(r=>r.json()).catch(()=>null),
       fetchSupply(kvUrl, kvToken),
       kvUrl && kvToken ? redisGet(SENTI_KEY, kvUrl, kvToken) : null,
       kvUrl && kvToken ? redisGet(HIST_KEY,  kvUrl, kvToken).then(d => d || []) : [],
@@ -336,6 +429,33 @@ export default async function handler(req, res) {
   const usdkrw = parseYahoo(usdRaw);
   const nasdaq = parseYahoo(nasdaqRaw);
   const vixData = parseYahoo(vixRaw);
+
+  // ADX 계산
+  const kospiCandles  = parseNaverCandles(kospiChartRaw);
+  const kosdaqCandles = parseNaverCandles(kosdaqChartRaw);
+  const nasdaqCandles = parseYahooCandles(nasdaqChartRaw);
+  const adxKospi  = calcADX14(kospiCandles);
+  const adxKosdaq = calcADX14(kosdaqCandles);
+  const adxNasdaq = calcADX14(nasdaqCandles);
+
+  // 국장 ADX 점수: KOSPI 60% + KOSDAQ 40% 가중 평균
+  const adxKrScore = (() => {
+    const kp = adxKospi  ? scoreADX(adxKospi)  : null;
+    const kd = adxKosdaq ? scoreADX(adxKosdaq) : null;
+    if (kp === null && kd === null) return null;
+    if (kp === null) return kd;
+    if (kd === null) return kp;
+    return Math.round(kp * 0.6 + kd * 0.4);
+  })();
+  const adxUsScore = adxNasdaq ? scoreADX(adxNasdaq) : null;
+
+  // 최종 ADX 점수: 국장 70% + 나스닥 30%
+  const adxScore = (() => {
+    if (adxKrScore === null && adxUsScore === null) return null;
+    if (adxKrScore === null) return adxUsScore;
+    if (adxUsScore === null) return adxKrScore;
+    return Math.round(adxKrScore * 0.7 + adxUsScore * 0.3);
+  })();
 
   if (!kospi && !kosdaq) {
     return res.status(200).json({ success:false, error:'시장 데이터를 가져올 수 없습니다.' });
@@ -403,6 +523,14 @@ export default async function handler(req, res) {
     kospi, kosdaq, usdkrw, nasdaq,
     vix: vixData ? { price: vixData.price } : null,
     sentiment,
+    adx: {
+      score:   adxScore,
+      kospi:   adxKospi,
+      kosdaq:  adxKosdaq,
+      nasdaq:  adxNasdaq,
+      krScore: adxKrScore,
+      usScore: adxUsScore,
+    },
     ts:        Date.now(),
     updatedAt: new Date().toISOString(),
   };

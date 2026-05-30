@@ -420,12 +420,13 @@ function calcRelStrengthScore(closes, weeklyCloses, market, marketReturns) {
   };
 }
 
-function calcMacroScore(relResult, marketAdj, newsBoostResult) {
+function calcMacroScore(relResult, marketAdj, newsBoostResult, adxScore = null) {
   const relScore  = relResult?.score ?? 0;
   const mktScore  = Math.max(-3, Math.min(3, marketAdj ?? 0));
   const newsScore = Math.max(-2, Math.min(2, newsBoostResult?.score ?? 0));
-  const total     = Math.max(-5, Math.min(10, relScore + mktScore + newsScore));
-  return { total, relScore, mktScore, newsScore, excessReturn: relResult?.excessReturn ?? null };
+  const adxPts    = adxScore !== null ? Math.max(0, Math.min(5, adxScore)) : 0;
+  const total     = Math.max(-5, Math.min(10, relScore + mktScore + newsScore + adxPts));
+  return { total, relScore, mktScore, newsScore, adxScore: adxPts, excessReturn: relResult?.excessReturn ?? null };
 }
 
 // ─── 국장 특화 스코어 (30점) ─────────────────────────────────────────────────
@@ -1151,7 +1152,7 @@ if (dartEps === null) {
     } catch (_) {}
 
     // 시장환경 점수 (market_v4 → sentiment.score, 역발상: 공포=가점, 과열=감점)
-    let marketV4Score = null;
+    let marketV4Score = null, marketAdxScore = null;
     try {
       const mv4Raw = await timedFetch(`${_redisUrl}/get/market_v4`, {
         headers: { Authorization: `Bearer ${_redisToken}` },
@@ -1159,6 +1160,7 @@ if (dartEps === null) {
       if (mv4Raw.result) {
         const mv4 = JSON.parse(mv4Raw.result);
         marketV4Score = mv4?.sentiment?.score ?? null;
+        marketAdxScore = mv4?.adx?.score ?? null;
       }
     } catch (_) {}
 
@@ -1297,7 +1299,7 @@ if (dartEps === null) {
     const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
     const atrContractionResult = calcAtrContractionScore(closes); // 표시용 유지
-    const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult);
+    const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult, marketAdxScore);
     // 기술(65) + 국장특화(25) + 매크로(10) = 100점
     const liveScore = Math.min(100, Math.round(techScore * 0.65) + Math.round(korScore * 0.5) + macroResult.total);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
