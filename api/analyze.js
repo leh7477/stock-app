@@ -862,12 +862,12 @@ export default async function handler(req, res) {
     let name = '';
 
     // KIS로 코드·이름 검색
-    const token = await getKisToken().catch(() => null);
+    let activeToken = await getKisToken().catch(() => null);
 
-    if (!code && token) {
+    if (!code && activeToken) {
       const sr = await timedFetch(
         `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/search-stock-info?PDNO=${encodeURIComponent(query)}&PRDT_TYPE_CD=300`,
-        { headers:{ Authorization:`Bearer ${token}`, appkey:process.env.KIS_APP_KEY, appsecret:process.env.KIS_APP_SECRET, 'tr_id':'CTPF1002R', 'Content-Type':'application/json' } }
+        { headers:{ Authorization:`Bearer ${activeToken}`, appkey:process.env.KIS_APP_KEY, appsecret:process.env.KIS_APP_SECRET, 'tr_id':'CTPF1002R', 'Content-Type':'application/json' } }
       ).then(r=>r.json()).catch(()=>({}));
       if (sr?.output?.shtn_pdno) { code=sr.output.shtn_pdno; name=sr.output.prdt_abrv_name||''; }
     }
@@ -889,14 +889,15 @@ export default async function handler(req, res) {
     if (!code) return res.status(200).json({ success:false, error:'종목을 찾을 수 없습니다. 종목코드(6자리)로 다시 시도해보세요.' });
 
     // KIS 4개 병렬 호출: 현재가 + 주봉 5년 차트 (3개 구간)
-    if (!token) throw new Error('KIS 토큰 없음');
+    if (!activeToken) throw new Error('KIS 토큰 없음');
 
     const now  = new Date(Date.now() + 9 * 3600 * 1000); // KST
     const fmtD = (ms) => new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
     const ago  = (days) => now.getTime() - days * 864e5;
 
+    // activeToken 변수를 참조하므로 재발급 후에도 자동으로 최신 토큰 사용
     const kisHdr = (tr) => ({
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${activeToken}`,
       appkey:    process.env.KIS_APP_KEY,
       appsecret: process.env.KIS_APP_SECRET,
       'tr_id':   tr,
@@ -928,16 +929,8 @@ export default async function handler(req, res) {
     let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(kisHdr);
 
     if (isTokenExpired([priceRaw, cd1, cw1, cw2, cw3, estimateRaw])) {
-      const newToken = await getKisToken(true);
-      const newHdr = (tr) => ({
-        Authorization: `Bearer ${newToken}`,
-        appkey:    process.env.KIS_APP_KEY,
-        appsecret: process.env.KIS_APP_SECRET,
-        'tr_id':   tr,
-        custtype:  'P',
-        'Content-Type': 'application/json',
-      });
-      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(newHdr);
+      activeToken = await getKisToken(true); // kisHdr도 자동으로 최신 토큰 참조
+      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(kisHdr);
     }
 
     // J로 가격 0이면 KOSDAQ(Q)으로 재시도
