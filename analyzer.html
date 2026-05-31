@@ -327,21 +327,27 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   min-height: 44px;
   margin-top: 10px;
   padding: 0 16px;
-  background: rgba(255,255,255,.05);
-  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.11);
+  border: 1px solid rgba(255,255,255,.22);
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  color: var(--muted);
+  color: rgba(246,244,239,.75);
   transition: background .15s, border-color .15s, color .15s;
   user-select: none;
 }
-.det-summary:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.2); color: var(--text); }
+.det-summary:hover { background: rgba(255,255,255,.17); border-color: rgba(255,255,255,.32); color: #F6F4EF; }
 .det-summary::-webkit-details-marker { display: none; }
-.det-arrow { font-size: 12px; transition: transform .2s; }
-details[open] > .det-summary { background: rgba(37,99,235,.1); border-color: rgba(37,99,235,.3); color: var(--blue); }
-details[open] > .det-summary .det-arrow { transform: rotate(90deg); }
+.det-arrow { font-size: 13px; }
+/* 열린 상태: 파란 배경 */
+details[open] > .det-summary { background: rgba(37,99,235,.18); border-color: rgba(37,99,235,.4); color: #93c5fd; }
+details[open] > .det-summary:hover { background: rgba(37,99,235,.26); }
+/* 열림/닫힘 텍스트·화살표 토글 */
+.det-open  { display: none; }
+.det-close { display: inline; }
+details[open] > .det-summary .det-open  { display: inline; }
+details[open] > .det-summary .det-close { display: none; }
 </style>
 </head>
 <body>
@@ -1276,7 +1282,8 @@ function renderKoreanScore(ks) {
 
     <details>
       <summary class="det-summary">
-        <span class="det-arrow">▶</span> 세부 내역 보기
+        <span class="det-arrow det-close">▼</span><span class="det-arrow det-open">▲</span>
+        <span class="det-close">세부 내역 보기</span><span class="det-open">세부 내역 닫기</span>
       </summary>
       ${row('PBR', `${pbr > 0 ? pbr.toFixed(2)+'배' : 'N/A'} — ${pbr<=0?'데이터없음':pbr<=0.5?'심각한 저평가(8점)':pbr<=0.8?'강한 저평가(6점)':pbr<=1.0?'장부가 이하(4점)':pbr<=1.2?'저평가(2점)':pbr<=1.5?'약간 저평가(1점)':'적정/고평가(0점)'}`, pbrScore, 8)}
       ${row('섹터<br>등급', secLbl, secScore, 8)}
@@ -1397,7 +1404,8 @@ function renderMacroScore(macro, marketAdj) {
     </div>
     <details>
       <summary class="det-summary">
-        <span class="det-arrow">▶</span> 세부 내역 보기
+        <span class="det-arrow det-close">▼</span><span class="det-arrow det-open">▲</span>
+        <span class="det-close">세부 내역 보기</span><span class="det-open">세부 내역 닫기</span>
       </summary>
       ${row('상대<br>강도', relLbl, relScore, 5)}
       <div class="ma-score-row">
@@ -1572,7 +1580,8 @@ function renderTechScore(techDetail, techContrib70) {
 
     <details>
       <summary class="det-summary">
-        <span class="det-arrow">▶</span> 세부 내역 보기
+        <span class="det-arrow det-close">▼</span><span class="det-arrow det-open">▲</span>
+        <span class="det-close">세부 내역 보기</span><span class="det-open">세부 내역 닫기</span>
       </summary>
       ${row('이평선<br>배열', '5/20/60/120 배열 정렬 상태', arrangement, 20)}
       ${row('MA20<br>이격도', 'MA20 대비 현재가 위치', deviation, 20)}
