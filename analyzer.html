@@ -914,14 +914,51 @@ function renderRelStrength(rel) {
   const el = document.getElementById('r-rel-strength');
   if (!el) return;
   if (!rel?.available) { el.style.display = 'none'; return; }
-  const { score, excessReturn, detail } = rel;
-  const c = score >= 9 ? '#22c55e' : score >= 3 ? '#2563eb' : 'var(--muted)';
+  const { score, excessReturn } = rel;
+  const c = score >= 3 ? '#2563eb' : 'var(--muted)';
   const sign = excessReturn >= 0 ? '+' : '';
   el.style.display = 'flex';
-  el.innerHTML = `<span style="color:var(--muted)">시장대비 초과수익률</span>
-    <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${sign}${excessReturn}%</span>
-    <span style="color:${c};font-weight:600">+${score}점 반영</span>
-    <span style="color:var(--muted);font-size:10px">1m:${detail.s1m??'-'}% 3m:${detail.s3m??'-'}% 6m:${detail.s6m??'-'}% 12m:${detail.s12m??'-'}%</span>`;
+  el.innerHTML = `<span style="color:var(--muted)">상대강도</span>
+    <span style="background:${c}22;color:${c};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${sign}${excessReturn}%</span>`;
+}
+
+function renderScoreSummary(data) {
+  const subEl = document.querySelector('.score-subdesc');
+  const relEl = document.getElementById('r-rel-strength');
+  const mktEl = document.getElementById('r-mkt-env');
+  const ks = data?.korScore || {};
+  const macro = data?.macroScore || {};
+  const tech = ks.techScore ?? null;
+  const kor = typeof ks.total === 'number' ? Math.round(ks.total * 0.5) : null;
+  const macroTotal = typeof macro.total === 'number' ? macro.total : null;
+
+  if (subEl) {
+    const parts = [];
+    parts.push(`기술 ${tech ?? '-'}/60`);
+    parts.push(`국장 ${kor ?? '-'}/25`);
+    parts.push(`매크로 ${macroTotal ?? '-'}/15`);
+    subEl.textContent = parts.join(' · ');
+  }
+
+  if (mktEl) mktEl.style.display = 'none';
+  if (!relEl) return;
+
+  const ctx = [];
+  if (data?.relStrength?.available && typeof data.relStrength.excessReturn === 'number') {
+    const excess = data.relStrength.excessReturn;
+    const sign = excess >= 0 ? '+' : '';
+    const relColor = data.relStrength.score >= 3 ? '#2563eb' : 'var(--muted)';
+    ctx.push(`<span style="color:var(--muted)">상대강도</span><span style="background:${relColor}22;color:${relColor};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${sign}${excess}%</span>`);
+  }
+  if (data?.marketEnv && typeof data.marketEnv.score === 'number') {
+    const { score, adj = 0, color = '#6b7280' } = data.marketEnv;
+    const adjText = adj > 0 ? ` · +${adj}` : adj < 0 ? ` · ${adj}` : '';
+    ctx.push(`<span style="color:var(--muted)">마켓스코어</span><span style="background:${color}22;color:${color};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${score}${adjText}</span>`);
+  }
+
+  if (!ctx.length) { relEl.style.display = 'none'; return; }
+  relEl.style.display = 'flex';
+  relEl.innerHTML = ctx.join('<span style="color:var(--border)">·</span>');
 }
 
 function renderAtrContraction(atr) {
@@ -1062,13 +1099,11 @@ function renderMarketEnv(marketEnv) {
   const el = document.getElementById('r-mkt-env');
   if (!el) return;
   if (!marketEnv) { el.style.display = 'none'; return; }
-  const { score, adj, label, color } = marketEnv;
-  const adjText  = adj > 0 ? `+${adj}점 가점` : adj < 0 ? `${adj}점 감점` : '보정 없음';
-  const adjColor = adj > 0 ? '#22c55e' : adj < 0 ? '#ef4444' : 'var(--muted)';
+  const { score, adj, color } = marketEnv;
+  const adjText  = adj > 0 ? ` · +${adj}` : adj < 0 ? ` · ${adj}` : '';
   el.style.display = 'flex';
-  el.innerHTML = `<span style="color:var(--muted)">시장환경</span>
-    <span style="background:${color}22;color:${color};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${label} ${score}점</span>
-    <span style="color:${adjColor};font-weight:600">${adjText} 반영</span>`;
+  el.innerHTML = `<span style="color:var(--muted)">마켓스코어</span>
+    <span style="background:${color}22;color:${color};font-weight:600;padding:2px 8px;border-radius:20px;font-size:10px">${score}${adjText}</span>`;
 }
 
 function renderMAScore(maScore) {
@@ -2297,13 +2332,12 @@ function renderResult(data) {
 
   // 점수 + 전략 + 체크리스트 + 수급 + AI 의견
   renderScore(data.score ?? 50);
-  renderRelStrength(data.relStrength);
   renderNewsBoost(data.newsBoost);
   renderNewHigh(data.newHigh);
   renderAtrContraction(data.atrContraction);
   renderMoat(data.moatAnalysis);
   renderCompetitors(data.competitors, data.stock?.themeSector);
-  renderMarketEnv(data.marketEnv);
+  renderScoreSummary(data);
   renderOneLiner(data);
   renderMAScore(data.maScore);
   renderKoreanScore(data.korScore);
