@@ -172,50 +172,76 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* ── 검색 결과 ──────── */
 .search-result { display: none; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; padding: 18px; margin-bottom: 12px; box-shadow: var(--shadow); }
 
-/* ── 종목 카드 ──────── */
-.slist { display: flex; flex-direction: column; gap: 8px; }
-.scard {
-  background: var(--card);
-  border: 1.5px solid var(--border);
-  border-radius: 14px;
-  padding: 15px 16px;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  transition: border-color .15s, box-shadow .15s;
+/* ── 종목 테이블 ─────────────────────────────────── */
+.slist { display: flex; flex-direction: column; background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+
+/* 헤더·행 공통 그리드 */
+.slist-hdr, .srow {
   display: grid;
-  grid-template-columns: 42px 1fr auto;
+  grid-template-columns: 28px minmax(140px,2fr) 74px 90px 85px 62px 80px 1fr;
+  grid-template-areas: "av ns score sig price chg vol tags";
   align-items: center;
-  gap: 12px;
 }
-.scard:hover { border-color: var(--blue); box-shadow: 0 2px 12px rgba(37,99,235,.1); }
 
-/* 아바타 */
-.avatar { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 700; color: #fff; flex-shrink: 0; }
+/* 헤더 */
+.slist-hdr {
+  padding: 8px 16px;
+  border-bottom: 1.5px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+.slist-hdr > div { font-size: 10.5px; font-weight: 600; color: var(--muted); padding: 0 4px; }
+.sh-av {}
+.sh-ns  { padding-left: 10px; }
+.sh-score, .sh-price, .sh-chg, .sh-vol { text-align: right; }
+.sh-sig { text-align: center; }
+.sh-tags { padding-left: 10px; }
 
-/* 정보 영역 */
-.sinfo { min-width: 0; }
-.sname-row { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; flex-wrap: wrap; }
-.sname { font-size: 15px; font-weight: 600; }
-.sbadge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 500; }
-.sbadge.mkt { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
-.sbadge.sec { background: var(--blue-bg); color: var(--blue); }
+/* 행 */
+.srow {
+  padding: 9px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.04);
+  cursor: pointer;
+  transition: background .1s;
+}
+.srow:hover { background: rgba(255,255,255,.04); }
+.srow:last-child { border-bottom: none; }
 
-/* MA 신호 배지 */
-.ma-row { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
-.ma-badge { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
-.ma-badge.up      { background: var(--green-bg); color: var(--green); }
-.ma-badge.down    { background: var(--red-bg);   color: var(--red); }
-.ma-badge.neutral { background: var(--bg);        color: var(--muted); }
+/* 그리드 영역 할당 */
+.sr-av        { grid-area: av; }
+.sr-name-sec  { grid-area: ns; padding-left: 8px; min-width: 0; }
+.sr-score     { grid-area: score; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.sr-sig-cell  { grid-area: sig; text-align: center; }
+.sr-price-cell{ grid-area: price; text-align: right; }
+.sr-chg-cell  { grid-area: chg; text-align: right; }
+.sr-vol-cell  { grid-area: vol; text-align: right; }
+.sr-tags-cell { grid-area: tags; padding-left: 10px; display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
 
-/* 시그널 텍스트 */
-.ssignal { font-size: 11px; color: var(--muted); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 종목 아바타 */
+.sr-av-inner { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
 
-/* 점수 영역 */
-.sscore-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; min-width: 70px; }
-.score-num { font-size: 18px; font-weight: 700; }
-.score-bar { width: 64px; height: 5px; background: var(--bg); border-radius: 99px; overflow: hidden; }
-.score-fill { height: 100%; border-radius: 99px; transition: width .6s ease; }
-.score-lbl { font-size: 10px; color: var(--muted); }
+/* 종목명·섹터 */
+.sr-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-sec  { font-size: 10px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 점수 */
+.sr-sc-num { font-size: 14px; font-weight: 700; }
+.sr-sc-bar { width: 46px; height: 3px; background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden; }
+.sr-sc-bar div { height: 100%; border-radius: 99px; }
+
+/* 시그널 배지 */
+.sig-badge { display: inline-flex; align-items: center; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 99px; white-space: nowrap; }
+.sig-entry   { background: rgba(34,197,94,.15);  color: #4ade80; }
+.sig-wait    { background: rgba(251,191,36,.12); color: #fbbf24; }
+.sig-heat    { background: rgba(239,68,68,.12);  color: #f87171; }
+.sig-neutral { background: rgba(255,255,255,.06); color: var(--muted); }
+
+/* 가격·등락률·거래대금 */
+.sr-price-val { font-size: 12px; color: var(--sub); }
+.sr-chg-cell  { font-size: 12px; font-weight: 600; }
+.sr-vol-cell  { font-size: 11.5px; color: var(--muted); }
+
+/* 모바일 전용 (기본값: 숨김) */
+.sr-chg-mob { display: none; font-size: 11px; font-weight: 600; margin-left: 5px; }
 
 /* ── 초보자 가이드 ─── */
 .guide { margin-top: 20px; background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
@@ -403,29 +429,44 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* ── 모바일 768px 이하 ──────────────────────────────────── */
 @media (max-width: 768px) {
 
-  /* 종목 카드 (scard) */
-  .scard {
-    grid-template-columns: 32px 1fr auto;
-    gap: 10px;
-    padding: 12px 13px;
+  /* 종목 테이블 → 카드형 전환 */
+  .slist {
+    background: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    gap: 6px;
   }
-  .avatar {
-    width: 32px; height: 32px;
-    border-radius: 8px;
-    font-size: 13px;
+  .slist-hdr { display: none; }
+  .srow {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "av  ns    score"
+      ".   sig   sig  "
+      ".   price tags ";
+    column-gap: 8px;
+    row-gap: 3px;
+    padding: 11px 13px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
   }
-  .sname { font-size: 14px; }
-  .sname-row { gap: 5px; margin-bottom: 4px; }
-
-  /* MA 배지 3번째(60일) 숨김 → 최대 2개 표시 */
-  .ma-row .ma-badge:nth-child(3) { display: none; }
-
-  .stats-row { gap: 3px; margin-top: 5px; }
-  .sscore-wrap { min-width: 54px; gap: 4px; }
-  .score-num { font-size: 16px; }
-  .score-bar { width: 52px; }
-  .score-lbl { font-size: 9px; }
-  .ssignal { font-size: 10px; }
+  .srow:last-child { border-bottom: 1.5px solid var(--border); }
+  .srow:hover { background: var(--card); border-color: var(--blue); }
+  .sr-av        { grid-area: av; align-self: start; padding-top: 2px; }
+  .sr-name-sec  { grid-area: ns; padding-left: 0; align-self: center; }
+  .sr-score     { grid-area: score; align-self: center; align-items: flex-end; }
+  .sr-sig-cell  { grid-area: sig; text-align: left; }
+  .sr-price-cell{ grid-area: price; text-align: left; }
+  .sr-chg-cell, .sr-vol-cell { display: none; }
+  .sr-tags-cell { grid-area: tags; justify-content: flex-end; padding-left: 0; }
+  .sr-chg-mob   { display: inline; }
+  .sr-name      { font-size: 13.5px; }
+  .sr-sc-num    { font-size: 15px; }
+  .sr-sc-bar    { width: 40px; }
 
   /* TOP10 카드 — 코드번호·RSI 숨김 */
   .t20-sub  { display: none; }
@@ -1621,14 +1662,7 @@ function renderThemeStocks(key) {
     if (curThemeSort === 'chg')    return (b.chgRate ?? 0) - (a.chgRate ?? 0);
     return (b.mktCap ?? 0) - (a.mktCap ?? 0); // mktcap default
   });
-  listEl.innerHTML = sorted.map(cardHTML).join('');
-}
-
-// MA 신호 배지
-function maBadge(sig, label) {
-  const cls = { up: 'up', down: 'down', neutral: 'neutral' }[sig] || 'neutral';
-  const arrow = { up: '▲', down: '▼', neutral: '─' }[sig];
-  return `<span class="ma-badge ${cls}">${label} ${arrow}</span>`;
+  listEl.innerHTML = listHeader() + sorted.map(cardHTML).join('');
 }
 
 // 골든크로스 여부
@@ -1636,59 +1670,77 @@ function isGolden(s) {
   return s.signals?.some(t => t.includes('골든크로스'));
 }
 
-// ── 종목 카드 HTML ──────────────────────────────────────
+// 진입 시그널 배지
+function getSignalBadge(s) {
+  const chg   = s.chgRate || 0;
+  const score = s.score   || 0;
+  const up5   = s.ma5Signal === 'up';
+  if (chg > 5 || (score >= 80 && chg > 2))
+    return { label:'과열주의', cls:'sig-heat' };
+  if (isGolden(s) || (up5 && score >= 60))
+    return { label:'진입적기', cls:'sig-entry' };
+  if (s.ma20Signal === 'up' && !up5)
+    return { label:'눌림대기', cls:'sig-wait' };
+  return null;
+}
+
+// 거래대금 포맷 (원 단위)
+function fmtTradingAmt(s) {
+  const v = (s.avgVol5 || s.volume || 0) * (s.price || 0);
+  if (!v) return '—';
+  if (v >= 1e12) return (v / 1e12).toFixed(1) + '조';
+  if (v >= 1e8)  return Math.round(v / 1e8) + '억';
+  return Math.round(v / 1e4) + '만';
+}
+
+// 테이블 헤더
+function listHeader() {
+  return `<div class="slist-hdr">
+    <div class="sh-av"></div>
+    <div class="sh-ns">종목 / 테마섹터</div>
+    <div class="sh-score">점수</div>
+    <div class="sh-sig">시그널</div>
+    <div class="sh-price">현재가</div>
+    <div class="sh-chg">등락률</div>
+    <div class="sh-vol">거래대금</div>
+    <div class="sh-tags">핵심이유</div>
+  </div>`;
+}
+
+// ── 종목 행 HTML ────────────────────────────────────────
 function cardHTML(s) {
-  const av  = avColor(s.name);
-  const sc  = scoreColor(s.score);
-  const up  = s.chgRate >= 0;
-  const chgClr = up ? 'var(--green)' : 'var(--red)';
-  const chgTxt = (up ? '+' : '') + s.chgRate.toFixed(2) + '%';
-  const sig = s.signals?.[0] || '';
-  const golden = isGolden(s);
+  const av      = avColor(s.name);
+  const sc      = scoreColor(s.score);
+  const up      = (s.chgRate || 0) >= 0;
+  const chgClr  = up ? 'var(--green)' : 'var(--red)';
+  const chgTxt  = (up ? '+' : '') + (s.chgRate || 0).toFixed(2) + '%';
+  const sector  = s.themeSector || s.sector || '';
+  const signal  = getSignalBadge(s);
+  const sigHtml = signal ? `<span class="sig-badge ${signal.cls}">${signal.label}</span>` : '';
+  const price   = s.price ? s.price.toLocaleString() + '원' : '—';
+  const vol     = fmtTradingAmt(s);
+  const reasons = getReasonTags(s);
+  const tagsHtml = reasons.slice(0, 2).map(t =>
+    `<span class="t20-tag ${t.cls}">${t.label}</span>`).join('');
 
-  // 상세 지표
-  const mktCapTxt = fmtMktCap(s.mktCap);
-  const volTxt    = fmtVol(s.volume);
-  const frgnPct   = s.frgnRatio != null ? s.frgnRatio.toFixed(2) + '%' : null;
-  const frgnBuy   = fmtFrgnBuy(s.frgnBuyQty);
-  const perTxt    = (s.per != null && s.per > 0 && s.per < 999) ? s.per.toFixed(1) : null;
-  const pbrTxt    = (s.pbr != null && s.pbr > 0) ? s.pbr.toFixed(2) : null;
-
-  const statsChips = [
-    mktCapTxt ? `<span class="stat-chip"><span class="stat-lbl">시총</span><span class="stat-val">${mktCapTxt}</span></span>` : '',
-    volTxt    ? `<span class="stat-chip"><span class="stat-lbl">거래량</span><span class="stat-val">${volTxt}</span></span>` : '',
-    frgnPct   ? `<span class="stat-chip"><span class="stat-lbl">외인보유</span><span class="stat-val">${frgnPct}</span></span>` : '',
-    frgnBuy   ? `<span class="stat-chip"><span class="stat-lbl">외인순매수</span><span class="stat-val ${frgnBuy.pos ? 'pos' : 'neg'}">${frgnBuy.txt}</span></span>` : '',
-    perTxt    ? `<span class="stat-chip"><span class="stat-lbl">PER</span><span class="stat-val">${perTxt}</span></span>` : '',
-    pbrTxt    ? `<span class="stat-chip"><span class="stat-lbl">PBR</span><span class="stat-val">${pbrTxt}</span></span>` : '',
-  ].filter(Boolean).join('');
-
-  return `<div class="scard"
-    data-ma5="${s.ma5Signal}" data-ma20="${s.ma20Signal}" data-ma60="${s.ma60Signal}"
-    data-golden="${golden}"
-    onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
-    <div class="avatar" style="background:${av}">${s.name.charAt(0)}</div>
-    <div class="sinfo">
-      <div class="sname-row">
-        <span class="sname">${s.name}</span>
-        <span class="sbadge mkt">${s.market}</span>
-        ${s.sector ? `<span class="sbadge sec">${s.sector}</span>` : ''}
-        ${golden ? `<span class="sbadge" style="background:#fef9c3;color:#92400e;border:1px solid #fde68a;">골든크로스</span>` : ''}
-      </div>
-      <div class="ma-row">
-        ${maBadge(s.ma5Signal, '5일')}
-        ${maBadge(s.ma20Signal, '20일')}
-        ${maBadge(s.ma60Signal, '60일')}
-        <span style="font-size:11px;color:${chgClr};font-weight:600;margin-left:2px;">${chgTxt}</span>
-      </div>
-      ${statsChips ? `<div class="stats-row">${statsChips}</div>` : ''}
-      ${sig ? `<div class="ssignal">${sig}</div>` : ''}
+  return `<div class="srow" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
+    <div class="sr-av"><div class="sr-av-inner" style="background:${av}">${s.name.charAt(0)}</div></div>
+    <div class="sr-name-sec">
+      <div class="sr-name">${s.name}</div>
+      ${sector ? `<div class="sr-sec">${sector}</div>` : ''}
     </div>
-    <div class="sscore-wrap">
-      <div class="score-num" style="color:${sc}">${s.score}</div>
-      <div class="score-bar"><div class="score-fill" style="width:${s.score}%;background:${sc}"></div></div>
-      <div class="score-lbl">분석 점수</div>
+    <div class="sr-score">
+      <span class="sr-sc-num" style="color:${sc}">${s.score}</span>
+      <div class="sr-sc-bar"><div style="width:${s.score}%;background:${sc}"></div></div>
     </div>
+    <div class="sr-sig-cell">${sigHtml}</div>
+    <div class="sr-price-cell">
+      <span class="sr-price-val">${price}</span>
+      <span class="sr-chg-mob" style="color:${chgClr}">${chgTxt}</span>
+    </div>
+    <div class="sr-chg-cell" style="color:${chgClr}">${chgTxt}</div>
+    <div class="sr-vol-cell">${vol}</div>
+    <div class="sr-tags-cell">${tagsHtml}</div>
   </div>`;
 }
 
@@ -1863,9 +1915,10 @@ function renderStocks(data, append = false) {
   // (base-date 제거됨 — TOP10 날짜는 renderTop10All에서 updatedAt으로 표시)
 
   const listEl = document.getElementById('stock-list');
-  const html   = allStocks.map(s => cardHTML(s)).join('');
-  listEl.innerHTML = html ||
-    `<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">해당 조건의 종목이 없습니다.</div>`;
+  const rows   = allStocks.map(cardHTML).join('');
+  listEl.innerHTML = rows
+    ? listHeader() + rows
+    : `<div style="text-align:center;color:var(--muted);padding:40px;font-size:13px;">해당 조건의 종목이 없습니다.</div>`;
 
   // 카운트 표시
   const shown = allStocks.length;
