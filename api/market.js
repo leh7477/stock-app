@@ -231,7 +231,7 @@ async function fetchKISTradingAmount(kvUrl, kvToken) {
       Authorization: `Bearer ${kisToken}`,
       appkey:    kisKey,
       appsecret: kisSecret,
-      tr_id:     'FHKUP03500100',
+      tr_id:     'FHPUP02100000',
       'Content-Type': 'application/json',
     };
 
