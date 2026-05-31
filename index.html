@@ -102,7 +102,12 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .mkt-score-sep { font-size:14px; color:var(--muted); margin:0 5px; }
 .mkt-score-stage { font-size:13px; font-weight:700; white-space:nowrap; }
 /* 2단: 지수 티커 */
-.mkt-ticker-wrap { overflow:hidden; position:relative; border-top:1px solid var(--border); }
+.mkt-ticker-wrap {
+  overflow:hidden; position:relative;
+  border-top:1px solid var(--border);
+  cursor:grab; user-select:none;
+}
+.mkt-ticker-wrap:active { cursor:grabbing; }
 .mkt-ticker-wrap::before,
 .mkt-ticker-wrap::after {
   content:''; position:absolute; top:0; bottom:0; width:40px; z-index:2; pointer-events:none;
@@ -111,13 +116,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .mkt-ticker-wrap::after  { right:0; background:linear-gradient(to left,  var(--card), transparent); }
 .mkt-ticker-track {
   display:flex; width:max-content; align-items:center;
-  animation: ticker-scroll 35s linear infinite;
-  padding:7px 0;
-}
-.mkt-ticker-wrap:hover .mkt-ticker-track { animation-play-state:paused; }
-@keyframes ticker-scroll {
-  0%   { transform:translateX(0); }
-  100% { transform:translateX(-50%); }
+  padding:7px 0; will-change:transform;
 }
 .mkt-item { display:flex; align-items:center; gap:10px; padding:0 20px; border-right:1px solid var(--border); flex-shrink:0; }
 .mkt-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.3px; margin-bottom:2px; }
@@ -1221,6 +1220,76 @@ function renderTop10All(data, dateStr) {
   if (label) document.getElementById('top10-date').textContent = label;
 }
 
+// ── 티커 엔진 (RAF 기반, 드래그·터치·호버 통합) ────────
+function initTicker() {
+  const wrap  = document.querySelector('.mkt-ticker-wrap');
+  const track = document.querySelector('.mkt-ticker-track');
+  if (!wrap || !track) return;
+
+  // 콘텐츠 총 너비의 절반 (아이템 2벌 복제 기준)
+  const halfW = () => track.scrollWidth / 2;
+
+  let pos       = 0;       // 현재 스크롤 위치 (px)
+  const SPEED   = 0.6;     // px/frame
+  let hovered   = false;
+  let dragging  = false;
+  let lastX     = 0;
+  let rafId     = null;
+
+  function tick() {
+    if (!hovered && !dragging) {
+      pos = (pos + SPEED) % halfW();
+      track.style.transform = `translateX(${-pos}px)`;
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // ── 호버 ──────────────────────────────────────────────
+  wrap.addEventListener('mouseenter', () => { hovered = true; });
+  wrap.addEventListener('mouseleave', () => {
+    hovered = false;
+    if (!dragging) wrap.style.cursor = 'grab';
+  });
+
+  // ── 마우스 드래그 ────────────────────────────────────
+  wrap.addEventListener('mousedown', e => {
+    dragging = true;
+    hovered  = false;
+    lastX    = e.clientX;
+    wrap.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = lastX - e.clientX;
+    lastX = e.clientX;
+    pos = ((pos + dx) % halfW() + halfW()) % halfW();
+    track.style.transform = `translateX(${-pos}px)`;
+  });
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    wrap.style.cursor = 'grab';
+  });
+
+  // ── 터치 스와이프 ────────────────────────────────────
+  wrap.addEventListener('touchstart', e => {
+    dragging = true;
+    lastX    = e.touches[0].clientX;
+  }, { passive: true });
+  wrap.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const dx = lastX - e.touches[0].clientX;
+    lastX = e.touches[0].clientX;
+    pos = ((pos + dx) % halfW() + halfW()) % halfW();
+    track.style.transform = `translateX(${-pos}px)`;
+  }, { passive: true });
+  wrap.addEventListener('touchend', () => { dragging = false; });
+
+  cancelAnimationFrame(rafId);
+  tick();
+}
+
 // ── 시장 지수 바 ───────────────────────────────────────
 function fmtMktNum(v, decimals = 2) {
   if (v == null) return '—';
@@ -1300,6 +1369,7 @@ async function loadMarket() {
     `;
     renderMktDetail(senti);
     prefetchMktHistory();   // 데이터만 미리 로드 (차트는 패널 열 때 그림)
+    initTicker();           // RAF 티커 엔진 초기화
   } catch(_) {}
 }
 
