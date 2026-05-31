@@ -1325,6 +1325,8 @@ async function loadMarket() {
     const kosdaq = d.kosdaq;
     const usd    = d.usdkrw;
     const nasdaq = d.nasdaq;
+    const sp500  = d.sp500;
+    const dow    = d.dow;
     const vix    = d.vix;
     const senti  = d.sentiment || {};
 
@@ -1351,6 +1353,8 @@ async function loadMarket() {
           kosdaq ? `<div class="mkt-item"><div><div class="mkt-label">KOSDAQ</div><div class="mkt-price">${fmtMktNum(kosdaq.price)}</div></div><div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%</div></div>` : '',
           usd    ? `<div class="mkt-item"><div><div class="mkt-label">USD/KRW</div><div class="mkt-price">${fmtMktNum(usd.price,1)}</div></div><div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%</div></div>` : '',
           nasdaq ? `<div class="mkt-item"><div><div class="mkt-label">NASDAQ</div><div class="mkt-price">${fmtMktNum(nasdaq.price,0)}</div></div><div class="mkt-chg ${chgClass(nasdaq.changeRate)}">${chgSign(nasdaq.changeRate)}${fmtMktNum(nasdaq.changeRate)}%</div></div>` : '',
+          sp500  ? `<div class="mkt-item"><div><div class="mkt-label">S&P500</div><div class="mkt-price">${fmtMktNum(sp500.price,0)}</div></div><div class="mkt-chg ${chgClass(sp500.changeRate)}">${chgSign(sp500.changeRate)}${fmtMktNum(sp500.changeRate)}%</div></div>` : '',
+          dow    ? `<div class="mkt-item"><div><div class="mkt-label">DOW</div><div class="mkt-price">${fmtMktNum(dow.price,0)}</div></div><div class="mkt-chg ${chgClass(dow.changeRate)}">${chgSign(dow.changeRate)}${fmtMktNum(dow.changeRate)}%</div></div>` : '',
           vix    ? `<div class="mkt-item"><div><div class="mkt-label">VIX</div><div class="mkt-price">${fmtMktNum(vix.price,1)}</div></div><div class="mkt-chg flat">공포지수</div></div>` : '',
         ].filter(Boolean).join('');
         const doubled = items + items; // 무한 루프용 2벌 복제

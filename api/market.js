@@ -459,6 +459,7 @@ export default async function handler(req, res) {
 
   /* ── 2) 데이터 병렬 조회 ────────────────────────────────────────── */
   const [kospiRaw, kosdaqRaw, usdRaw, nasdaqRaw, vixRaw,
+         sp500Raw, dowRaw,
          kospiChartRaw, kosdaqChartRaw, nasdaqChartRaw,
          supply, sentimentData, history] =
     await Promise.all([
@@ -467,6 +468,8 @@ export default async function handler(req, res) {
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/USDKRW%3DX?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
+      timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
+      timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EDJI?interval=1d&range=5d').then(r=>r.json()).catch(()=>null),
       // ADX 계산용 과거 40일 데이터
       timedFetch('https://m.stock.naver.com/api/index/KOSPI/chart?timeframe=day&count=40',  {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
       timedFetch('https://m.stock.naver.com/api/index/KOSDAQ/chart?timeframe=day&count=40', {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
@@ -476,11 +479,13 @@ export default async function handler(req, res) {
       kvUrl && kvToken ? redisGet(HIST_KEY,  kvUrl, kvToken).then(d => d || []) : [],
     ]);
 
-  const kospi  = parseNaver(kospiRaw);
-  const kosdaq = parseNaver(kosdaqRaw);
-  const usdkrw = parseYahoo(usdRaw);
-  const nasdaq = parseYahoo(nasdaqRaw);
+  const kospi   = parseNaver(kospiRaw);
+  const kosdaq  = parseNaver(kosdaqRaw);
+  const usdkrw  = parseYahoo(usdRaw);
+  const nasdaq  = parseYahoo(nasdaqRaw);
   const vixData = parseYahoo(vixRaw);
+  const sp500   = parseYahoo(sp500Raw);
+  const dow     = parseYahoo(dowRaw);
 
   // ADX 계산
   const kospiCandles      = parseNaverCandles(kospiChartRaw);
@@ -574,7 +579,7 @@ export default async function handler(req, res) {
   };
 
   const payload = {
-    kospi, kosdaq, usdkrw, nasdaq,
+    kospi, kosdaq, usdkrw, nasdaq, sp500, dow,
     vix: vixData ? { price: vixData.price } : null,
     sentiment,
     adx: {
