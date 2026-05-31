@@ -531,10 +531,20 @@ export default async function handler(req, res) {
     news:     scoreNews(sentimentData?.score ?? null),
   };
 
+  // 주말·휴장일 폴백: null 컴포넌트를 가장 최근 거래일 히스토리 값으로 대체
+  const today = kstDate();
+  const recentEntry = history.find(h => h.date !== today && h.components);
+  if (recentEntry) {
+    for (const key of Object.keys(rawScores)) {
+      if (rawScores[key] == null && recentEntry.components[key] != null) {
+        rawScores[key] = recentEntry.components[key];
+      }
+    }
+  }
+
   const { score: todayRaw, detail } = calcWeightedScore(rawScores);
 
   /* ── 4) MA20 + 최종 점수 ─────────────────────────────────────────── */
-  const today   = kstDate();
   const ma20res = calcMA20(history, today);
   let finalScore;
 
