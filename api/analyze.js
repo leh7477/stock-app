@@ -1555,7 +1555,7 @@ if (dartEps === null) {
           dartEps,
           consensusEps, consensusDate, consensusTarget,
           hasFwdPer,
-          _investOpnnDebug: { rt_cd: investOpnnRaw?.rt_cd, msg: investOpnnRaw?.msg1, outputLen: investOpnnRaw?.output?.length, sample: investOpnnRaw?.output?.[0] },
+          _investOpnnDebug: investOpnnRaw ?? '__null__',
           _dartDebug,
           _divDebug: {
             dvdn_yedn:    pOut.dvdn_yedn,
