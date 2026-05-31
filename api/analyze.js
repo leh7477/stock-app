@@ -1392,7 +1392,9 @@ if (dartEps === null) {
     const hasFwdPer = consensusPer !== null;  // 컨센서스 PER 존재 여부
     const pbr2      = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
-    const divYield2  = parseF(pOut.dvdn_yedn || '0');
+    // 배당 수익률: KIS 현재가 API 복수 필드 시도
+    const divYield2 = parseF(pOut.dvdn_yedn || pOut.dvdn_per || pOut.bpps || '0');
+
     const mktCap2    = marketCapV; // 억원 단위
     // 외인+기관 5일 순매수 (미래성장 가점용 — 이평선 배열과 겹치지 않는 독립 지표)
     const _d5  = investorSupply?.d5;
@@ -1404,7 +1406,18 @@ if (dartEps === null) {
     const techResult  = calcScore(closes, volumes, boll);
     const techScore   = techResult.total;
     const techDetail  = techResult.detail;
-    const epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
+
+    // EPS 가속도: DART Redis 우선 → estimate-perform oEps 폴백
+    let epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
+    if (epsAccel2 === 0 && oEps) {
+      const dataKeys = ['data1','data2','data3','data4','data5'];
+      const epsVals  = dataKeys
+        .map(k => parseFloat(oEps[k] || '0'))
+        .filter(v => v > 0 && v < 9999999);
+      if (epsVals.length >= 2) {
+        epsAccel2 = calcEpsAcceleration(epsVals);
+      }
+    }
     const ff2       = calcFamaFrench(closes, pbr2, dartFinancials?.operatingMargin ?? null, kospiDailyReturns);
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2, ff2.total);
     const korScore  = ks.total;
@@ -1530,6 +1543,18 @@ if (dartEps === null) {
             per2Raw: per2,
             o3rows: (estimateRaw?.output3 || []).map(row => ({ nm: row?.itmn || row?.hqic_kor_isnm || JSON.stringify(row)?.slice(0,40), d1: row?.data1, d2: row?.data2, d3: row?.data3 })),
             o4dates: (estimateRaw?.output4 || []).map(d => d?.dt),
+          },
+          _divDebug: {
+            dvdn_yedn:    pOut.dvdn_yedn,
+            dvdn_per:     pOut.dvdn_per,
+            dvdn_prcs:    pOut.dvdn_prcs,
+            bpps:         pOut.bpps,
+            divYield2Used: divYield2,
+          },
+          _epsAccelDebug: {
+            dartEpsHistory:  dartFinancials?.epsHistory ?? null,
+            epsAccelFromDart: calcEpsAcceleration(dartFinancials?.epsHistory ?? null),
+            epsAccelFinal:    epsAccel2,
           },
           perSource: consensusEps ? 'consensus' : dartEps ? 'dart' : 'kis',
         };
