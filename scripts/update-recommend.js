@@ -819,6 +819,18 @@ function analyze(stock, closes, volumes, extra = {}) {
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
 
+  // 윌리엄 오닐 RS: 최근 3개월×40% + 3~6개월×20% + 6~9개월×20% + 9~12개월×20%
+  const _p = (i1, i2) => closes.length > i1 && closes[closes.length-1-i2] > 0
+    ? (closes[closes.length-1-i1] - closes[closes.length-1-i2]) / closes[closes.length-1-i2] * 100
+    : null;
+  const _r3m   = _p(0, 63);
+  const _r3_6m = _p(63, 126);
+  const _r6_9m = _p(126, 189);
+  const _r9_12 = _p(189, 252);
+  const rs12m  = (_r3m !== null && _r3_6m !== null && _r6_9m !== null && _r9_12 !== null)
+    ? Math.round((_r3m * 0.40 + _r3_6m * 0.20 + _r6_9m * 0.20 + _r9_12 * 0.20) * 10) / 10
+    : _r3m !== null ? Math.round(_r3m * 10) / 10 : null;
+
   return {
     code:        stock.code,
     name:        stock.name,
@@ -832,6 +844,7 @@ function analyze(stock, closes, volumes, extra = {}) {
     ma20Signal:  maSignal(cur, ma20),
     ma60Signal:  maSignal(cur, ma60),
     score,
+    rs12m,
     rsi:         rsiArr2[n] != null ? Math.round(rsiArr2[n] * 10) / 10 : null,
     signals:     signals.slice(0, 2),
     volume:      extra.volume      || 0,

@@ -1471,12 +1471,25 @@ if (dartEps === null) {
     const checklist = buildChecklist(closes, ma5arr, ma20arr, ma60arr, rsiArr);
 
     // RS Rating — 퀀트 점수 기준 스캔 전종목 대비 퍼센타일 (1~99)
+    // RS Rating: 윌리엄 오닐 방식 — 전종목 12개월 가중 수익률 퍼센타일
+    // 최근 3개월×40% + 3~6개월×20% + 6~9개월×20% + 9~12개월×20%
+    const _rp = (i1, i2) => closes.length > i2 && closes[closes.length-1-i2] > 0
+      ? (closes[closes.length-1-i1] - closes[closes.length-1-i2]) / closes[closes.length-1-i2] * 100
+      : null;
+    const _rr3m   = _rp(0, 63);
+    const _rr3_6m = _rp(63, 126);
+    const _rr6_9m = _rp(126, 189);
+    const _rr9_12 = _rp(189, 252);
+    const myRs12m = (_rr3m !== null && _rr3_6m !== null && _rr6_9m !== null && _rr9_12 !== null)
+      ? _rr3m * 0.40 + _rr3_6m * 0.20 + _rr6_9m * 0.20 + _rr9_12 * 0.20
+      : _rr3m;
+
     let rsRating = null;
-    if (rv2Stocks && rv2Stocks.length > 10) {
-      const allScores = rv2Stocks.map(s => s.score).filter(s => typeof s === 'number');
-      if (allScores.length > 10) {
-        const below = allScores.filter(s => s < score).length;
-        rsRating = Math.max(1, Math.min(99, Math.round(below / allScores.length * 98) + 1));
+    if (myRs12m !== null && rv2Stocks && rv2Stocks.length > 10) {
+      const allRs = rv2Stocks.map(s => s.rs12m).filter(v => typeof v === 'number');
+      if (allRs.length > 10) {
+        const below = allRs.filter(v => v < myRs12m).length;
+        rsRating = Math.max(1, Math.min(99, Math.round(below / allRs.length * 98) + 1));
       }
     }
 
