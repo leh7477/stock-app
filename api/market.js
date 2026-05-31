@@ -424,13 +424,29 @@ function parseNaverCandles(json) {
 function parseNaverTradingValues(json) {
   const items = naverChartItems(json);
   if (!Array.isArray(items)) return null;
-  const values = items
-    .map(d => parseFloat(String(
+  const values = items.map(d => {
+    // 1순위: 직접 거래대금 필드
+    const direct = parseFloat(String(
       d.accumulatedTradingValue || d.tradingValue  ||
       d.tradeAmount             || d.tradingAmount ||
       d.amount                  || '0'
-    ).replace(/,/g,'')) || 0)
-    .filter(v => v > 0);
+    ).replace(/,/g,''));
+    if (direct > 0) return direct;
+    // 2순위: 거래량 × 종가 (거래대금 추정)
+    const vol   = parseFloat(String(d.tradingVolume || d.volume || d.tradeVolume || '0').replace(/,/g,''));
+    const close = parseFloat(String(d.closePrice    || d.close  || '0').replace(/,/g,''));
+    return (vol > 0 && close > 0) ? vol * close : 0;
+  }).filter(v => v > 0);
+
+  // 디버그: 첫 아이템 키 로그 (최초 1회)
+  if (items.length > 0) {
+    console.log('[거래대금 파싱 디버그]', JSON.stringify({
+      firstItemKeys: Object.keys(items[0]),
+      firstItem: items[0],
+      valuesFound: values.length,
+    }));
+  }
+
   return values.length >= 5 ? values : null;
 }
 
@@ -462,6 +478,7 @@ export default async function handler(req, res) {
     try {
       const cached = await redisGet(CACHE_KEY, kvUrl, kvToken);
       if (cached && Date.now() - (cached.ts || 0) < CACHE_TTL * 1000) {
+        console.log('[market cache hit] trading component:', cached?.sentiment?.components?.trading?.score ?? 'N/A');
         return res.status(200).json({ success:true, ...cached, source:'cache' });
       }
     } catch (_) {}
