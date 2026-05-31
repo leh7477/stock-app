@@ -1039,7 +1039,9 @@ export default async function handler(req, res) {
     const estimateUrl   = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform?SHT_CD=${code}`;
     const _opbDate2 = fmtD(now.getTime());
     const _opbDate1 = fmtD(ago(30));
-    const investOpnnUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/invest-opbysec?FID_COND_MRKT_DIV_CODE=J&FID_COND_SCR_DIV_CODE=16634&FID_INPUT_ISCD=${code}&FID_DIV_CLS_CODE=0&FID_INPUT_DATE_1=${_opbDate1}&FID_INPUT_DATE_2=${_opbDate2}`;
+    const investOpnnUrl  = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/invest-opbysec?FID_COND_MRKT_DIV_CODE=J&FID_COND_SCR_DIV_CODE=16634&FID_INPUT_ISCD=${code}&FID_DIV_CLS_CODE=0&FID_INPUT_DATE_1=${_opbDate1}&FID_INPUT_DATE_2=${_opbDate2}`;
+    // 재무비율 API: BPS(주당순자산) → PBR 직접 계산 (연결 기준, 분기별)
+    const finRatioUrl    = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/finance/financial-ratio?fid_cond_mrkt_div_code=J&fid_input_iscd=${code}&fid_div_cls_code=1`;
 
     const fetchAllKis = (hdr) => Promise.all([
       timedFetch(priceUrl('J'), { headers: hdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
@@ -1049,13 +1051,14 @@ export default async function handler(req, res) {
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(estimateUrl,              { headers: hdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
       timedFetch(investOpnnUrl,            { headers: hdr('FHKST663400C0') }).then(r => r.json()).catch(() => null),
+      timedFetch(finRatioUrl,              { headers: hdr('FHKST66430300') }).then(r => r.json()).catch(() => null),
     ]);
 
-    let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw] = await fetchAllKis(kisHdr);
+    let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw, finRatioRaw] = await fetchAllKis(kisHdr);
 
     if (isTokenExpired([priceRaw, cd1, cw1, cw2, cw3, estimateRaw])) {
-      activeToken = await getKisToken(true); // kisHdr도 자동으로 최신 토큰 참조
-      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw] = await fetchAllKis(kisHdr);
+      activeToken = await getKisToken(true);
+      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw, finRatioRaw] = await fetchAllKis(kisHdr);
     }
 
     // J로 가격 0이면 KOSDAQ(Q)으로 재시도
@@ -1417,39 +1420,25 @@ if (dartEps === null) {
             ? Math.round(latest.close / _kisEps * 10) / 10
             : 0;
     const hasFwdPer = consensusPer !== null;  // 컨센서스 PER 존재 여부
-    // PBR: estimate-perform output3[5]=BPS → currentPrice/BPS (연결 기준 컨센서스)
-    // output3[6]=PBR도 시도하되 99.99 필터링, 둘 다 실패 시 KIS 현재가 fallback
-    const _getEstimatePbr = () => {
-      const oDates2   = estimateRaw?.output4 || [];
-      const dataKeys  = ['data1','data2','data3','data4','data5'];
-      const thisYear2 = new Date().getFullYear();
-      const pickIdx   = (row, skipGe) => {
-        let bIdx = -1, bIsE = false;
-        for (let i = 0; i < oDates2.length; i++) {
-          const dt = oDates2[i]?.dt || '';
-          const isE = dt.includes('E');
-          const v = parseFloat(row?.[dataKeys[i]] || '0');
-          if (!v || v <= 0 || v >= (skipGe ?? 9999)) continue;
-          if (isE && !bIsE) { bIdx = i; bIsE = true; break; }
-          if (!isE && parseInt(dt) >= thisYear2 - 1) bIdx = i;
+    // PBR: KIS financial-ratio API의 BPS(주당순자산, 원/주) → 현재가/BPS (연결 기준)
+    // 1순위: finRatioRaw 가장 최근 분기 BPS → 현재가/BPS
+    // 2순위: pOut.pbr (KIS 현재가 API — 별도 기준이라 부정확할 수 있음)
+    const _pbr2Est = (() => {
+      const rows = finRatioRaw?.output || [];
+      if (!rows.length || !latest.close) return null;
+      // 가장 최근 분기 BPS (data[0] = 최신)
+      for (const row of rows) {
+        const bps = parseFloat(row?.bps || '0');
+        if (bps > 0 && bps < 99999999) {
+          return { val: Math.round(latest.close / bps * 100) / 100, src: 'BPS/finRatio', bps };
         }
-        if (bIdx === -1) for (let i = oDates2.length-1; i >= 0; i--) {
-          const v = parseFloat(row?.[dataKeys[i]] || '0');
-          if (v > 0 && v < (skipGe ?? 9999)) { bIdx = i; break; }
-        }
-        return bIdx >= 0 ? parseFloat(row?.[dataKeys[bIdx]]) : null;
-      };
-      // 1안: output3[6] PBR 직접
-      const pbrDirect = pickIdx(estimateRaw?.output3?.[6], 99);
-      if (pbrDirect) return { val: pbrDirect, src: 'estimate-PBR' };
-      // 2안: output3[5] BPS → 현재가 / BPS
-      const bps = pickIdx(estimateRaw?.output3?.[5], 9999999);
-      if (bps && bps > 0 && latest.close > 0) return { val: Math.round(latest.close / bps * 100) / 100, src: 'BPS계산' };
+      }
       return null;
-    };
-    const _pbr2Est = _getEstimatePbr();
+    })();
     const _pbr2Consensus = _pbr2Est?.val ?? null;
-    const pbr2 = (_pbr2Consensus && _pbr2Consensus > 0) ? _pbr2Consensus : parseF(pOut.pbr || '0');
+    const pbr2 = (_pbr2Consensus && _pbr2Consensus > 0 && _pbr2Consensus < 50)
+      ? _pbr2Consensus
+      : parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     // 배당 수익률: KIS 현재가 API 복수 필드 시도
     const divYield2 = parseF(pOut.dvdn_yedn || pOut.dvdn_per || pOut.bpps || '0');
@@ -1615,7 +1604,7 @@ if (dartEps === null) {
           hasFwdPer,
           _investOpnnDebug: investOpnnRaw ?? '__null__',
           _supplyDebug: _supplyDebug ?? { fromRedis: true, d5: investorSupply?.d5, d20: investorSupply?.d20 },
-          _pbrDebug: { pOutPbr: parseF(pOut.pbr||'0'), consensusPbr: _pbr2Consensus, pbrSrc: _pbr2Est?.src, usedPbr: pbr2, bpsRaw: estimateRaw?.output3?.[5]?.data1 },
+          _pbrDebug: { pOutPbr: parseF(pOut.pbr||'0'), consensusPbr: _pbr2Consensus, pbrSrc: _pbr2Est?.src, usedPbr: pbr2, bpsUsed: _pbr2Est?.bps, finRatioRtCd: finRatioRaw?.rt_cd, finRatioRows: finRatioRaw?.output?.length },
           _dartDebug,
           _divDebug: {
             dvdn_yedn:    pOut.dvdn_yedn,
