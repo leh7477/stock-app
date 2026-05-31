@@ -1135,7 +1135,8 @@ export default async function handler(req, res) {
       }
     } catch (_) {}
 
-    // Redis 미존재 시 KIS 실시간 fallback (분석기에서 직접 조회한 종목 대응)
+    // Redis 미존재 시 KIS 실시간 fallback (분析기에서 직접 조회한 종목 대응)
+    let _supplyDebug = null;
     if (!investorSupply) {
       try {
         const mkCode = (pOut.rprs_mrkt_kor_name || '').includes('코스닥') ? 'Q' : 'J';
@@ -1145,10 +1146,11 @@ export default async function handler(req, res) {
           { headers: kisHdr('FHKST01010900') }
         ).then(r => r.json()).catch(() => null);
         const rows = Array.isArray(livInv?.output) ? livInv.output : [];
-        if (rows.length >= 5) {
+        _supplyDebug = { rt_cd: livInv?.rt_cd, msg: livInv?.msg1, rowCount: rows.length, sample: rows[0] };
+        if (rows.length >= 1) {
           const sumN    = (arr, f) => arr.reduce((s, d) => s + parseNum(d[f] || '0'), 0);
           const fmtDate = d => { const dt = d?.stck_bsop_date; return dt ? `${dt.slice(0,4)}-${dt.slice(4,6)}-${dt.slice(6,8)}` : ''; };
-          const rows5   = rows.slice(0, 5);
+          const rows5   = rows.slice(0, Math.min(5, rows.length));
           const rows20  = rows.slice(0, Math.min(20, rows.length));
           investorSupply = {
             d5:  { foreign: sumN(rows5,'frgn_ntby_qty'),  inst: sumN(rows5,'orgn_ntby_qty'),  personal: sumN(rows5,'prsn_ntby_qty'),  from: fmtDate(rows5[rows5.length-1]),  to: fmtDate(rows5[0]) },
@@ -1415,7 +1417,31 @@ if (dartEps === null) {
             ? Math.round(latest.close / _kisEps * 10) / 10
             : 0;
     const hasFwdPer = consensusPer !== null;  // 컨센서스 PER 존재 여부
-    const pbr2      = parseF(pOut.pbr || '0');
+    // PBR: estimate-perform output3[6] (연결 기준 컨센서스) 우선 → KIS 현재가 fallback
+    const oPbr = estimateRaw?.output3?.[6];
+    const _pbr2Consensus = oPbr
+      ? (() => {
+          const dataKeys = ['data1','data2','data3','data4','data5'];
+          const oDates2  = estimateRaw?.output4 || [];
+          const thisYear2 = new Date().getFullYear();
+          // 가장 최근 확정 또는 추정 PBR 선택 (EPS 선택 로직 동일)
+          let bIdx = -1, bIsE = false;
+          for (let i = 0; i < oDates2.length; i++) {
+            const dt = oDates2[i]?.dt || '';
+            const isE = dt.includes('E');
+            const v = parseFloat(oPbr[dataKeys[i]] || '0');
+            if (!v || v <= 0 || v >= 99) continue; // 99.99=데이터없음
+            if (isE && !bIsE) { bIdx = i; bIsE = true; break; }
+            if (!isE && parseInt(dt) >= thisYear2 - 1) bIdx = i;
+          }
+          if (bIdx === -1) for (let i = oDates2.length-1; i >= 0; i--) {
+            const v = parseFloat(oPbr[dataKeys[i]] || '0');
+            if (v > 0 && v < 99) { bIdx = i; break; }
+          }
+          return bIdx >= 0 ? parseFloat(oPbr[dataKeys[bIdx]]) : null;
+        })()
+      : null;
+    const pbr2 = (_pbr2Consensus && _pbr2Consensus > 0) ? _pbr2Consensus : parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     // 배당 수익률: KIS 현재가 API 복수 필드 시도
     const divYield2 = parseF(pOut.dvdn_yedn || pOut.dvdn_per || pOut.bpps || '0');
@@ -1435,12 +1461,16 @@ if (dartEps === null) {
     // EPS 가속도: DART Redis 우선 → estimate-perform oEps 폴백
     // EPS 가속도 우선순위: 1) KIS estimate-perform → 2) DART epsHistory → 3) 0점
     let epsAccel2 = 0;
+    let epsHistoryForDisplay = dartFinancials?.epsHistory ?? null;
     if (oEps) {
       const dataKeys = ['data1','data2','data3','data4','data5'];
       const epsVals  = dataKeys
         .map(k => parseFloat(oEps[k] || '0'))
         .filter(v => !isNaN(v) && v !== 0 && Math.abs(v) < 9999999);
-      if (epsVals.length >= 2) epsAccel2 = calcEpsAcceleration(epsVals);
+      if (epsVals.length >= 2) {
+        epsAccel2 = calcEpsAcceleration(epsVals);
+        epsHistoryForDisplay = epsVals; // UI 표시용으로 oEps 배열 사용
+      }
     }
     if (epsAccel2 === 0) epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
     const ff2       = calcFamaFrench(closes, pbr2, dartFinancials?.operatingMargin ?? null, kospiDailyReturns);
@@ -1561,7 +1591,7 @@ if (dartEps === null) {
           supplyScore: supplyS, supplyD5: sd5, supplyD20: sd20,
           disclosureScore: discS,
           roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
-          epsAccelScore: epsAccel2, epsHistory: dartFinancials?.epsHistory ?? null,
+          epsAccelScore: epsAccel2, epsHistory: epsHistoryForDisplay,
           ffScore: ff2.total, ffDetail: ff2,
           divScore: divS, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
@@ -1574,6 +1604,8 @@ if (dartEps === null) {
           consensusEps, consensusDate, consensusTarget,
           hasFwdPer,
           _investOpnnDebug: investOpnnRaw ?? '__null__',
+          _supplyDebug,
+          _pbrDebug: { pOutPbr: parseF(pOut.pbr||'0'), consensusPbr: _pbr2Consensus, usedPbr: pbr2 },
           _dartDebug,
           _divDebug: {
             dvdn_yedn:    pOut.dvdn_yedn,
