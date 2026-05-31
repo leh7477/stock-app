@@ -2,9 +2,9 @@ name: 국장 브리핑 생성 (매일 08:00 KST)
 
 on:
   schedule:
-    - cron: '0 23 * * 1-5'  # 평일 08:00 KST → 국장 브리핑
-    - cron: '0 23 * * 6'    # 토요일 08:00 KST → 이번 주 마켓 리뷰
-    - cron: '0 23 * * 0'    # 일요일 08:00 KST → 다음 주 전략
+    - cron: '0 23 * * 1-5'  # 평일 08:00 KST (UTC 월~금) → 국장 브리핑
+    - cron: '0 23 * * 5'    # 토요일 08:00 KST (UTC 금요일 23:00) → 이번 주 마켓 리뷰
+    - cron: '0 23 * * 6'    # 일요일 08:00 KST (UTC 토요일 23:00) → 다음 주 전략
   workflow_dispatch:
     inputs:
       content_type:
@@ -28,9 +28,9 @@ jobs:
           SCHED="${{ github.event.schedule }}"
           if [ -n "$MANUAL" ]; then
             echo "content_type=$MANUAL" >> $GITHUB_OUTPUT
-          elif [ "$SCHED" = "0 23 * * 6" ]; then
+          elif [ "$SCHED" = "0 23 * * 5" ]; then
             echo "content_type=saturday" >> $GITHUB_OUTPUT
-          elif [ "$SCHED" = "0 23 * * 0" ]; then
+          elif [ "$SCHED" = "0 23 * * 6" ]; then
             echo "content_type=sunday" >> $GITHUB_OUTPUT
           else
             echo "content_type=weekday" >> $GITHUB_OUTPUT
