@@ -315,6 +315,33 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .site-footer .f-divider{border:none;border-top:1px solid rgba(246,244,239,.07);margin:16px 0;}
 .site-footer .f-disc{font-size:10px;color:rgba(246,244,239,.22);line-height:1.8;}
 .site-footer .f-copy{font-size:10px;color:rgba(246,244,239,.22);margin-top:8px;}
+
+/* ── 세부 내역 토글 버튼 ── */
+.det-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 16px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: background .15s, border-color .15s, color .15s;
+  user-select: none;
+}
+.det-summary:hover { background: rgba(255,255,255,.09); border-color: rgba(255,255,255,.2); color: var(--text); }
+.det-summary::-webkit-details-marker { display: none; }
+.det-arrow { font-size: 12px; transition: transform .2s; }
+details[open] > .det-summary { background: rgba(37,99,235,.1); border-color: rgba(37,99,235,.3); color: var(--blue); }
+details[open] > .det-summary .det-arrow { transform: rotate(90deg); }
 </style>
 </head>
 <body>
@@ -1248,8 +1275,8 @@ function renderKoreanScore(ks) {
     </div>
 
     <details>
-      <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0 8px;list-style:none;display:flex;align-items:center;gap:4px;">
-        <span class="details-arrow" style="font-size:9px;">▶</span> 세부 내역
+      <summary class="det-summary">
+        <span class="det-arrow">▶</span> 세부 내역 보기
       </summary>
       ${row('PBR', `${pbr > 0 ? pbr.toFixed(2)+'배' : 'N/A'} — ${pbr<=0?'데이터없음':pbr<=0.5?'심각한 저평가(8점)':pbr<=0.8?'강한 저평가(6점)':pbr<=1.0?'장부가 이하(4점)':pbr<=1.2?'저평가(2점)':pbr<=1.5?'약간 저평가(1점)':'적정/고평가(0점)'}`, pbrScore, 8)}
       ${row('섹터<br>등급', secLbl, secScore, 8)}
@@ -1369,8 +1396,8 @@ function renderMacroScore(macro, marketAdj) {
       <div style="font-size:11px;color:var(--muted);text-align:right;">시장환경·상대강도·뉴스 종합</div>
     </div>
     <details>
-      <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0 8px;list-style:none;display:flex;align-items:center;gap:4px;">
-        <span class="details-arrow" style="font-size:9px;">▶</span> 세부 내역
+      <summary class="det-summary">
+        <span class="det-arrow">▶</span> 세부 내역 보기
       </summary>
       ${row('상대<br>강도', relLbl, relScore, 5)}
       <div class="ma-score-row">
@@ -1544,8 +1571,8 @@ function renderTechScore(techDetail, techContrib70) {
     </div>
 
     <details>
-      <summary style="font-size:11px;color:var(--muted);cursor:pointer;padding:4px 0 8px;list-style:none;display:flex;align-items:center;gap:4px;">
-        <span class="details-arrow" style="font-size:9px;">▶</span> 세부 내역
+      <summary class="det-summary">
+        <span class="det-arrow">▶</span> 세부 내역 보기
       </summary>
       ${row('이평선<br>배열', '5/20/60/120 배열 정렬 상태', arrangement, 20)}
       ${row('MA20<br>이격도', 'MA20 대비 현재가 위치', deviation, 20)}
