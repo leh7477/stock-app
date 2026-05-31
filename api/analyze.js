@@ -1373,12 +1373,22 @@ if (dartEps === null) {
       }
     } catch (_) {}
 
-    // PER 결정: KIS 컨센서스 PER 직접 사용 → DART EPS → KIS 현재가 PER
+    // PER 결정 우선순위:
+    // ① KIS 컨센서스 PER (estimate-perform)
+    // ② DART EPS → 현재가 / DART EPS
+    // ③ KIS 현재가 API pOut.per
+    // ④ KIS 현재가 API pOut.eps → 현재가 / EPS
+    const _kisPerDirect = parseF(pOut.per  || '0');
+    const _kisEps       = parseF(pOut.eps  || '0');
     const per2 = consensusPer && consensusPer > 0
-      ? Math.round(consensusPer * 10) / 10          // KIS 직접 제공 PER(배)
+      ? Math.round(consensusPer * 10) / 10
       : dartEps && dartEps > 0 && latest.close > 0
         ? Math.round(latest.close / dartEps * 10) / 10
-        : parseF(pOut.per || '0');
+        : _kisPerDirect > 0
+          ? _kisPerDirect
+          : _kisEps > 0 && latest.close > 0
+            ? Math.round(latest.close / _kisEps * 10) / 10
+            : 0;
     const hasFwdPer = consensusPer !== null;  // 컨센서스 PER 존재 여부
     const pbr2      = parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
