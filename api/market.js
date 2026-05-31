@@ -474,7 +474,8 @@ export default async function handler(req, res) {
   };
 
   /* ── 1) 30분 캐시 조회 ──────────────────────────────────────────── */
-  if (kvUrl && kvToken) {
+  const skipCache = req.query?.nocache === '1';
+  if (!skipCache && kvUrl && kvToken) {
     try {
       const cached = await redisGet(CACHE_KEY, kvUrl, kvToken);
       if (cached && Date.now() - (cached.ts || 0) < CACHE_TTL * 1000) {
