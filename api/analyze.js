@@ -1034,7 +1034,9 @@ export default async function handler(req, res) {
       `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=${mktCd}&FID_INPUT_ISCD=${code}`;
 
     const estimateUrl   = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform?SHT_CD=${code}`;
-    const investOpnnUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/invest-opnn?FID_COND_SCR_DIV_CODE=16633&FID_INPUT_ISCD=${code}&FID_DIV_CLS_CODE=0`;
+    const _opbDate2 = fmtD(now.getTime());
+    const _opbDate1 = fmtD(ago(30));
+    const investOpnnUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/invest-opbysec?FID_COND_MRKT_DIV_CODE=J&FID_COND_SCR_DIV_CODE=16634&FID_INPUT_ISCD=${code}&FID_DIV_CLS_CODE=0&FID_INPUT_DATE_1=${_opbDate1}&FID_INPUT_DATE_2=${_opbDate2}`;
 
     const fetchAllKis = (hdr) => Promise.all([
       timedFetch(priceUrl('J'), { headers: hdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
@@ -1043,7 +1045,7 @@ export default async function handler(req, res) {
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(estimateUrl,              { headers: hdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
-      timedFetch(investOpnnUrl,            { headers: hdr('HHKST663100C0') }).then(r => r.text()).then(t => { try { return JSON.parse(t); } catch(_) { return { _rawText: t.slice(0, 300) }; } }).catch(e => ({ _fetchError: e.message })),
+      timedFetch(investOpnnUrl,            { headers: hdr('FHKST663400C0') }).then(r => r.json()).catch(() => null),
     ]);
 
     let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw] = await fetchAllKis(kisHdr);
