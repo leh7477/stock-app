@@ -1183,18 +1183,25 @@ export default async function handler(req, res) {
 
 // DART 재무지표 읽기 (분기 1회 업데이트) — 전체 맵 보존 (경쟁사 비교용)
 let dartEps = null, dartFinancials = null, dartFinancialsMap = null;
+let _dartDebug = { step: 'init', keyExists: false, codeInMap: false, rawSample: null, error: null };
 try {
   const dfRaw = await timedFetch(`${_redisUrl}/get/dart_financials`, {
     headers: { Authorization: `Bearer ${_redisToken}` },
   }).then(r => r.json());
+  _dartDebug.keyExists = !!dfRaw.result;
   if (dfRaw.result) {
     dartFinancialsMap = JSON.parse(dfRaw.result);
+    _dartDebug.step      = 'parsed';
+    _dartDebug.mapSize   = Object.keys(dartFinancialsMap).length;
+    _dartDebug.codeInMap = code in dartFinancialsMap;
+    _dartDebug.rawSample = dartFinancialsMap[code] ?? null; // 해당 종목 원시값
     if (dartFinancialsMap[code]) {
       dartFinancials = dartFinancialsMap[code];
       dartEps = dartFinancials.eps ?? null;
+      _dartDebug.step = 'loaded';
     }
   }
-} catch (_) {}
+} catch (e) { _dartDebug.error = e.message; }
 // dart_financials 없으면 dart_eps fallback
 if (dartEps === null) {
   try {
@@ -1203,7 +1210,10 @@ if (dartEps === null) {
     }).then(r => r.json());
     if (dpRaw.result) {
       const dpMap = JSON.parse(dpRaw.result);
-      if (dpMap[code] !== undefined) dartEps = dpMap[code];
+      if (dpMap[code] !== undefined) {
+        dartEps = dpMap[code];
+        _dartDebug.dartEpsFallback = dartEps;
+      }
     }
   } catch (_) {}
 }
@@ -1545,6 +1555,7 @@ if (dartEps === null) {
             o3rows: (estimateRaw?.output3 || []).map(row => ({ nm: row?.itmn || row?.hqic_kor_isnm || JSON.stringify(row)?.slice(0,40), d1: row?.data1, d2: row?.data2, d3: row?.data3 })),
             o4dates: (estimateRaw?.output4 || []).map(d => d?.dt),
           },
+          _dartDebug,
           _divDebug: {
             dvdn_yedn:    pOut.dvdn_yedn,
             dvdn_per:     pOut.dvdn_per,
