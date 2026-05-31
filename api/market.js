@@ -189,6 +189,84 @@ async function fetchSupply(kvUrl, kvToken) {
   } catch { return null; }
 }
 
+// ─── KIS 당일 거래대금 조회 ──────────────────────────────────────────────────
+// KOSPI + KOSDAQ 누적거래대금(acml_tr_pbmn) 합산
+// 캐시 TTL 5분 — 장중 실시간성 유지, 주말·휴장 시 0 반환 → 폴백 처리
+
+async function fetchKISTradingAmount(kvUrl, kvToken) {
+  if (!kvUrl || !kvToken) return null;
+
+  // 1. Redis 캐시 확인 (5분)
+  try {
+    const raw = await timedFetch(`${kvUrl}/get/trading_amt_cache`, {
+      headers: { Authorization:`Bearer ${kvToken}` },
+    }).then(r => r.json());
+    if (raw.result) return JSON.parse(raw.result);
+  } catch { /* fall through */ }
+
+  const kisKey    = process.env.KIS_APP_KEY;
+  const kisSecret = process.env.KIS_APP_SECRET;
+  if (!kisKey || !kisSecret) return null;
+
+  try {
+    // KIS 토큰 (Redis 캐시 공유)
+    const ktRaw = await timedFetch(`${kvUrl}/get/kis_token`, {
+      headers: { Authorization:`Bearer ${kvToken}` },
+    }).then(r => r.json()).catch(() => ({}));
+    let kisToken = ktRaw.result || null;
+    if (!kisToken) {
+      const td = await timedFetch('https://openapi.koreainvestment.com:9443/oauth2/tokenP', {
+        method:  'POST',
+        headers: { 'Content-Type':'application/json; charset=utf-8' },
+        body:    JSON.stringify({ grant_type:'client_credentials', appkey:kisKey, appsecret:kisSecret }),
+      }).then(r => r.json());
+      kisToken = td.access_token;
+      if (kisToken) {
+        await redisPipeline([['SET','kis_token', kisToken, 'EX','82800']], kvUrl, kvToken).catch(()=>{});
+      }
+    }
+    if (!kisToken) return null;
+
+    const kisHeaders = {
+      Authorization: `Bearer ${kisToken}`,
+      appkey:    kisKey,
+      appsecret: kisSecret,
+      tr_id:     'FHKUP03500100',
+      'Content-Type': 'application/json',
+    };
+
+    // KOSPI·KOSDAQ 병렬 조회
+    const [kpData, kdData] = await Promise.all([
+      timedFetch(
+        'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-index-price' +
+        '?fid_cond_mrkt_div_code=U&fid_input_iscd=0001',
+        { headers: kisHeaders }
+      ).then(r => r.json()).catch(() => null),
+      timedFetch(
+        'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-index-price' +
+        '?fid_cond_mrkt_div_code=U&fid_input_iscd=1001',
+        { headers: kisHeaders }
+      ).then(r => r.json()).catch(() => null),
+    ]);
+
+    if (kpData?.rt_cd !== '0' && kdData?.rt_cd !== '0') return null;
+
+    const kospiAmt  = parseInt(kpData?.output?.acml_tr_pbmn  || 0);
+    const kosdaqAmt = parseInt(kdData?.output?.acml_tr_pbmn  || 0);
+    const total     = kospiAmt + kosdaqAmt;
+
+    // 주말·휴장: 거래대금 0 → null 반환해서 last_trading_score 폴백으로
+    if (total <= 0) return null;
+
+    const result = { kospi: kospiAmt, kosdaq: kosdaqAmt, total };
+    await redisPipeline(
+      [['SET','trading_amt_cache', JSON.stringify(result), 'EX','300']],
+      kvUrl, kvToken
+    ).catch(()=>{});
+    return result;
+  } catch { return null; }
+}
+
 // ─── 컴포넌트 점수 계산 (모두 0~100, 50=중립) ───────────────────────────────
 
 function scoreIndexPos(kospiRate, kosdaqRate) {
@@ -483,7 +561,7 @@ export default async function handler(req, res) {
   const [kospiRaw, kosdaqRaw, usdRaw, nasdaqRaw, vixRaw,
          sp500Raw, dowRaw,
          kospiChartRaw, kosdaqChartRaw, nasdaqChartRaw,
-         supply, sentimentData, history, lastTradingScore] =
+         supply, sentimentData, history, lastTradingScore, kisTradingAmt] =
     await Promise.all([
       timedFetch('https://m.stock.naver.com/api/index/KOSPI/basic',  {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
       timedFetch('https://m.stock.naver.com/api/index/KOSDAQ/basic', {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
@@ -500,6 +578,7 @@ export default async function handler(req, res) {
       kvUrl && kvToken ? redisGet(SENTI_KEY,      kvUrl, kvToken) : null,
       kvUrl && kvToken ? redisGet(HIST_KEY,       kvUrl, kvToken).then(d => d || []) : [],
       kvUrl && kvToken ? redisGet(LAST_TRADE_KEY, kvUrl, kvToken) : null,
+      fetchKISTradingAmount(kvUrl, kvToken),
     ]);
 
   const kospi   = parseNaver(kospiRaw);
@@ -548,7 +627,12 @@ export default async function handler(req, res) {
   const rawScores = {
     indexPos: scoreIndexPos(kospi?.changeRate,  kosdaq?.changeRate),
     supply:   scoreSupply(supply),
-    trading:  scoreTrading(kospi?.tradeAmount, kosdaq?.tradeAmount, kospiTradingVals, kosdaqTradingVals),
+    // KIS 거래대금 우선, 없으면 Naver basic 폴백
+    trading:  scoreTrading(
+      kisTradingAmt?.kospi  ?? kospi?.tradeAmount,
+      kisTradingAmt?.kosdaq ?? kosdaq?.tradeAmount,
+      kospiTradingVals, kosdaqTradingVals
+    ),
     nasdaq:   scoreNasdaq(nasdaq?.changeRate),
     usd:      scoreUsd(usdkrw?.changeRate),
     vix:      scoreVix(vixData?.price),
