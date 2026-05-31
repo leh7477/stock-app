@@ -1417,30 +1417,38 @@ if (dartEps === null) {
             ? Math.round(latest.close / _kisEps * 10) / 10
             : 0;
     const hasFwdPer = consensusPer !== null;  // 컨센서스 PER 존재 여부
-    // PBR: estimate-perform output3[6] (연결 기준 컨센서스) 우선 → KIS 현재가 fallback
-    const oPbr = estimateRaw?.output3?.[6];
-    const _pbr2Consensus = oPbr
-      ? (() => {
-          const dataKeys = ['data1','data2','data3','data4','data5'];
-          const oDates2  = estimateRaw?.output4 || [];
-          const thisYear2 = new Date().getFullYear();
-          // 가장 최근 확정 또는 추정 PBR 선택 (EPS 선택 로직 동일)
-          let bIdx = -1, bIsE = false;
-          for (let i = 0; i < oDates2.length; i++) {
-            const dt = oDates2[i]?.dt || '';
-            const isE = dt.includes('E');
-            const v = parseFloat(oPbr[dataKeys[i]] || '0');
-            if (!v || v <= 0 || v >= 99) continue; // 99.99=데이터없음
-            if (isE && !bIsE) { bIdx = i; bIsE = true; break; }
-            if (!isE && parseInt(dt) >= thisYear2 - 1) bIdx = i;
-          }
-          if (bIdx === -1) for (let i = oDates2.length-1; i >= 0; i--) {
-            const v = parseFloat(oPbr[dataKeys[i]] || '0');
-            if (v > 0 && v < 99) { bIdx = i; break; }
-          }
-          return bIdx >= 0 ? parseFloat(oPbr[dataKeys[bIdx]]) : null;
-        })()
-      : null;
+    // PBR: estimate-perform output3[5]=BPS → currentPrice/BPS (연결 기준 컨센서스)
+    // output3[6]=PBR도 시도하되 99.99 필터링, 둘 다 실패 시 KIS 현재가 fallback
+    const _getEstimatePbr = () => {
+      const oDates2   = estimateRaw?.output4 || [];
+      const dataKeys  = ['data1','data2','data3','data4','data5'];
+      const thisYear2 = new Date().getFullYear();
+      const pickIdx   = (row, skipGe) => {
+        let bIdx = -1, bIsE = false;
+        for (let i = 0; i < oDates2.length; i++) {
+          const dt = oDates2[i]?.dt || '';
+          const isE = dt.includes('E');
+          const v = parseFloat(row?.[dataKeys[i]] || '0');
+          if (!v || v <= 0 || v >= (skipGe ?? 9999)) continue;
+          if (isE && !bIsE) { bIdx = i; bIsE = true; break; }
+          if (!isE && parseInt(dt) >= thisYear2 - 1) bIdx = i;
+        }
+        if (bIdx === -1) for (let i = oDates2.length-1; i >= 0; i--) {
+          const v = parseFloat(row?.[dataKeys[i]] || '0');
+          if (v > 0 && v < (skipGe ?? 9999)) { bIdx = i; break; }
+        }
+        return bIdx >= 0 ? parseFloat(row?.[dataKeys[bIdx]]) : null;
+      };
+      // 1안: output3[6] PBR 직접
+      const pbrDirect = pickIdx(estimateRaw?.output3?.[6], 99);
+      if (pbrDirect) return { val: pbrDirect, src: 'estimate-PBR' };
+      // 2안: output3[5] BPS → 현재가 / BPS
+      const bps = pickIdx(estimateRaw?.output3?.[5], 9999999);
+      if (bps && bps > 0 && latest.close > 0) return { val: Math.round(latest.close / bps * 100) / 100, src: 'BPS계산' };
+      return null;
+    };
+    const _pbr2Est = _getEstimatePbr();
+    const _pbr2Consensus = _pbr2Est?.val ?? null;
     const pbr2 = (_pbr2Consensus && _pbr2Consensus > 0) ? _pbr2Consensus : parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
     // 배당 수익률: KIS 현재가 API 복수 필드 시도
@@ -1464,12 +1472,14 @@ if (dartEps === null) {
     let epsHistoryForDisplay = dartFinancials?.epsHistory ?? null;
     if (oEps) {
       const dataKeys = ['data1','data2','data3','data4','data5'];
+      // KIS estimate-perform: data1=최신(추정), data5=과거 → reverse해서 과거→최신 순으로 변환
       const epsVals  = dataKeys
         .map(k => parseFloat(oEps[k] || '0'))
-        .filter(v => !isNaN(v) && v !== 0 && Math.abs(v) < 9999999);
+        .filter(v => !isNaN(v) && v !== 0 && Math.abs(v) < 9999999)
+        .reverse();
       if (epsVals.length >= 2) {
         epsAccel2 = calcEpsAcceleration(epsVals);
-        epsHistoryForDisplay = epsVals; // UI 표시용으로 oEps 배열 사용
+        epsHistoryForDisplay = epsVals;
       }
     }
     if (epsAccel2 === 0) epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
@@ -1604,8 +1614,8 @@ if (dartEps === null) {
           consensusEps, consensusDate, consensusTarget,
           hasFwdPer,
           _investOpnnDebug: investOpnnRaw ?? '__null__',
-          _supplyDebug,
-          _pbrDebug: { pOutPbr: parseF(pOut.pbr||'0'), consensusPbr: _pbr2Consensus, usedPbr: pbr2 },
+          _supplyDebug: _supplyDebug ?? { fromRedis: true, d5: investorSupply?.d5, d20: investorSupply?.d20 },
+          _pbrDebug: { pOutPbr: parseF(pOut.pbr||'0'), consensusPbr: _pbr2Consensus, pbrSrc: _pbr2Est?.src, usedPbr: pbr2, bpsRaw: estimateRaw?.output3?.[5]?.data1 },
           _dartDebug,
           _divDebug: {
             dvdn_yedn:    pOut.dvdn_yedn,
