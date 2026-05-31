@@ -1544,7 +1544,7 @@ if (dartEps === null) {
           ffScore: ff2.total, ffDetail: ff2,
           divScore: divS, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
-          techScore: Math.round(techScore * 0.7),
+          techScore: Math.round(techScore * 0.65),
           techDetail,
           rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
           tag,
