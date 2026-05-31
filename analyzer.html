@@ -1258,8 +1258,9 @@ function renderKoreanScore(ks) {
     roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0,
     epsAccelScore = 0, epsHistory = null,
     ffScore = 0, ffDetail = null,
-    divScore = 0, mktCapScore = 0, personalScore = 0, frgnLowScore = 0, insolvencyScore = 0,
+    divScore = 0, divYield = null, mktCap = null, frgnRatio = null, mktCapScore = 0, personalScore = 0, frgnLowScore = 0, insolvencyScore = 0,
     tag = 'neutral',
+    pbrSectorData = null,
   } = ks;
   const c = scoreColor(Math.round(total / 50 * 100));
 
@@ -1315,6 +1316,25 @@ function renderKoreanScore(ks) {
       : epsAccelGrowth < 0
         ? `EPS ${epsAccelGrowth}% 역성장 (0점)`
         : `EPS +${epsAccelGrowth}% 성장 (${epsAccelScore >= 10 ? '10점' : epsAccelScore >= 7 ? '7점' : '4점'}${epsAccelScore > (epsAccelGrowth >= 50 ? 10 : epsAccelGrowth >= 20 ? 7 : 4) ? ' + 2분기 연속 가속' : ''})`;
+  const supplyLabel = v => v === null || v === undefined
+    ? '외인+기관 순매수 확인 안 됨'
+    : v > 0 ? '외인+기관 ✅ 순매수 우위'
+    : v < 0 ? '외인+기관 ❌ 순매도 우위'
+    : '외인+기관 ⚪ 수급 중립';
+  const dividendLabel = (() => {
+    const y = typeof divYield === 'number' ? divYield : null;
+    if (y === null || y <= 0) return '배당수익률 미확인';
+    return `${Math.round(y * 100) / 100}%`;
+  })();
+  const frgnRatioLabel = typeof frgnRatio === 'number' && frgnRatio > 0 ? `${Math.round(frgnRatio * 100) / 100}%` : '미확인';
+  const mktCapLabel = typeof mktCap === 'number' && mktCap > 0
+    ? (mktCap >= 10000 ? `${Math.round(mktCap / 1000) / 10}조` : `${Math.round(mktCap).toLocaleString()}억`)
+    : '미확인';
+  const refItem = (label, value) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);">
+      <span style="font-size:10px;color:var(--sub);">${label}</span>
+      <span style="font-size:11px;font-weight:700;color:var(--text);">${value}</span>
+    </div>`;
 
 
   el.innerHTML = `
@@ -1348,11 +1368,22 @@ function renderKoreanScore(ks) {
         <span class="det-arrow det-close">▼</span><span class="det-arrow det-open">▲</span>
         <span class="det-close">세부 내역 보기</span><span class="det-open">세부 내역 닫기</span>
       </summary>
-      ${row('PBR', `${pbr > 0 ? pbr.toFixed(2)+'배' : 'N/A'} — ${pbr<=0?'데이터없음':pbr<=0.5?'심각한 저평가(8점)':pbr<=0.8?'강한 저평가(6점)':pbr<=1.0?'장부가 이하(4점)':pbr<=1.2?'저평가(2점)':pbr<=1.5?'약간 저평가(1점)':'적정/고평가(0점)'}`, pbrScore, 8)}
+      ${(() => {
+        const pbrVal = pbr > 0 ? pbr.toFixed(2)+'배' : 'N/A';
+        let pbrDesc;
+        if (pbrSectorData) {
+          const pct = Math.round(pbrSectorData.pct * 100);
+          const basis = pbrSectorData.basis || '';
+          pbrDesc = `${pbrVal} — ${basis} · 하위 ${pct}%`;
+        } else {
+          pbrDesc = `${pbrVal} — ${pbr<=0?'데이터없음':pbr<=0.5?'심각한 저평가':pbr<=0.8?'강한 저평가':pbr<=1.0?'장부가 이하':pbr<=1.2?'저평가':pbr<=1.5?'약간 저평가':'적정/고평가'} (절대값 기준)`;
+        }
+        return row('PBR', pbrDesc, pbrScore, 8);
+      })()}
       ${row('섹터<br>등급', secLbl, secScore, 8)}
       ${row('forward<br>PER', fwdLbl, forwardPERScore, 10)}
-      ${row('수급<br>5일',  `외인+기관 ${d5FrgnInstRaw === null  ? '데이터 없음' : d5FrgnInstRaw  > 0 ? '✅ 순매수 우위'  : d5FrgnInstRaw  < 0 ? '❌ 순매도 우위'  : '⚪ 수급 중립'}`,  supplyD5,  4)}
-      ${row('수급<br>20일', `외인+기관 ${d20FrgnInstRaw === null ? '데이터 없음' : d20FrgnInstRaw > 0 ? '✅ 순매수 우위' : d20FrgnInstRaw < 0 ? '❌ 순매도 우위' : '⚪ 수급 중립'}`, supplyD20, 4)}
+      ${row('수급<br>5일',  supplyLabel(d5FrgnInstRaw),  supplyD5,  4)}
+      ${row('수급<br>20일', supplyLabel(d20FrgnInstRaw), supplyD20, 4)}
       ${row('DART<br>재무', `EPS성장 ${epsGScore} · ROE ${roScore} · 영업마진 ${opMarginScore} · 매출성장 ${revGScore} · 부채 ${debtPenalty}`, dartTotal, 10, debtPenalty < -2 ? '#ef4444' : c, true)}
       ${row('EPS<br>가속도', epsAccelLbl, epsAccelScore, 16, epsAccelScore >= 9 ? '#22c55e' : epsAccelScore >= 4 ? '#f59e0b' : 'var(--muted)')}
       ${(() => {
@@ -1368,7 +1399,12 @@ function renderKoreanScore(ks) {
         const ffCol = ffScore >= 8 ? '#22c55e' : ffScore >= 5 ? '#f59e0b' : 'var(--muted)';
         return row('Fama<br>French', ffLbl, ffScore, 10, ffCol);
       })()}
-      ${row('배당<br>수익률', divScore >= 3 ? `고배당 ${divScore}%↑ (${divScore}점)` : divScore >= 1 ? `배당 ${divScore}%↑` : '무배당 또는 데이터 없음', divScore, 4)}
+      <div style="margin:8px 0 4px;padding:8px 10px;border-radius:8px;background:var(--bg);">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);margin-bottom:2px;">참고 지표</div>
+        ${refItem('배당수익률', dividendLabel)}
+        ${refItem('외인보유율', frgnRatioLabel)}
+        ${refItem('시가총액', mktCapLabel)}
+      </div>
       <div class="ma-score-row">
         <div class="ma-score-label" style="font-size:9px;line-height:1.35;">공시<br>모멘텀</div>
         <div class="ma-score-bar-wrap">

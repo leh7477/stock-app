@@ -642,7 +642,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   }
 
   // 배당수익률 (0~4pt)
-  const divScore = divYield >= 4 ? 4 : divYield >= 3 ? 3 : divYield >= 2 ? 2 : divYield >= 1 ? 1 : 0;
+  const divScore = 0; // 배당수익률은 점수 제외, 참고 지표로만 표시
 
   // 시총 안정성 강화 (-8~0pt)
   const mktCapScore = mktCap > 0 && mktCap < 500  ? -8
@@ -670,7 +670,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
            perFinal:        secScore + forwardPERScore,
            supplyScore, supplyD5, supplyD20, discScore,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
-           divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
+           divScore, divYield, mktCap, frgnRatio, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
 }
 
 function maSignal(price, ma) {
@@ -1103,6 +1103,65 @@ async function main() {
   const scoreMap = {};
   results.forEach(s => { scoreMap[s.code] = s.score; });
   await redisSet('stock_scores', scoreMap, 28 * 3600);
+
+  // ── 섹터 내 상대 PBR 점수 계산 ────────────────────────────────────────────
+  // 업종별 PBR 백분위를 계산해 절대값 기준의 한계를 보완
+  // (반도체 PBR 2배 = 저평가, 유통 PBR 2배 = 고평가 등 업종 특성 반영)
+  console.log('[4/4+] 섹터 내 PBR 상대평가 계산...');
+  const MIN_SECTOR_SIZE = 3;
+  const pbrPctMap = {};
+
+  // 유효한 PBR 보유 종목만 추출
+  const validPbrStocks = results.filter(s => s.pbr > 0);
+
+  // 전체 시장 백분위 (소형 섹터 fallback용)
+  const allPbrsSorted = validPbrStocks.map(s => s.pbr).sort((a, b) => a - b);
+  const marketPctRank = (pbr) => {
+    if (!allPbrsSorted.length) return 0.5;
+    const below = allPbrsSorted.filter(p => p < pbr).length;
+    const equal = allPbrsSorted.filter(p => p === pbr).length;
+    return (below + equal * 0.5) / allPbrsSorted.length;
+  };
+
+  // 섹터별 그룹화
+  const sectorGroups = {};
+  validPbrStocks.forEach(s => {
+    const sec = s.sector || '기타';
+    if (!sectorGroups[sec]) sectorGroups[sec] = [];
+    sectorGroups[sec].push(s);
+  });
+
+  // 백분위 → 8점 만점 변환
+  const pctToScore = (pct) =>
+    pct <= 0.10 ? 8 : pct <= 0.25 ? 6 : pct <= 0.50 ? 4 : pct <= 0.75 ? 2 : pct <= 0.90 ? 1 : 0;
+
+  // 각 섹터 내 상대 백분위 산출
+  Object.entries(sectorGroups).forEach(([sector, stocks]) => {
+    const sorted = [...stocks].sort((a, b) => a.pbr - b.pbr);
+    const useSector = sorted.length >= MIN_SECTOR_SIZE;
+
+    stocks.forEach(stock => {
+      let pct, basis;
+      if (useSector) {
+        const below = sorted.filter(s => s.pbr < stock.pbr).length;
+        const equal = sorted.filter(s => s.pbr === stock.pbr).length;
+        pct = (below + equal * 0.5) / sorted.length;
+        basis = `${sector} 내 상대평가 (${sorted.length}개)`;
+      } else {
+        pct = marketPctRank(stock.pbr);
+        basis = `전체시장 기준 (${sector} ${sorted.length}개 미만)`;
+      }
+      pbrPctMap[stock.code] = {
+        pct:   Math.round(pct * 1000) / 1000,
+        score: pctToScore(pct),
+        sector,
+        basis,
+      };
+    });
+  });
+
+  await redisSet('pbr_sector_pct', pbrPctMap, 28 * 3600);
+  console.log(`      PBR 상대평가 맵 ${Object.keys(pbrPctMap).length}개 저장`);
 
   console.log(`      완료: ${results.length}개 종목 저장`);
   console.log(`      수급 맵 ${Object.keys(invMap).length}개, 점수 맵 ${Object.keys(scoreMap).length}개`);

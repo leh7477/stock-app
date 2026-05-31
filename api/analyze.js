@@ -662,18 +662,20 @@ function calcEpsAcceleration(epsHistory) {
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
 // PBR(0~8) + 섹터(0~8) + forwardPER(0~10) + 수급(0~8) + 공시(±2) + DART재무(최대10/-5)
 // + EPS가속(0~16) + FF(0~10) + 시총(-8~0) + 기타감점 = raw합계 → cap 50pt → ×0.5 = 최대 25pt
-function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0, ffScore = 0) {
+function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0, ffScore = 0, pbrScoreOverride = null) {
   const n   = closes.length - 1;
   const cur = closes[n];
 
-  // PBR 구간 이산 (0~8pt)
-  const pbrScore = pbr <= 0 ? 0
-                 : pbr <= 0.5 ? 8
-                 : pbr <= 0.8 ? 6
-                 : pbr <= 1.0 ? 4
-                 : pbr <= 1.2 ? 2
-                 : pbr <= 1.5 ? 1
-                 : 0;
+  // PBR 점수: 섹터 내 상대평가 override 우선 → 없으면 절대값 기준 fallback
+  const pbrScore = pbrScoreOverride !== null
+    ? pbrScoreOverride
+    : pbr <= 0 ? 0
+    : pbr <= 0.5 ? 8
+    : pbr <= 0.8 ? 6
+    : pbr <= 1.0 ? 4
+    : pbr <= 1.2 ? 2
+    : pbr <= 1.5 ? 1
+    : 0;
 
   // 섹터점수 (0~8pt) + forwardPER 구간 이산 (0~10pt)
   const secScore        = sectorGrowthScore(sector, stockName, stockCode);
@@ -722,7 +724,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
     }
   }
 
-  const divScore = 0; // 배당수익률 항목 제거 (EPS 가속도로 통합)
+  const divScore = 0; // 배당수익률은 점수 제외, 참고 지표로만 표시
 
   // 시총 안정성 강화 (-8~0pt)
   const mktCapScore = mktCap > 0 && mktCap < 500  ? -8
@@ -764,7 +766,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
            discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
            epsAccelScore, ffScore,
-           divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
+           divScore, divYield, mktCap, frgnRatio, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
 }
 
 function calcRecommend(cur, ma5, ma20, supportNum, resistanceNum, score) {
@@ -1243,6 +1245,18 @@ if (dartEps === null) {
       }
     } catch (_) {}
 
+    // 섹터 내 상대 PBR 점수 (update-recommend.js 배치 저장)
+    let pbrSectorData = null;
+    try {
+      const pbrPctRaw = await timedFetch(`${_redisUrl}/get/pbr_sector_pct`, {
+        headers: { Authorization: `Bearer ${_redisToken}` },
+      }).then(r => r.json());
+      if (pbrPctRaw.result) {
+        const pbrMap = JSON.parse(pbrPctRaw.result);
+        pbrSectorData = pbrMap[code] ?? null;
+      }
+    } catch (_) {}
+
     // 테마 섹터 레이블 (update-sector-labels.py 가 분기 1회 저장)
     let themeSector = null;
     try {
@@ -1440,8 +1454,12 @@ if (dartEps === null) {
       ? _pbr2Consensus
       : parseF(pOut.pbr || '0');
     const sector2  = (pOut.bstp_kor_isnm || pOut.bstp_kor_isn_nm || '').trim();
-    // 배당 수익률: KIS 현재가 API 복수 필드 시도
-    const divYield2 = parseF(pOut.dvdn_yedn || pOut.dvdn_per || pOut.bpps || '0');
+    // 배당수익률: 직접 필드 우선, 없으면 주당배당금 / 현재가로 계산
+    const _divYieldDirect = parseF(pOut.dvdn_yedn || pOut.dvdn_per || '0');
+    const _divPerShare = parseF(pOut.dvdn_prcs || '0');
+    const divYield2 = _divYieldDirect > 0
+      ? _divYieldDirect
+      : (_divPerShare > 0 && latest.close > 0 ? Math.round(_divPerShare / latest.close * 10000) / 100 : 0);
 
     const mktCap2    = marketCapV; // 억원 단위
     // 외인+기관 5일 순매수 (미래성장 가점용 — 이평선 배열과 겹치지 않는 독립 지표)
@@ -1473,7 +1491,7 @@ if (dartEps === null) {
     }
     if (epsAccel2 === 0) epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
     const ff2       = calcFamaFrench(closes, pbr2, dartFinancials?.operatingMargin ?? null, kospiDailyReturns);
-    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2, ff2.total);
+    const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2, ff2.total, pbrSectorData?.score ?? null);
     const korScore  = ks.total;
     const relResult       = calcRelStrengthScore(closes, weeklyCloses, market, marketReturns);
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
@@ -1576,7 +1594,7 @@ if (dartEps === null) {
         const { pbrScore: pbrS, secScore: secS, forwardPERScore: fwdPERs, perFinal: perFinalS,
                 supplyScore: supplyS, supplyD5: sd5, supplyD20: sd20, discScore: discS,
                 roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
-                divScore: divS, mktCapScore: mcS,
+                divScore: divS, divYield: divY, mktCap: mktCapRaw, frgnRatio: frgnRatioRaw, mktCapScore: mcS,
                 drawdown: drawdownPct, isIVExtreme } = ks;
         const rsiNow = rsiArr[n];
         const growthComment = (tag === 'growth' && per2 > 30)
@@ -1584,6 +1602,7 @@ if (dartEps === null) {
           : null;
         return {
           total: korScore, pbr: pbr2, per: per2,
+          pbrSectorData,   // { pct, score, sector, basis } — UI 표시용
           pbrScore: pbrS, secScore: secS, forwardPERScore: fwdPERs,
           growthScore: growthS, growthSector: growthSecS, growthBuy: growthBuyS,
           perFinal: perFinalS,
@@ -1592,7 +1611,7 @@ if (dartEps === null) {
           roScore: roS, epsGScore: epsS, opMarginScore: opS, revGScore: revS, debtPenalty: debtP,
           epsAccelScore: epsAccel2, epsHistory: epsHistoryForDisplay,
           ffScore: ff2.total, ffDetail: ff2,
-          divScore: divS, mktCapScore: mcS,
+          divScore: divS, divYield: divY ?? divYield2, mktCap: mktCapRaw ?? mktCap2, frgnRatio: frgnRatioRaw ?? frgnRatio2, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
           techScore: Math.round(techScore * 0.60),
           techDetail,
