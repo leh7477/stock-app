@@ -343,23 +343,23 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   width: 100%;
   min-height: 44px;
   margin-top: 10px;
-  padding: 0 16px;
-  background: rgba(37,99,235,.18);
-  border: 1px solid rgba(37,99,235,.4);
+  padding: 10px 16px;
+  background: #F4F5F7;
+  border: 1px solid #E2E8F0;
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
-  color: #93c5fd;
-  transition: background .15s, border-color .15s;
+  color: #4A5568;
+  transition: border-color .15s;
   user-select: none;
 }
-.det-summary:hover { background: rgba(37,99,235,.28); border-color: rgba(37,99,235,.55); }
+.det-summary:hover { border-color: #CBD5E0; }
 .det-summary::-webkit-details-marker { display: none; }
 .det-arrow { font-size: 13px; }
 /* 열린 상태 */
-details[open] > .det-summary { background: rgba(37,99,235,.28); border-color: rgba(37,99,235,.55); }
-details[open] > .det-summary:hover { background: rgba(37,99,235,.36); }
+details[open] > .det-summary { background: #F4F5F7; border-color: #E2E8F0; }
+details[open] > .det-summary:hover { border-color: #CBD5E0; }
 /* 열림/닫힘 텍스트·화살표 토글 */
 .det-open  { display: none; }
 .det-close { display: inline; }
