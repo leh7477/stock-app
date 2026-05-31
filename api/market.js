@@ -503,6 +503,21 @@ export default async function handler(req, res) {
   const kosdaqCandles     = parseNaverCandles(kosdaqChartRaw);
   const kospiTradingVals  = parseNaverTradingValues(kospiChartRaw);
   const kosdaqTradingVals = parseNaverTradingValues(kosdaqChartRaw);
+
+  // ── 거래대금 디버그 로그 ──────────────────────────────
+  console.log('[거래대금 디버그]', JSON.stringify({
+    kospiChartKeys:    kospiChartRaw  ? Object.keys(kospiChartRaw)  : 'null',
+    kosdaqChartKeys:   kosdaqChartRaw ? Object.keys(kosdaqChartRaw) : 'null',
+    firstItemKeys: (() => {
+      const items = naverChartItems(kospiChartRaw);
+      return Array.isArray(items) && items[0] ? Object.keys(items[0]) : 'no items';
+    })(),
+    kospiTradingValsLen:  kospiTradingVals  ? kospiTradingVals.length  : null,
+    kosdaqTradingValsLen: kosdaqTradingVals ? kosdaqTradingVals.length : null,
+    kospiTradeAmt:  kospi?.tradeAmount,
+    kosdaqTradeAmt: kosdaq?.tradeAmount,
+    lastTradingScore,
+  }));
   const nasdaqCandles = parseYahooCandles(nasdaqChartRaw);
   const adxKospi  = calcADX14(kospiCandles);
   const adxKosdaq = calcADX14(kosdaqCandles);
