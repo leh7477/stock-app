@@ -1105,14 +1105,29 @@ async function main() {
   await redisSet('stock_scores', scoreMap, 28 * 3600);
 
   // ── 섹터 내 상대 PBR 점수 계산 ────────────────────────────────────────────
-  // 업종별 PBR 백분위를 계산해 절대값 기준의 한계를 보완
-  // (반도체 PBR 2배 = 저평가, 유통 PBR 2배 = 고평가 등 업종 특성 반영)
-  console.log('[4/4+] 섹터 내 PBR 상대평가 계산...');
+  // Gemini 테마 섹터(sector_labels) 기준 그룹화 우선
+  // → 없는 종목은 KIS 업종명(s.sector) fallback
+  console.log('[4/4+] 섹터 내 PBR 상대평가 계산 (Gemini 테마 섹터 기준)...');
   const MIN_SECTOR_SIZE = 3;
   const pbrPctMap = {};
 
-  // 유효한 PBR 보유 종목만 추출
-  const validPbrStocks = results.filter(s => s.pbr > 0);
+  // Gemini 테마 섹터 레이블 로드 (분기 1회 저장, TTL 95일)
+  let geminiSectorMap = {};
+  try {
+    const slRaw = await redisGet('sector_labels');
+    if (slRaw) geminiSectorMap = JSON.parse(slRaw);
+    console.log(`      Gemini 섹터 레이블 ${Object.keys(geminiSectorMap).length}개 로드`);
+  } catch (_) {
+    console.warn('      sector_labels 로드 실패 — KIS 업종명으로 fallback');
+  }
+
+  // 유효한 PBR 보유 종목만 추출 + 섹터 결정
+  const validPbrStocks = results
+    .filter(s => s.pbr > 0)
+    .map(s => ({
+      ...s,
+      _sector: geminiSectorMap[s.code] || s.sector || '기타',
+    }));
 
   // 전체 시장 백분위 (소형 섹터 fallback용)
   const allPbrsSorted = validPbrStocks.map(s => s.pbr).sort((a, b) => a - b);
@@ -1123,10 +1138,10 @@ async function main() {
     return (below + equal * 0.5) / allPbrsSorted.length;
   };
 
-  // 섹터별 그룹화
+  // 섹터별 그룹화 (_sector 기준)
   const sectorGroups = {};
   validPbrStocks.forEach(s => {
-    const sec = s.sector || '기타';
+    const sec = s._sector;
     if (!sectorGroups[sec]) sectorGroups[sec] = [];
     sectorGroups[sec].push(s);
   });
@@ -1139,6 +1154,7 @@ async function main() {
   Object.entries(sectorGroups).forEach(([sector, stocks]) => {
     const sorted = [...stocks].sort((a, b) => a.pbr - b.pbr);
     const useSector = sorted.length >= MIN_SECTOR_SIZE;
+    const src = geminiSectorMap[stocks[0]?.code] ? 'Gemini' : 'KIS업종';
 
     stocks.forEach(stock => {
       let pct, basis;
@@ -1146,7 +1162,7 @@ async function main() {
         const below = sorted.filter(s => s.pbr < stock.pbr).length;
         const equal = sorted.filter(s => s.pbr === stock.pbr).length;
         pct = (below + equal * 0.5) / sorted.length;
-        basis = `${sector} 내 상대평가 (${sorted.length}개)`;
+        basis = `${sector} 내 상대평가 (${sorted.length}개·${src})`;
       } else {
         pct = marketPctRank(stock.pbr);
         basis = `전체시장 기준 (${sector} ${sorted.length}개 미만)`;
