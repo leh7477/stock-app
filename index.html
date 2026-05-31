@@ -178,8 +178,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* 헤더·행 공통 그리드 */
 .slist-hdr, .srow {
   display: grid;
-  grid-template-columns: 28px minmax(140px,2fr) 74px 90px 85px 62px 80px 1fr;
-  grid-template-areas: "av ns score sig price chg vol tags";
+  grid-template-columns: 28px minmax(110px,1.5fr) minmax(70px,0.8fr) 74px 90px 85px 62px 80px 1fr;
+  grid-template-areas: "av ns sector score sig price chg vol tags";
   align-items: center;
 }
 
@@ -191,7 +191,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 }
 .slist-hdr > div { font-size: 10.5px; font-weight: 600; color: var(--muted); padding: 0 4px; }
 .sh-av {}
-.sh-ns  { padding-left: 10px; }
+.sh-ns     { padding-left: 10px; }
+.sh-sector { color: var(--muted); }
 .sh-score, .sh-price, .sh-chg, .sh-vol { text-align: right; }
 .sh-sig { text-align: center; }
 .sh-tags { padding-left: 10px; }
@@ -199,7 +200,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* 행 */
 .srow {
   padding: 9px 16px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(0,0,0,0.3);
   cursor: pointer;
   transition: background .1s;
 }
@@ -207,9 +208,11 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .srow:last-child { border-bottom: none; }
 
 /* 그리드 영역 할당 */
-.sr-av        { grid-area: av; }
-.sr-name-sec  { grid-area: ns; padding-left: 8px; min-width: 0; }
-.sr-score     { grid-area: score; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+.sr-av           { grid-area: av; }
+.sr-name-sec     { grid-area: ns; padding-left: 8px; min-width: 0; }
+.sr-sector-cell  { grid-area: sector; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+.sr-sec          { display: none; } /* 데스크탑: 섹터는 별도 컬럼에 표시 */
+.sr-score        { grid-area: score; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 .sr-sig-cell  { grid-area: sig; text-align: center; }
 .sr-price-cell{ grid-area: price; text-align: right; }
 .sr-chg-cell  { grid-area: chg; text-align: right; }
@@ -462,7 +465,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
   .sr-score     { grid-area: score; align-self: center; align-items: flex-end; }
   .sr-sig-cell  { grid-area: sig; text-align: left; }
   .sr-price-cell{ grid-area: price; text-align: left; }
-  .sr-chg-cell, .sr-vol-cell { display: none; }
+  .sr-chg-cell, .sr-vol-cell, .sr-sector-cell { display: none; }
+  .sr-sec { display: block; } /* 모바일: 섹터를 종목명 아래에 표시 */
   .sr-tags-cell { grid-area: tags; justify-content: flex-end; padding-left: 0; }
   .sr-chg-mob   { display: inline; }
   .sr-name      { font-size: 13.5px; }
@@ -1252,6 +1256,7 @@ function makeTop10List(stocks, tab) {
         <div class="sr-name"><span class="sr-rank">${rank}</span> ${s.name}</div>
         ${sector ? `<div class="sr-sec">${sector}</div>` : ''}
       </div>
+      <div class="sr-sector-cell">${sector}</div>
       ${scoreCell}
       <div class="sr-sig-cell">${sigHtml}</div>
       <div class="sr-price-cell">
@@ -1659,7 +1664,8 @@ function fmtTradingAmt(s) {
 function listHeader(scoreLabel = '점수') {
   return `<div class="slist-hdr">
     <div class="sh-av"></div>
-    <div class="sh-ns">종목 / 테마섹터</div>
+    <div class="sh-ns">종목</div>
+    <div class="sh-sector">테마섹터</div>
     <div class="sh-score">${scoreLabel}</div>
     <div class="sh-sig">시그널</div>
     <div class="sh-price">현재가</div>
@@ -1691,6 +1697,7 @@ function cardHTML(s) {
       <div class="sr-name">${s.name}</div>
       ${sector ? `<div class="sr-sec">${sector}</div>` : ''}
     </div>
+    <div class="sr-sector-cell">${sector}</div>
     <div class="sr-score">
       <span class="sr-sc-num" style="color:${sc}">${s.score}</span>
       <div class="sr-sc-bar"><div style="width:${s.score}%;background:${sc}"></div></div>
