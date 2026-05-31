@@ -1340,12 +1340,13 @@ if (dartEps === null) {
     let consensusEps  = null;
     let consensusPer  = null;
     let consensusDate = null;
+    let oEps          = null; // EPS 가속도 폴백용 (try 스코프 밖으로)
     try {
       const oDates = estimateRaw?.output4;
       // output3 구조: [0]영업이익(억원) [1]세전이익 [2]당기순이익 [3]EPS(원/주) [4]PER(배) [5]BPS [6]PBR [7]ROE
       // → PER(배)를 직접 사용 (EPS 단위 혼선 방지)
       const oPer   = estimateRaw?.output3?.[4]; // PER(배) 직접 사용
-      const oEps   = estimateRaw?.output3?.[3]; // EPS(원/주) — 표시용
+      oEps         = estimateRaw?.output3?.[3]; // EPS(원/주) — 표시용
       if (oDates && oPer) {
         const dataKeys  = ['data1','data2','data3','data4','data5'];
         const thisYear  = new Date().getFullYear();
