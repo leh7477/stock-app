@@ -22,9 +22,10 @@
 
 'use strict';
 
-const CACHE_KEY   = 'market_v4';
-const HIST_KEY    = 'market_history';
-const SENTI_KEY   = 'market_sentiment';
+const CACHE_KEY      = 'market_v4';
+const HIST_KEY       = 'market_history';
+const SENTI_KEY      = 'market_sentiment';
+const LAST_TRADE_KEY = 'last_trading_score';
 const CACHE_TTL   = 1800;                 // 30분 캐시
 const STALE_TTL   = CACHE_TTL + 3600;
 const HIST_TTL    = 100 * 86400;          // 100일
@@ -397,9 +398,16 @@ function parseYahooCandles(json) {
   return candles.length >= 16 ? candles : null;
 }
 
+// Naver 차트 API 응답에서 items 배열 추출 (키 이름 대소문자 변형 모두 커버)
+function naverChartItems(json) {
+  return json?.chartinfos   || json?.chartInfos   ||
+         json?.priceinfos   || json?.priceInfos   ||
+         json?.candleInfos  || json?.candleinfos  || null;
+}
+
 // Naver 지수 차트 캔들 파싱 (일봉)
 function parseNaverCandles(json) {
-  const items = json?.chartinfos || json?.priceinfos || null;
+  const items = naverChartItems(json);
   if (!Array.isArray(items)) return null;
   const candles = items
     .filter(d => d.closePrice && d.highPrice && d.lowPrice)
@@ -414,11 +422,13 @@ function parseNaverCandles(json) {
 
 // Naver 지수 차트 거래대금 파싱 (일봉, 단위: 원)
 function parseNaverTradingValues(json) {
-  const items = json?.chartinfos || json?.priceinfos || null;
+  const items = naverChartItems(json);
   if (!Array.isArray(items)) return null;
   const values = items
     .map(d => parseFloat(String(
-      d.accumulatedTradingValue || d.tradingValue || d.tradeAmount || '0'
+      d.accumulatedTradingValue || d.tradingValue  ||
+      d.tradeAmount             || d.tradingAmount ||
+      d.amount                  || '0'
     ).replace(/,/g,'')) || 0)
     .filter(v => v > 0);
   return values.length >= 5 ? values : null;
@@ -461,7 +471,7 @@ export default async function handler(req, res) {
   const [kospiRaw, kosdaqRaw, usdRaw, nasdaqRaw, vixRaw,
          sp500Raw, dowRaw,
          kospiChartRaw, kosdaqChartRaw, nasdaqChartRaw,
-         supply, sentimentData, history] =
+         supply, sentimentData, history, lastTradingScore] =
     await Promise.all([
       timedFetch('https://m.stock.naver.com/api/index/KOSPI/basic',  {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
       timedFetch('https://m.stock.naver.com/api/index/KOSDAQ/basic', {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
@@ -475,8 +485,9 @@ export default async function handler(req, res) {
       timedFetch('https://m.stock.naver.com/api/index/KOSDAQ/chart?timeframe=day&count=40', {headers:NAVER_UA}).then(r=>r.json()).catch(()=>null),
       timedFetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EIXIC?interval=1d&range=3mo').then(r=>r.json()).catch(()=>null),
       fetchSupply(kvUrl, kvToken),
-      kvUrl && kvToken ? redisGet(SENTI_KEY, kvUrl, kvToken) : null,
-      kvUrl && kvToken ? redisGet(HIST_KEY,  kvUrl, kvToken).then(d => d || []) : [],
+      kvUrl && kvToken ? redisGet(SENTI_KEY,      kvUrl, kvToken) : null,
+      kvUrl && kvToken ? redisGet(HIST_KEY,       kvUrl, kvToken).then(d => d || []) : [],
+      kvUrl && kvToken ? redisGet(LAST_TRADE_KEY, kvUrl, kvToken) : null,
     ]);
 
   const kospi   = parseNaver(kospiRaw);
@@ -531,15 +542,17 @@ export default async function handler(req, res) {
     news:     scoreNews(sentimentData?.score ?? null),
   };
 
-  // 주말·휴장일 폴백: null 컴포넌트를 가장 최근 거래일 히스토리 값으로 대체
+  // 주말·휴장일 폴백 1: 히스토리에서 null 아닌 가장 최근 값으로 대체
   const today = kstDate();
-  const recentEntry = history.find(h => h.date !== today && h.components);
-  if (recentEntry) {
-    for (const key of Object.keys(rawScores)) {
-      if (rawScores[key] == null && recentEntry.components[key] != null) {
-        rawScores[key] = recentEntry.components[key];
-      }
-    }
+  for (const key of Object.keys(rawScores)) {
+    if (rawScores[key] != null) continue;
+    const found = history.find(h => h.date !== today && h.components?.[key] != null);
+    if (found) rawScores[key] = found.components[key];
+  }
+
+  // 폴백 2: trading이 여전히 null이면 별도 저장된 last_trading_score 사용
+  if (rawScores.trading == null && lastTradingScore != null) {
+    rawScores.trading = lastTradingScore;
   }
 
   const { score: todayRaw, detail } = calcWeightedScore(rawScores);
@@ -567,6 +580,14 @@ export default async function handler(req, res) {
   };
   if (kvUrl && kvToken) {
     await saveHistory(histEntry, history, kvUrl, kvToken);
+    // trading 점수가 유효하면 최근 거래일 값으로 별도 저장 (주말 폴백용)
+    const tradingNow = rawScores.trading;
+    if (tradingNow != null && tradingNow !== lastTradingScore) {
+      redisPipeline(
+        [['SET', LAST_TRADE_KEY, JSON.stringify(tradingNow), 'EX', String(7 * 86400)]],
+        kvUrl, kvToken
+      ).catch(() => {});
+    }
   }
 
   /* ── 6) 응답 구성 ───────────────────────────────────────────────── */
