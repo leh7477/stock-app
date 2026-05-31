@@ -1218,6 +1218,7 @@ function renderKoreanScore(ks) {
     total = 0, pbr = 0, per = 0,
     pbrScore = 0, secScore = 0, forwardPERScore = 0, hasFwdPer = true, consensusDate = null,
     supplyScore = 0, supplyD5 = 0, supplyD20 = 0,
+    d5FrgnInstRaw = null, d20FrgnInstRaw = null,
     disclosureScore = 0,
     roScore = 0, epsGScore = 0, opMarginScore = 0, revGScore = 0, debtPenalty = 0,
     epsAccelScore = 0, epsHistory = null,
@@ -1305,8 +1306,8 @@ function renderKoreanScore(ks) {
       ${row('PBR', `${pbr > 0 ? pbr.toFixed(2)+'배' : 'N/A'} — ${pbr<=0?'데이터없음':pbr<=0.5?'심각한 저평가(8점)':pbr<=0.8?'강한 저평가(6점)':pbr<=1.0?'장부가 이하(4점)':pbr<=1.2?'저평가(2점)':pbr<=1.5?'약간 저평가(1점)':'적정/고평가(0점)'}`, pbrScore, 8)}
       ${row('섹터<br>등급', secLbl, secScore, 8)}
       ${row('forward<br>PER', fwdLbl, forwardPERScore, 10)}
-      ${row('수급<br>5일', `외인+기관 ${supplyD5 > 0 ? '✅ 순매수' : '❌ 없음'}`, supplyD5, 4)}
-      ${row('수급<br>20일', `외인+기관 ${supplyD20 > 0 ? '✅ 순매수 지속' : '❌ 없음'}`, supplyD20, 4)}
+      ${row('수급<br>5일',  `외인+기관 ${d5FrgnInstRaw === null  ? '데이터 없음' : d5FrgnInstRaw  > 0 ? '✅ 순매수 우위'  : d5FrgnInstRaw  < 0 ? '❌ 순매도 우위'  : '⚪ 수급 중립'}`,  supplyD5,  4)}
+      ${row('수급<br>20일', `외인+기관 ${d20FrgnInstRaw === null ? '데이터 없음' : d20FrgnInstRaw > 0 ? '✅ 순매수 우위' : d20FrgnInstRaw < 0 ? '❌ 순매도 우위' : '⚪ 수급 중립'}`, supplyD20, 4)}
       ${row('DART<br>재무', `EPS성장 ${epsGScore} · ROE ${roScore} · 영업마진 ${opMarginScore} · 매출성장 ${revGScore} · 부채 ${debtPenalty}`, dartTotal, 10, debtPenalty < -2 ? '#ef4444' : c, true)}
       ${row('EPS<br>가속도', epsAccelLbl, epsAccelScore, 12, epsAccelScore >= 9 ? '#22c55e' : epsAccelScore >= 4 ? '#f59e0b' : 'var(--muted)')}
       ${(() => {
@@ -1335,9 +1336,13 @@ function renderKoreanScore(ks) {
         <div class="ma-score-label" style="font-size:9px;line-height:1.35;">시총<br>안정성</div>
         <div class="ma-score-bar-wrap">
           <div style="font-size:10px;color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};margin-bottom:3px">${mcLbl}</div>
-          ${bar(8 + mktCapScore, 8, mktCapScore < 0 ? '#ef4444' : c)}
+          ${mktCapScore < 0 ? bar(8 + mktCapScore, 8, '#ef4444') : ''}
         </div>
-        <div class="ma-score-val" style="color:${mktCapScore < 0 ? '#ef4444' : 'var(--muted)'};min-width:36px;text-align:right;">${mktCapScore}<span style="font-size:10px;font-weight:400;color:var(--muted);"> pt</span></div>
+        <div class="ma-score-val" style="min-width:36px;text-align:right;">
+          ${mktCapScore < 0
+            ? `<span style="color:#ef4444;">${mktCapScore}<span style="font-size:10px;font-weight:400;color:var(--muted);"> pt</span></span>`
+            : `<span style="font-size:10px;font-weight:700;color:#16a34a;background:rgba(34,197,94,0.12);padding:2px 6px;border-radius:4px;">✅ PASS</span>`}
+        </div>
       </div>
       ${personalScore < 0 ? `
       <div class="ma-score-row">
@@ -1365,7 +1370,11 @@ function renderKoreanScore(ks) {
           </div>
           ${bar(insolvencyScore < 0 ? 3 : 0, 3, insolvencyScore < 0 ? '#ef4444' : c)}
         </div>
-        <div class="ma-score-val" style="color:${insolvencyScore < 0 ? '#ef4444' : 'var(--muted)'};min-width:36px;text-align:right;">${insolvencyScore}<span style="font-size:10px;font-weight:400;color:var(--muted);"> pt</span></div>
+        <div class="ma-score-val" style="min-width:36px;text-align:right;">
+          ${insolvencyScore < 0
+            ? `<span style="color:#ef4444;">${insolvencyScore}<span style="font-size:10px;font-weight:400;color:var(--muted);"> pt</span></span>`
+            : `<span style="font-size:10px;font-weight:700;color:#16a34a;background:rgba(34,197,94,0.12);padding:2px 6px;border-radius:4px;">✅ PASS</span>`}
+        </div>
       </div>
     </details>
 

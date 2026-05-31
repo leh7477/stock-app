@@ -687,8 +687,9 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   const perFinal        = secScore + forwardPERScore;
 
   // 외인기관 수급 (0~8pt): 5일 + 20일 분리
-  const supplyD5  = (typeof d5FrgnInst  === 'number' && d5FrgnInst  > 0) ? 4 : 0;
-  const supplyD20 = (typeof d20FrgnInst === 'number' && d20FrgnInst > 0) ? 4 : 0;
+  // 양수=순매수(4점), 0=중립(2점), 음수=순매도(0점), null=데이터없음(0점)
+  const supplyD5  = typeof d5FrgnInst  !== 'number' ? 0 : d5FrgnInst  > 0 ? 4 : d5FrgnInst  < 0 ? 0 : 2;
+  const supplyD20 = typeof d20FrgnInst !== 'number' ? 0 : d20FrgnInst > 0 ? 4 : d20FrgnInst < 0 ? 0 : 2;
   const supplyScore = supplyD5 + supplyD20;
 
   // 공시 모멘텀 (±2pt)
@@ -758,7 +759,9 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
   ));
   return { total,
            pbrScore, secScore, forwardPERScore, perFinal,
-           supplyScore, supplyD5, supplyD20, discScore, drawdown, isIVExtreme,
+           supplyScore, supplyD5, supplyD20,
+           d5FrgnInstRaw: d5FrgnInst, d20FrgnInstRaw: d20FrgnInst,
+           discScore, drawdown, isIVExtreme,
            roScore, epsGScore, opMarginScore, revGScore, debtPenalty,
            epsAccelScore, ffScore,
            divScore, mktCapScore, personalScore, frgnLowScore, insolvencyScore };
@@ -1430,16 +1433,16 @@ if (dartEps === null) {
     const techDetail  = techResult.detail;
 
     // EPS 가속도: DART Redis 우선 → estimate-perform oEps 폴백
-    let epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
-    if (epsAccel2 === 0 && oEps) {
+    // EPS 가속도 우선순위: 1) KIS estimate-perform → 2) DART epsHistory → 3) 0점
+    let epsAccel2 = 0;
+    if (oEps) {
       const dataKeys = ['data1','data2','data3','data4','data5'];
       const epsVals  = dataKeys
         .map(k => parseFloat(oEps[k] || '0'))
-        .filter(v => !isNaN(v) && v !== 0 && Math.abs(v) < 9999999); // 음수(적자) 포함
-      if (epsVals.length >= 2) {
-        epsAccel2 = calcEpsAcceleration(epsVals);
-      }
+        .filter(v => !isNaN(v) && v !== 0 && Math.abs(v) < 9999999);
+      if (epsVals.length >= 2) epsAccel2 = calcEpsAcceleration(epsVals);
     }
+    if (epsAccel2 === 0) epsAccel2 = calcEpsAcceleration(dartFinancials?.epsHistory ?? null);
     const ff2       = calcFamaFrench(closes, pbr2, dartFinancials?.operatingMargin ?? null, kospiDailyReturns);
     const ks        = calcKoreanScore(pbr2, per2, rsiArr[n], closes, sector2, d5FrgnInst2, disclosures, name, code, dartFinancials, d20FrgnInst2, divYield2 ?? 0, mktCap2 ?? 0, frgnRatio2, d5Personal2, epsAccel2, ff2.total);
     const korScore  = ks.total;
