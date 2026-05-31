@@ -400,6 +400,58 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* 구버전 클래스 호환 — 기존 코드가 혹시 참조하면 숨김 방지용 */
 .t10-item { display:none; }
 
+/* ── 모바일 768px 이하 ──────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* 종목 카드 (scard) */
+  .scard {
+    grid-template-columns: 32px 1fr auto;
+    gap: 10px;
+    padding: 12px 13px;
+  }
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .sname { font-size: 14px; }
+  .sname-row { gap: 5px; margin-bottom: 4px; }
+
+  /* MA 배지 3번째(60일) 숨김 → 최대 2개 표시 */
+  .ma-row .ma-badge:nth-child(3) { display: none; }
+
+  .stats-row { gap: 3px; margin-top: 5px; }
+  .sscore-wrap { min-width: 54px; gap: 4px; }
+  .score-num { font-size: 16px; }
+  .score-bar { width: 52px; }
+  .score-lbl { font-size: 9px; }
+  .ssignal { font-size: 10px; }
+
+  /* TOP10 카드 — 코드번호·RSI 숨김 */
+  .t20-sub  { display: none; }
+  .t20-rsi  { display: none; }
+  .t20-av   { width: 32px; height: 32px; border-radius: 8px; font-size: 14px; }
+  .t20-hdr  { gap: 8px; }
+  .t20-name { font-size: 13px; }
+
+  /* 핫테마 버튼 — 3열 그리드 */
+  .sector-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .sector-chip {
+    padding: 7px 6px;
+    gap: 4px;
+    border-radius: 10px;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+  }
+  .sc-emoji { font-size: 14px; }
+  .sc-name  { font-size: 10px; text-align: center; word-break: keep-all; }
+}
+
 /* ── 2026 테마 섹터 ── */
 .sector-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .sector-chip {
@@ -1190,7 +1242,7 @@ function makeTop10List(stocks, tab) {
       </div>
       <div class="t20-body">
         ${priceTxt ? `<span class="t20-price">${priceTxt}<span class="t20-chg ${up?'up':'down'}">${chgTxt}</span></span>` : ''}
-        ${rsiTxt ? `<span class="t20-stat">${rsiTxt}</span>` : ''}
+        ${rsiTxt ? `<span class="t20-stat t20-rsi">${rsiTxt}</span>` : ''}
         ${bodyMetric}
         <div class="t20-tags">${reasonsHtml}</div>
       </div>
