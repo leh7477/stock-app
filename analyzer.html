@@ -327,22 +327,22 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
   min-height: 44px;
   margin-top: 10px;
   padding: 0 16px;
-  background: rgba(255,255,255,.11);
-  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(37,99,235,.18);
+  border: 1px solid rgba(37,99,235,.4);
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
-  font-weight: 600;
-  color: rgba(246,244,239,.75);
-  transition: background .15s, border-color .15s, color .15s;
+  font-weight: 700;
+  color: #93c5fd;
+  transition: background .15s, border-color .15s;
   user-select: none;
 }
-.det-summary:hover { background: rgba(255,255,255,.17); border-color: rgba(255,255,255,.32); color: #F6F4EF; }
+.det-summary:hover { background: rgba(37,99,235,.28); border-color: rgba(37,99,235,.55); }
 .det-summary::-webkit-details-marker { display: none; }
 .det-arrow { font-size: 13px; }
-/* 열린 상태: 파란 배경 */
-details[open] > .det-summary { background: rgba(37,99,235,.18); border-color: rgba(37,99,235,.4); color: #93c5fd; }
-details[open] > .det-summary:hover { background: rgba(37,99,235,.26); }
+/* 열린 상태 */
+details[open] > .det-summary { background: rgba(37,99,235,.28); border-color: rgba(37,99,235,.55); }
+details[open] > .det-summary:hover { background: rgba(37,99,235,.36); }
 /* 열림/닫힘 텍스트·화살표 토글 */
 .det-open  { display: none; }
 .det-close { display: inline; }
