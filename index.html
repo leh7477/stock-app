@@ -246,6 +246,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 
 /* 모바일 전용 (기본값: 숨김) */
 .sr-chg-mob { display: none; font-size: 11px; font-weight: 600; margin-left: 5px; }
+.sr-sig-mob { display: none; } /* 데스크탑: 숨김 / 모바일: inline-flex */
+.sr-sec-mob { display: none; } /* 데스크탑: 숨김 */
 
 /* ── 초보자 가이드 ─── */
 .guide { margin-top: 20px; background: var(--card); border: 1.5px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
@@ -433,45 +435,76 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* ── 모바일 768px 이하 ──────────────────────────────────── */
 @media (max-width: 768px) {
 
-  /* 종목 테이블 → 카드형 전환 */
-  .slist {
-    background: none;
-    border: none;
-    border-radius: 0;
-    box-shadow: none;
-    gap: 6px;
-  }
+  /* 종목 테이블 → 화이트 카드형 전환 */
+  .slist { background: none; border: none; border-radius: 0; box-shadow: none; gap: 6px; }
   .slist-hdr { display: none; }
+
   .srow {
     display: grid;
-    grid-template-columns: 28px 1fr auto;
-    grid-template-rows: auto auto auto;
-    grid-template-areas:
-      "av  ns    score"
-      ".   sig   sig  "
-      ".   price tags ";
-    column-gap: 8px;
-    row-gap: 3px;
-    padding: 11px 13px;
-    background: var(--card);
-    border: 1.5px solid var(--border);
+    grid-template-columns: 32px 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 9px;
+    row-gap: 5px;
+    padding: 12px 13px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
     border-radius: 12px;
-    box-shadow: var(--shadow);
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    border-bottom: 1px solid #e5e7eb !important;
   }
-  .srow:last-child { border-bottom: 1.5px solid var(--border); }
-  .srow:hover { background: var(--card); border-color: var(--blue); }
-  .sr-av        { grid-area: av; align-self: start; padding-top: 2px; }
-  .sr-name-sec  { grid-area: ns; padding-left: 0; align-self: center; }
-  .sr-score     { grid-area: score; align-self: center; align-items: flex-end; }
-  .sr-sig-cell  { grid-area: sig; text-align: left; }
-  .sr-price-cell{ grid-area: price; text-align: left; }
+  .srow:hover { background: #f9fafb; border-color: #93c5fd; }
+  .srow:last-child { border-bottom: 1px solid #e5e7eb !important; }
+
+  /* 아이콘: 두 행에 걸쳐 세로 중앙 */
+  .sr-av        { grid-column: 1; grid-row: 1 / 3; align-self: center; }
+  /* 종목명+시그널(인라인): row1 left */
+  .sr-name-sec  { grid-column: 2; grid-row: 1; padding-left: 0; align-self: end; min-width: 0; }
+  /* 점수: row1 right */
+  .sr-score     { grid-column: 3; grid-row: 1; align-self: center; align-items: flex-end; }
+  /* 가격+등락: row2 left */
+  .sr-price-cell{ grid-column: 2; grid-row: 2; text-align: left; align-self: start; }
+  /* 태그: row2 right */
+  .sr-tags-cell { grid-column: 3; grid-row: 2; justify-content: flex-end; padding-left: 0; align-self: start; }
+
+  /* 데스크탑 전용 숨김 */
+  .sr-sig-cell  { display: none; }
   .sr-chg-cell, .sr-vol-cell, .sr-sector-cell { display: none; }
-  .sr-sec { display: block; } /* 모바일: 섹터를 종목명 아래에 표시 */
-  .sr-tags-cell { grid-area: tags; justify-content: flex-end; padding-left: 0; }
-  .sr-chg-mob   { display: inline; }
-  .sr-name      { font-size: 13.5px; }
-  .sr-sc-num    { font-size: 15px; }
-  .sr-sc-bar    { width: 40px; }
+  .sr-sec       { display: none; } /* 섹터는 종목명 옆 인라인 배지로 대체 */
+
+  /* 인라인 시그널 배지 (mobile only) */
+  .sr-sig-mob   { display: inline-flex; align-items: center; margin-left: 5px;
+                  font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 99px;
+                  vertical-align: middle; white-space: nowrap; }
+  .sr-sig-mob.sig-entry   { background: #dcfce7; color: #15803d; }
+  .sr-sig-mob.sig-wait    { background: #fef9c3; color: #b45309; }
+  .sr-sig-mob.sig-heat    { background: #fee2e2; color: #dc2626; }
+  .sr-sig-mob.sig-neutral { background: #f3f4f6; color: #6b7280; }
+
+  /* 테마섹터 인라인 배지 (mobile name 아래) */
+  .sr-sec-mob { display: inline-block; font-size: 10px; color: #374151; margin-top: 2px; }
+
+  /* 텍스트 색상 (화이트 배경 기준) */
+  .sr-name     { font-size: 13.5px; font-weight: 700; color: #111827; }
+  .sr-rank     { color: #9ca3af; font-weight: 600; }
+  .sr-price-val{ color: #111827; font-size: 12px; }
+  .sr-chg-mob  { font-size: 11px; font-weight: 600; margin-left: 5px; }
+
+  /* 점수 */
+  .sr-sc-num   { font-size: 17px; }
+  .sr-sc-bar   { width: 38px; background: #f3f4f6; }
+
+  /* 등락률 한국 관례: 상승=빨강, 하락=파랑 */
+  .sr-chg-mob[data-up="true"]  { color: #dc2626; }
+  .sr-chg-mob[data-up="false"] { color: #2563eb; }
+
+  /* 핵심이유 배지 (흰 배경용 색조) */
+  .sr-tags-cell .t20-tag { opacity: 1; }
+
+  /* 등락률 (sr-chg-cell, desktop) 한국 관례 적용 */
+  .sr-chg-cell[data-up="true"]  { color: #dc2626 !important; }
+  .sr-chg-cell[data-up="false"] { color: #2563eb !important; }
+
+  .sr-chg-mob { display: inline; }
 
   /* TOP10 카드 — 코드번호·RSI 숨김 */
   .t20-sub  { display: none; }
@@ -1250,10 +1283,13 @@ function makeTop10List(stocks, tab) {
     const reasons = getReasonTags(s);
     const tagsHtml = reasons.slice(0, 2).map(t => `<span class="t20-tag ${t.cls}">${t.label}</span>`).join('');
 
+    const sigMobHtml2 = sig ? `<span class="sr-sig-mob ${sig.cls}">${sig.label}</span>` : '';
+
     return `<div class="srow" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
       <div class="sr-av"><div class="sr-av-inner" style="background:${av}">${s.name.charAt(0)}</div></div>
       <div class="sr-name-sec">
-        <div class="sr-name"><span class="sr-rank">${rank}</span> ${s.name}</div>
+        <div class="sr-name"><span class="sr-rank">${rank}</span> ${s.name}${sigMobHtml2}</div>
+        ${sector ? `<div class="sr-sec-mob">${sector}</div>` : ''}
         ${sector ? `<div class="sr-sec">${sector}</div>` : ''}
       </div>
       <div class="sr-sector-cell">${sector}</div>
@@ -1691,10 +1727,13 @@ function cardHTML(s) {
   const tagsHtml = reasons.slice(0, 2).map(t =>
     `<span class="t20-tag ${t.cls}">${t.label}</span>`).join('');
 
+  const sigMobHtml = signal ? `<span class="sr-sig-mob ${signal.cls}">${signal.label}</span>` : '';
+
   return `<div class="srow" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
     <div class="sr-av"><div class="sr-av-inner" style="background:${av}">${s.name.charAt(0)}</div></div>
     <div class="sr-name-sec">
-      <div class="sr-name">${s.name}</div>
+      <div class="sr-name">${s.name}${sigMobHtml}</div>
+      ${sector ? `<div class="sr-sec-mob">${sector}</div>` : ''}
       ${sector ? `<div class="sr-sec">${sector}</div>` : ''}
     </div>
     <div class="sr-sector-cell">${sector}</div>
@@ -1705,9 +1744,9 @@ function cardHTML(s) {
     <div class="sr-sig-cell">${sigHtml}</div>
     <div class="sr-price-cell">
       <span class="sr-price-val">${price}</span>
-      <span class="sr-chg-mob" style="color:${chgClr}">${chgTxt}</span>
+      <span class="sr-chg-mob" data-up="${up}" style="color:${chgClr}">${chgTxt}</span>
     </div>
-    <div class="sr-chg-cell" style="color:${chgClr}">${chgTxt}</div>
+    <div class="sr-chg-cell" data-up="${up}" style="color:${chgClr}">${chgTxt}</div>
     <div class="sr-vol-cell">${vol}</div>
     <div class="sr-tags-cell">${tagsHtml}</div>
   </div>`;
