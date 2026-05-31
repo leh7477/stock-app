@@ -398,11 +398,15 @@ function parseYahooCandles(json) {
   return candles.length >= 16 ? candles : null;
 }
 
-// Naver 차트 API 응답에서 items 배열 추출 (키 이름 대소문자 변형 모두 커버)
+// Naver 차트 API 응답에서 items 배열 추출
+// - 응답이 배열 자체인 경우 (가장 흔한 형태)
+// - 또는 객체 내 알려진 키에 배열이 있는 경우
 function naverChartItems(json) {
+  if (Array.isArray(json)) return json;
   return json?.chartinfos   || json?.chartInfos   ||
          json?.priceinfos   || json?.priceInfos   ||
-         json?.candleInfos  || json?.candleinfos  || null;
+         json?.candleInfos  || json?.candleinfos  ||
+         json?.priceInfo    || json?.chartInfo     || null;
 }
 
 // Naver 지수 차트 캔들 파싱 (일봉)
@@ -438,15 +442,6 @@ function parseNaverTradingValues(json) {
     return (vol > 0 && close > 0) ? vol * close : 0;
   }).filter(v => v > 0);
 
-  // 디버그: 첫 아이템 키 로그 (최초 1회)
-  if (items.length > 0) {
-    console.log('[거래대금 파싱 디버그]', JSON.stringify({
-      firstItemKeys: Object.keys(items[0]),
-      firstItem: items[0],
-      valuesFound: values.length,
-    }));
-  }
-
   return values.length >= 5 ? values : null;
 }
 
@@ -479,7 +474,6 @@ export default async function handler(req, res) {
     try {
       const cached = await redisGet(CACHE_KEY, kvUrl, kvToken);
       if (cached && Date.now() - (cached.ts || 0) < CACHE_TTL * 1000) {
-        console.log('[market cache hit] trading component:', cached?.sentiment?.components?.trading?.score ?? 'N/A');
         return res.status(200).json({ success:true, ...cached, source:'cache' });
       }
     } catch (_) {}
@@ -522,20 +516,6 @@ export default async function handler(req, res) {
   const kospiTradingVals  = parseNaverTradingValues(kospiChartRaw);
   const kosdaqTradingVals = parseNaverTradingValues(kosdaqChartRaw);
 
-  // ── 거래대금 디버그 로그 ──────────────────────────────
-  console.log('[거래대금 디버그]', JSON.stringify({
-    kospiChartKeys:    kospiChartRaw  ? Object.keys(kospiChartRaw)  : 'null',
-    kosdaqChartKeys:   kosdaqChartRaw ? Object.keys(kosdaqChartRaw) : 'null',
-    firstItemKeys: (() => {
-      const items = naverChartItems(kospiChartRaw);
-      return Array.isArray(items) && items[0] ? Object.keys(items[0]) : 'no items';
-    })(),
-    kospiTradingValsLen:  kospiTradingVals  ? kospiTradingVals.length  : null,
-    kosdaqTradingValsLen: kosdaqTradingVals ? kosdaqTradingVals.length : null,
-    kospiTradeAmt:  kospi?.tradeAmount,
-    kosdaqTradeAmt: kosdaq?.tradeAmount,
-    lastTradingScore,
-  }));
   const nasdaqCandles = parseYahooCandles(nasdaqChartRaw);
   const adxKospi  = calcADX14(kospiCandles);
   const adxKosdaq = calcADX14(kosdaqCandles);
