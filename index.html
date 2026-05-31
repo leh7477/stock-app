@@ -101,11 +101,25 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 .mkt-score-val { font-size:16px; font-weight:800; color:var(--text); white-space:nowrap; }
 .mkt-score-sep { font-size:14px; color:var(--muted); margin:0 5px; }
 .mkt-score-stage { font-size:13px; font-weight:700; white-space:nowrap; }
-/* 2단: 지수 */
-.mkt-ticker-row { display:flex; align-items:center; padding:7px 0; gap:0; overflow-x:auto; scrollbar-width:none; }
-.mkt-ticker-row::-webkit-scrollbar { display:none; }
-.mkt-item { display:flex; align-items:center; gap:10px; padding-right:16px; margin-right:16px; border-right:1px solid var(--border); flex-shrink:0; }
-.mkt-item:last-of-type { border-right:none; margin-right:0; padding-right:0; }
+/* 2단: 지수 티커 */
+.mkt-ticker-wrap { overflow:hidden; position:relative; border-top:1px solid var(--border); }
+.mkt-ticker-wrap::before,
+.mkt-ticker-wrap::after {
+  content:''; position:absolute; top:0; bottom:0; width:40px; z-index:2; pointer-events:none;
+}
+.mkt-ticker-wrap::before { left:0;  background:linear-gradient(to right, var(--card), transparent); }
+.mkt-ticker-wrap::after  { right:0; background:linear-gradient(to left,  var(--card), transparent); }
+.mkt-ticker-track {
+  display:flex; width:max-content; align-items:center;
+  animation: ticker-scroll 35s linear infinite;
+  padding:7px 0;
+}
+.mkt-ticker-wrap:hover .mkt-ticker-track { animation-play-state:paused; }
+@keyframes ticker-scroll {
+  0%   { transform:translateX(0); }
+  100% { transform:translateX(-50%); }
+}
+.mkt-item { display:flex; align-items:center; gap:10px; padding:0 20px; border-right:1px solid var(--border); flex-shrink:0; }
 .mkt-label { font-size:10px; font-weight:700; color:var(--muted); letter-spacing:.3px; margin-bottom:2px; }
 .mkt-price { font-size:14px; font-weight:800; color:var(--text); letter-spacing:-.3px; }
 .mkt-chg { font-size:11px; font-weight:600; white-space:nowrap; }
@@ -547,7 +561,8 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
           <div class="skeleton" style="width:200px;height:17px;border-radius:4px;"></div>
           <div class="skeleton" style="width:48px;height:26px;border-radius:4px;"></div>
         </div>
-        <div class="mkt-ticker-row">
+        <div class="mkt-ticker-wrap" style="border-top:1px solid var(--border);padding:7px 0;">
+          <div style="display:flex;gap:20px;padding:0 20px;">
           <div class="mkt-item">
             <div><div class="skeleton" style="width:36px;height:9px;border-radius:3px;margin-bottom:4px;"></div><div class="skeleton" style="width:72px;height:14px;border-radius:3px;"></div></div>
             <div class="skeleton" style="width:52px;height:10px;border-radius:3px;"></div>
@@ -559,6 +574,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
           <div class="mkt-item">
             <div><div class="skeleton" style="width:44px;height:9px;border-radius:3px;margin-bottom:4px;"></div><div class="skeleton" style="width:52px;height:14px;border-radius:3px;"></div></div>
             <div class="skeleton" style="width:44px;height:10px;border-radius:3px;"></div>
+          </div>
           </div>
         </div>
       </div>
@@ -1260,13 +1276,17 @@ async function loadMarket() {
           <button class="mkt-detail-btn" id="mkt-detail-btn" onclick="toggleMktDetail()">상세 <span class="arr">▾</span></button>
         </div>
       </div>
-      <div class="mkt-ticker-row">
-        ${kospi  ? `<div class="mkt-item"><div><div class="mkt-label">코스피</div><div class="mkt-price">${fmtMktNum(kospi.price)}</div></div><div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.change)}${fmtMktNum(kospi.change)}<br><span style="font-size:10px;">(${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%)</span></div></div>` : ''}
-        ${kosdaq ? `<div class="mkt-item"><div><div class="mkt-label">코스닥</div><div class="mkt-price">${fmtMktNum(kosdaq.price)}</div></div><div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.change)}${fmtMktNum(kosdaq.change)}<br><span style="font-size:10px;">(${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%)</span></div></div>` : ''}
-        ${usd    ? `<div class="mkt-item"><div><div class="mkt-label">달러/원</div><div class="mkt-price">${fmtMktNum(usd.price,1)}<span style="font-size:11px;color:var(--muted);margin-left:2px;">원</span></div></div><div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.change)}${fmtMktNum(usd.change,1)}<br><span style="font-size:10px;">(${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%)</span></div></div>` : ''}
-        ${nasdaq ? `<div class="mkt-item"><div><div class="mkt-label">나스닥</div><div class="mkt-price">${fmtMktNum(nasdaq.price,0)}</div></div><div class="mkt-chg ${chgClass(nasdaq.changeRate)}">${chgSign(nasdaq.change)}${fmtMktNum(nasdaq.change,1)}<br><span style="font-size:10px;">(${chgSign(nasdaq.changeRate)}${fmtMktNum(nasdaq.changeRate)}%)</span></div></div>` : ''}
-        ${vix    ? `<div class="mkt-item"><div><div class="mkt-label">VIX</div><div class="mkt-price">${fmtMktNum(vix.price,1)}</div></div><div style="font-size:11px;color:var(--muted);">공포지수</div></div>` : ''}
-      </div>
+      ${(() => {
+        const items = [
+          kospi  ? `<div class="mkt-item"><div><div class="mkt-label">KOSPI</div><div class="mkt-price">${fmtMktNum(kospi.price)}</div></div><div class="mkt-chg ${chgClass(kospi.changeRate)}">${chgSign(kospi.changeRate)}${fmtMktNum(kospi.changeRate)}%</div></div>` : '',
+          kosdaq ? `<div class="mkt-item"><div><div class="mkt-label">KOSDAQ</div><div class="mkt-price">${fmtMktNum(kosdaq.price)}</div></div><div class="mkt-chg ${chgClass(kosdaq.changeRate)}">${chgSign(kosdaq.changeRate)}${fmtMktNum(kosdaq.changeRate)}%</div></div>` : '',
+          usd    ? `<div class="mkt-item"><div><div class="mkt-label">USD/KRW</div><div class="mkt-price">${fmtMktNum(usd.price,1)}</div></div><div class="mkt-chg ${chgClass(usd.changeRate)}">${chgSign(usd.changeRate)}${fmtMktNum(usd.changeRate)}%</div></div>` : '',
+          nasdaq ? `<div class="mkt-item"><div><div class="mkt-label">NASDAQ</div><div class="mkt-price">${fmtMktNum(nasdaq.price,0)}</div></div><div class="mkt-chg ${chgClass(nasdaq.changeRate)}">${chgSign(nasdaq.changeRate)}${fmtMktNum(nasdaq.changeRate)}%</div></div>` : '',
+          vix    ? `<div class="mkt-item"><div><div class="mkt-label">VIX</div><div class="mkt-price">${fmtMktNum(vix.price,1)}</div></div><div class="mkt-chg flat">공포지수</div></div>` : '',
+        ].filter(Boolean).join('');
+        const doubled = items + items; // 무한 루프용 2벌 복제
+        return `<div class="mkt-ticker-wrap"><div class="mkt-ticker-track">${doubled}</div></div>`;
+      })()}
       <div class="mkt-detail" id="mkt-detail">
         <div class="mkt-detail-inner">
           <div class="ms-comp-list" id="ms-comp-list"></div>
