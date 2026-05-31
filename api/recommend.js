@@ -55,6 +55,18 @@ export default async function handler(req, res) {
     let stocks = payload.stocks || [];
     const totalAll = stocks.length;
 
+    // themeSector 병합 (sector_labels: {code: themeSector})
+    try {
+      const slRaw = await timedFetch(`${redisUrl}/get/sector_labels`, {
+        headers: { Authorization: `Bearer ${redisToken}` },
+      }).then(r => r.json());
+      if (slRaw.result) {
+        const slMap = JSON.parse(slRaw.result);
+        stocks = stocks.map(s => slMap[s.code] ? { ...s, themeSector: slMap[s.code] } : s);
+        payload.stocks = stocks; // pureStocks 등에도 반영
+      }
+    } catch (_) {}
+
     // ETF·레버리지·인버스 판별 (TOP10 및 종목 리스트에서 제외)
     const ETF_PREFIX = /^(KODEX|TIGER|ARIRANG|KINDEX|KOSEF|KBSTAR|HANARO|TIMEFOLIO|TREX|FOCUS|PLUS|SOL |ACE )/i;
     const ETF_WORD   = /레버리지|인버스|선물|스팩|ETF|리츠|인프라|부동산/;

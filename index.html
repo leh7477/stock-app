@@ -937,18 +937,18 @@ function scoreColor(sc) {
 // keywords: KIS API 업종명(sector) 매칭
 // nameKeywords: 종목명(name) 매칭 — 업종 분류가 불완전한 종목 보완
 const THEMES_2026 = [
-  { key: 'ai',       emoji: '🤖', name: 'AI·반도체',     keywords: ['반도체', '전기/전자', '전자부품', '디스플레이', '통신장비'] },
-  { key: 'defense',  emoji: '🚀', name: '방산·우주항공', keywords: ['방위', '항공우주', '방산', '항공기부품', '우주', '군수'] },
-  { key: 'energy',   emoji: '⚡', name: '원전·에너지',   keywords: ['에너지', '발전', '전력', '원자력', '핵연료', '유틸리티', '신재생에너지', '전기공급'] },
-  { key: 'bio',      emoji: '💊', name: '바이오·헬스',   keywords: ['의약품', '바이오', '의료기기', '의료서비스', '헬스케어', '제약', '건강기능식품'] },
-  { key: 'robot',    emoji: '🦾', name: '로봇·자동화',   keywords: ['기계', '전기장비', '자동화', '산업용기계', '정밀기계', '특수산업용기계', '로봇'] },
-  { key: 'battery',  emoji: '🔋', name: '2차전지·소재',  keywords: ['배터리', '2차전지', 'ESS', '정밀화학'] },
-  { key: 'game',     emoji: '🎮', name: '게임·콘텐츠',   keywords: ['게임', '소프트웨어', '엔터테인먼트', '미디어', '방송', '콘텐츠', '영화', '음악'] },
-  { key: 'finance',  emoji: '💰', name: '금융·핀테크',   keywords: ['금융', '은행', '보험', '증권', '지주회사', '여신전문', '카드', '캐피탈'] },
-  { key: 'ship',     emoji: '🚢', name: '조선·해운',     keywords: ['조선', '해운', '선박', '항만', '해상운송'] },
-  { key: 'build',    emoji: '🏗️', name: '건설·인프라',   keywords: ['건설', '시멘트', '건자재', '부동산개발', '엔지니어링', '환경'] },
-  { key: 'steel',    emoji: '🔩', name: '소재·철강',     keywords: ['철강', '비철금속', '금속', '광업', '제련', '알루미늄', '구리', '니켈'] },
-  { key: 'consumer', emoji: '🛍️', name: '소비재·유통',   keywords: ['소매', '유통', '식품', '음료', '의류', '패션', '화장품', '생활용품', '백화점', '편의점'] },
+  { key: 'ai',       emoji: '🤖', name: 'AI·반도체',     keywords: ['반도체', 'HBM', 'AI서버', '패키징', '팹리스', '파운드리', '반도체장비', '반도체소재'] },
+  { key: 'defense',  emoji: '🚀', name: '방산·우주항공', keywords: ['방산', '항공', '우주', '방위'] },
+  { key: 'energy',   emoji: '⚡', name: '원전·에너지',   keywords: ['원전', '에너지', '신재생', '수소', '연료전지'] },
+  { key: 'bio',      emoji: '💊', name: '바이오·헬스',   keywords: ['바이오', '신약', '의료기기', '헬스케어', 'CDMO', '제약'] },
+  { key: 'robot',    emoji: '🦾', name: '로봇·자동화',   keywords: ['로봇', '자동화'] },
+  { key: 'battery',  emoji: '🔋', name: '2차전지·소재',  keywords: ['2차전지', '배터리', '양극재', '전해질', '분리막'] },
+  { key: 'game',     emoji: '🎮', name: '게임·콘텐츠',   keywords: ['게임', '엔터', '콘텐츠', '미디어'] },
+  { key: 'finance',  emoji: '💰', name: '금융·핀테크',   keywords: ['금융', '보험', '증권', '핀테크', '은행'] },
+  { key: 'ship',     emoji: '🚢', name: '조선·해운',     keywords: ['조선', '해운'] },
+  { key: 'build',    emoji: '🏗️', name: '건설·인프라',   keywords: ['건설', '부동산', '인프라'] },
+  { key: 'steel',    emoji: '🔩', name: '소재·철강',     keywords: ['철강', '화학', '정유', '소재', '비철'] },
+  { key: 'consumer', emoji: '🛍️', name: '소비재·유통',   keywords: ['유통', '소비재', '음료', '뷰티', '화장품', 'K-푸드', '패션'] },
 ];
 
 // 종목의 sector(업종명) 또는 name(종목명) 이 테마 키워드에 해당하는지 확인
@@ -957,6 +957,8 @@ function stockMatchesTheme(stock, themeKey) {
   if (!theme) return false;
   const sector = (stock.sector || '').toLowerCase();
   const name   = (stock.name   || '').toLowerCase();
+  const themeSector = (stock.themeSector || '').toLowerCase();
+  if (themeSector) return theme.keywords.some(kw => themeSector.includes(kw.toLowerCase()));
   return theme.keywords.some(kw => sector.includes(kw.toLowerCase()));
 }
 
