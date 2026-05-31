@@ -201,7 +201,7 @@ async function fetchDartFinancials(corpCode) {
       if (epsItem?.thstrm_amount) {
         const rawEps  = parseSigned(epsItem.thstrm_amount);
         const prevEps = parseSigned(epsItem.frmtrm_amount);
-        if (rawEps > 0) {
+        if (rawEps !== 0) {                       // 음수(적자) EPS도 허용
           eps = Math.round(rawEps * factor);
           if (prevEps !== 0) {
             epsGrowth = Math.round((rawEps - prevEps) / Math.abs(prevEps) * 100);
@@ -209,7 +209,7 @@ async function fetchDartFinancials(corpCode) {
         }
       }
 
-      // EPS fallback: 당기순이익 ÷ 발행주식수
+      // EPS fallback: 당기순이익 ÷ 발행주식수 (손실 기업도 포함)
       if (eps === null) {
         const niItem = list.find(r =>
           isIS(r) && r.account_nm?.includes('당기순이익') && !r.account_nm?.includes('비지배')
@@ -219,13 +219,13 @@ async function fetchDartFinancials(corpCode) {
           (r.account_nm?.includes('주식수') || r.account_nm?.includes('발행주식'))
         );
         if (niItem?.thstrm_amount && shItem?.thstrm_amount) {
-          const ni = parseAmt(niItem.thstrm_amount);
+          const ni = parseSigned(niItem.thstrm_amount); // 음수 허용
           const sh = parseAmt(shItem.thstrm_amount);
-          if (ni > 0 && sh > 0) eps = Math.round(ni * 1_000_000 / sh * factor);
+          if (ni !== 0 && sh > 0) eps = Math.round(ni * 1_000_000 / sh * factor);
         }
       }
 
-      if (eps === null || eps <= 0) continue;  // EPS 없으면 이 보고서 스킵
+      if (eps === null) continue;  // EPS 자체를 못 찾으면 스킵 (0, 음수는 허용)
 
       // ── 영업이익률 ───────────────────────────────────────────────────────
       let operatingMargin = null;
