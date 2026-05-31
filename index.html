@@ -199,7 +199,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* 행 */
 .srow {
   padding: 9px 16px;
-  border-bottom: 1px solid rgba(255,255,255,.04);
+  border-bottom: 1px solid rgba(255,255,255,.06);
   cursor: pointer;
   transition: background .1s;
 }
@@ -1205,7 +1205,6 @@ function makeTop10List(stocks, tab) {
     return Math.round(v/1e4).toLocaleString() + '만';
   };
   const fmtCap = c => !c ? '' : c >= 10000 ? (c/10000).toFixed(1)+'조' : c.toLocaleString()+'억';
-  const RANK_ICONS = ['🥇','🥈','🥉'];
 
   // 탭별 헤더 점수 컬럼명
   const scoreColLabel = { foreign:'외인순매수', volume:'거래대금', value:'PBR' }[tab] || '점수';
@@ -1220,7 +1219,7 @@ function makeTop10List(stocks, tab) {
     const sector = s.themeSector || s.sector || '';
     const price  = s.price ? s.price.toLocaleString() + '원' : '—';
     const vol    = fmtTradingAmt(s);
-    const rank   = i < 3 ? RANK_ICONS[i] : `<span style="font-size:11px;color:var(--muted);font-weight:700;">${i+1}</span>`;
+    const rank   = `<span style="font-size:11px;color:var(--muted);font-weight:600;">${i+1}</span>`;
 
     // 시그널
     const sig    = getSignalBadge(s);
