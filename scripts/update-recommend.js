@@ -752,12 +752,13 @@ function calcRelStrengthScore(closes, market, marketReturns) {
   return { score, excessReturn: Math.round(excess * 10) / 10 };
 }
 
-function calcMacroScore(relResult, marketAdj, newsBoostResult) {
+function calcMacroScore(relResult, marketAdj, newsBoostResult, adxScore = null) {
   const relScore  = relResult?.score ?? 0;                              // 0~5pt
   const mktScore  = Math.max(-3, Math.min(3, marketAdj ?? 0));          // ±3pt
   const newsScore = Math.max(-2, Math.min(2, newsBoostResult?.score ?? 0)); // ±2pt
-  const total     = Math.max(-5, Math.min(10, relScore + mktScore + newsScore));
-  return { total, relScore, mktScore, newsScore, excessReturn: relResult?.excessReturn ?? null };
+  const adxPts    = adxScore !== null ? Math.max(0, Math.min(5, adxScore)) : 0; // 0~5pt
+  const total     = Math.max(-5, Math.min(15, relScore + mktScore + newsScore + adxPts));
+  return { total, relScore, mktScore, newsScore, adxScore: adxPts, excessReturn: relResult?.excessReturn ?? null };
 }
 
 function analyze(stock, closes, volumes, extra = {}) {
@@ -810,11 +811,12 @@ function analyze(stock, closes, volumes, extra = {}) {
   );
   const korScore        = ks.total;
   const marketAdj       = extra.marketAdj ?? 0;
+  const marketAdxScore  = extra.marketAdxScore ?? null;
   const relResult       = calcRelStrengthScore(closes, stock.market || '', extra.marketReturns ?? null);
   const newsBoostResult = calcNewsBoost(stock.code || '', extra.sector || '', stock.name || '', extra.newsBoost ?? null);
-  const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult);
-  // 기술(65) + 국장특화(25) + 매크로(10) = 100점
-  const score = Math.min(100, Math.round(techScore * 0.65) + Math.round(korScore * 0.5) + macroResult.total);
+  const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult, marketAdxScore);
+  // 기술(60) + 국장특화(25) + 매크로(15) = 100점
+  const score = Math.min(100, Math.round(techScore * 0.60) + Math.round(korScore * 0.5) + macroResult.total);
 
   const chgRate = closes.length >= 2
     ? ((cur - closes[n - 1]) / closes[n - 1] * 100).toFixed(2) : '0.00';
@@ -887,7 +889,7 @@ async function fetchAllForwardPERs(stocks) {
 
 // ─── 단일 종목 처리 ────────────────────────────────────────────────────────
 
-async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null, forwardPERMap = null, kospiDailyReturns = null) {
+async function processStock(token, stock, marketAdj = 0, marketReturns = null, newsBoost = null, dartFinancialsMap = null, forwardPERMap = null, kospiDailyReturns = null, marketAdxScore = null) {
   const markets = stock.market ? [stock.market === 'KOSPI' ? 'J' : 'Q'] : ['J', 'Q'];
 
   for (const mkCode of markets) {
@@ -968,7 +970,7 @@ async function processStock(token, stock, marketAdj = 0, marketReturns = null, n
         { ...stock, market },
         closes,
         volumes,
-        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, divYield, investorSupply, marketAdj, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null, forwardPer: forwardPERMap?.[stock.code] ?? null, kospiDailyReturns }
+        { volume, frgnRatio, frgnBuyQty, avgVol5, mktCap, per, pbr, eps, sector, divYield, investorSupply, marketAdj, marketAdxScore, marketReturns, newsBoost, dartFin: dartFinancialsMap?.[stock.code] ?? null, forwardPer: forwardPERMap?.[stock.code] ?? null, kospiDailyReturns }
       );
       if (result) result.investorSupply = investorSupply;
       return result;
@@ -1010,19 +1012,21 @@ async function main() {
   console.log('      market_returns 저장 완료');
 
   // 2.5 시장환경 점수 (역발상: 공포=가점, 과열=감점)
-  let marketAdj = 0;
+  let marketAdj = 0, marketAdxScore = null;
   try {
     const mv4Raw = await redisGet('market_v4');
     const mv4 = mv4Raw ? JSON.parse(mv4Raw) : null;
     const mv4Score = mv4?.sentiment?.score ?? null;
+    marketAdxScore = mv4?.adx?.score ?? null;
     if (mv4Score !== null) {
-      if      (mv4Score <= 20) marketAdj = 5;
+      if      (mv4Score <= 20) marketAdj = 3;
       else if (mv4Score <= 30) marketAdj = 3;
       else if (mv4Score <= 40) marketAdj = 1;
       else if (mv4Score >= 80) marketAdj = -3;
       else if (mv4Score >= 70) marketAdj = -2;
       const adjSign = marketAdj > 0 ? '+' : '';
-      console.log(`      market_v4 점수: ${mv4Score}점 → 전종목 보정 ${adjSign}${marketAdj}점`);
+      const adxText = marketAdxScore !== null ? `, ADX ${marketAdxScore}점` : '';
+      console.log(`      market_v4 점수: ${mv4Score}점${adxText} → 전종목 보정 ${adjSign}${marketAdj}점`);
     } else {
       console.log('      market_v4 없음 → 보정 0점');
     }
@@ -1072,7 +1076,7 @@ async function main() {
 
   for (let i = 0; i < allStocks.length; i += BATCH_SIZE) {
     const batch    = allStocks.slice(i, i + BATCH_SIZE);
-    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap, forwardPERMap, kospiDailyReturns)));
+    const batchRes = await Promise.all(batch.map(s => processStock(token, s, marketAdj, marketReturns, newsBoost, dartFinancialsMap, forwardPERMap, kospiDailyReturns, marketAdxScore)));
     batchRes.forEach(r => { if (r) results.push(r); else failed++; });
     processed += batch.length;
 

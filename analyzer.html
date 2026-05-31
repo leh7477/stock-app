@@ -535,7 +535,7 @@ details[open] > .det-summary .det-close { display: none; }
               <div class="score-bar-outer">
                 <div class="score-bar-inner" id="r-score-bar" style="width:0%"></div>
               </div>
-              <div class="score-subdesc">기술지표(65) + 국장특화(25) + 매크로(10) 종합 (0~100점)</div>
+              <div class="score-subdesc">기술지표(60) + 국장특화(25) + 매크로(15) 종합 (0~100점)</div>
               <div id="r-mkt-env" style="display:none;margin-top:8px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-rel-strength" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
               <div id="r-news-boost" style="display:none;margin-top:6px;align-items:center;gap:6px;font-size:11px;flex-wrap:wrap;"></div>
@@ -561,7 +561,7 @@ details[open] > .det-summary .det-close { display: none; }
 
         <!-- 기술지표 세부 점수 -->
         <div class="dl-card">
-          <div class="dl-title">📊 기술지표 세부 <span style="font-weight:400;color:var(--muted);font-size:10px;">×0.65 환산 후 최대 65점</span></div>
+          <div class="dl-title">📊 기술지표 세부 <span style="font-weight:400;color:var(--muted);font-size:10px;">×0.60 환산 후 최대 60점</span></div>
           <div id="r-tech-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
@@ -573,7 +573,7 @@ details[open] > .det-summary .det-close { display: none; }
 
         <!-- 매크로·모멘텀 점수 -->
         <div class="dl-card">
-          <div class="dl-title">🌐 매크로·모멘텀 <span style="font-weight:400;color:var(--muted);font-size:10px;">최대 10점</span></div>
+          <div class="dl-title">🌐 매크로·모멘텀 <span style="font-weight:400;color:var(--muted);font-size:10px;">최대 15점</span></div>
           <div id="r-macro-score"><div style="color:var(--muted);font-size:12px">분석 중…</div></div>
         </div>
 
@@ -1400,7 +1400,7 @@ function renderMacroScore(macro, marketAdj) {
   const el = document.getElementById('r-macro-score');
   if (!el || !macro) return;
   const { total = 0, relScore = 0, mktScore = 0, newsScore = 0, adxScore = 0, excessReturn = null } = macro;
-  const c = scoreColor(Math.round(total / 10 * 100));
+  const c = scoreColor(Math.round(total / 15 * 100));
 
   const bar = (pts, max, col) =>
     `<div class="ma-score-bar-bg"><div class="ma-score-bar-fill" style="width:${max>0?Math.min(100,Math.max(0,Math.abs(pts))/max*100):0}%;background:${col}"></div></div>`;
@@ -1434,7 +1434,7 @@ function renderMacroScore(macro, marketAdj) {
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div>
         <span style="font-size:22px;font-weight:800;color:${c};">${total}</span>
-        <span style="font-size:12px;font-weight:400;color:var(--muted);"> / 10점</span>
+        <span style="font-size:12px;font-weight:400;color:var(--muted);"> / 15점</span>
       </div>
       <div style="font-size:11px;color:var(--muted);text-align:right;">시장환경·상대강도·뉴스 종합</div>
     </div>
@@ -1480,7 +1480,7 @@ function renderMacroScore(macro, marketAdj) {
     </details>
     <div class="ma-score-total" style="margin-top:8px;">
       <div class="ma-score-total-label">매크로·모멘텀 합계</div>
-      <div class="ma-score-total-val" style="color:${c}">${total > 0 ? '+' : ''}${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 10점</span></div>
+      <div class="ma-score-total-val" style="color:${c}">${total > 0 ? '+' : ''}${total}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 15점</span></div>
     </div>`;
 }
 
@@ -1551,7 +1551,7 @@ function renderGrowthScore(ks) {
 }
 
 // ── 기술지표 세부 점수 카드 ─────────────────────────────────────────────────
-function renderTechScore(techDetail, techContrib70) {
+function renderTechScore(techDetail, techContrib60) {
   const el = document.getElementById('r-tech-score');
   if (!el) return;
   if (!techDetail) {
@@ -1564,7 +1564,7 @@ function renderTechScore(techDetail, techContrib70) {
   const momTotal    = rsi + macd;                 // max 30
   const supplyTotal = volume + obv;               // max 30
   const rawTotal    = trendTotal + momTotal + supplyTotal + boll + hurst;
-  const contrib     = techContrib70 ?? Math.round(Math.min(100, Math.max(0, rawTotal)) * 0.65);
+  const contrib     = techContrib60 ?? Math.round(Math.min(100, Math.max(0, rawTotal)) * 0.60);
 
   const c = scoreColor(Math.round(rawTotal));
 
@@ -1611,7 +1611,7 @@ function renderTechScore(techDetail, techContrib70) {
         <span style="font-size:22px;font-weight:800;color:${c};">${rawTotal}</span>
         <span style="font-size:12px;font-weight:400;color:var(--muted);"> / 100점</span>
       </div>
-      <div style="font-size:11px;color:var(--muted);text-align:right;">×0.65 →&nbsp;<b style="font-size:14px;color:${c};">${contrib}</b><span style="color:var(--muted)"> / 65점</span></div>
+      <div style="font-size:11px;color:var(--muted);text-align:right;">×0.60 →&nbsp;<b style="font-size:14px;color:${c};">${contrib}</b><span style="color:var(--muted)"> / 60점</span></div>
     </div>
 
     <details>
@@ -1653,8 +1653,8 @@ function renderTechScore(techDetail, techContrib70) {
     </details>
 
     <div class="ma-score-total" style="margin-top:8px;">
-      <div class="ma-score-total-label">기술지표 합계 (×0.65 최종 기여)</div>
-      <div class="ma-score-total-val" style="color:${c}">${contrib}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 65점</span></div>
+      <div class="ma-score-total-label">기술지표 합계 (×0.60 최종 기여)</div>
+      <div class="ma-score-total-val" style="color:${c}">${contrib}<span style="font-size:12px;font-weight:400;color:var(--muted)"> / 60점</span></div>
     </div>`;
 }
 

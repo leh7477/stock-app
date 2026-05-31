@@ -474,7 +474,7 @@ function calcMacroScore(relResult, marketAdj, newsBoostResult, adxScore = null) 
   const mktScore  = Math.max(-3, Math.min(3, marketAdj ?? 0));
   const newsScore = Math.max(-2, Math.min(2, newsBoostResult?.score ?? 0));
   const adxPts    = adxScore !== null ? Math.max(0, Math.min(5, adxScore)) : 0;
-  const total     = Math.max(-5, Math.min(10, relScore + mktScore + newsScore + adxPts));
+  const total     = Math.max(-5, Math.min(15, relScore + mktScore + newsScore + adxPts));
   return { total, relScore, mktScore, newsScore, adxScore: adxPts, excessReturn: relResult?.excessReturn ?? null };
 }
 
@@ -1298,7 +1298,7 @@ if (dartEps === null) {
 
     let marketAdj = 0;
     if (marketV4Score !== null) {
-      if      (marketV4Score <= 20) marketAdj = 5;
+      if      (marketV4Score <= 20) marketAdj = 3;
       else if (marketV4Score <= 30) marketAdj = 3;
       else if (marketV4Score <= 40) marketAdj = 1;
       else if (marketV4Score >= 80) marketAdj = -3;
@@ -1479,8 +1479,8 @@ if (dartEps === null) {
     const newsBoostResult = calcNewsBoost(code, sector2, name, newsBoost);
     const atrContractionResult = calcAtrContractionScore(closes); // 표시용 유지
     const macroResult     = calcMacroScore(relResult, marketAdj, newsBoostResult, marketAdxScore);
-    // 기술(65) + 국장특화(25) + 매크로(10) = 100점
-    const liveScore = Math.min(100, Math.round(techScore * 0.65) + Math.round(korScore * 0.5) + macroResult.total);
+    // 기술(60) + 국장특화(25) + 매크로(15) = 100점
+    const liveScore = Math.min(100, Math.round(techScore * 0.60) + Math.round(korScore * 0.5) + macroResult.total);
     // Redis 저장 점수 우선 사용 → 없으면 실시간 계산 (메인/분석기 점수 일치 보장)
     // 분析기 상세는 항상 실시간 계산 점수 사용 (storedScore 저장 당시 기준 - 로직 변경 후 불일치 방지)
     const score     = liveScore;
@@ -1594,7 +1594,7 @@ if (dartEps === null) {
           ffScore: ff2.total, ffDetail: ff2,
           divScore: divS, mktCapScore: mcS,
           isIVExtreme, drawdown: drawdownPct,
-          techScore: Math.round(techScore * 0.65),
+          techScore: Math.round(techScore * 0.60),
           techDetail,
           rsi: rsiNow !== null ? Math.round(rsiNow * 10) / 10 : null,
           tag,
