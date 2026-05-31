@@ -1033,7 +1033,8 @@ export default async function handler(req, res) {
     const priceUrl = (mktCd) =>
       `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-price?FID_COND_MRKT_DIV_CODE=${mktCd}&FID_INPUT_ISCD=${code}`;
 
-    const estimateUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform?SHT_CD=${code}`;
+    const estimateUrl   = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/estimate-perform?SHT_CD=${code}`;
+    const investOpnnUrl = `https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/invest-opnn?FID_COND_SCR_DIV_CODE=16633&FID_INPUT_ISCD=${code}&FID_DIV_CLS_CODE=0`;
 
     const fetchAllKis = (hdr) => Promise.all([
       timedFetch(priceUrl('J'), { headers: hdr('FHKST01010100') }).then(r => r.json()).catch(() => null),
@@ -1042,13 +1043,14 @@ export default async function handler(req, res) {
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(estimateUrl,              { headers: hdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
+      timedFetch(investOpnnUrl,            { headers: hdr('HHKST663100C0') }).then(r => r.json()).catch(() => null),
     ]);
 
-    let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(kisHdr);
+    let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw] = await fetchAllKis(kisHdr);
 
     if (isTokenExpired([priceRaw, cd1, cw1, cw2, cw3, estimateRaw])) {
       activeToken = await getKisToken(true); // kisHdr도 자동으로 최신 토큰 참조
-      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw] = await fetchAllKis(kisHdr);
+      [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw] = await fetchAllKis(kisHdr);
     }
 
     // J로 가격 0이면 KOSDAQ(Q)으로 재시도
@@ -1382,11 +1384,12 @@ if (dartEps === null) {
           consensusDate = oDates[bestIdx]?.dt || null;
         }
       }
-      // 증권사 평균 목표주가
-      const rawTrgt = estimateRaw?.output1?.trgt_prce;
-      if (rawTrgt) {
-        const parsed = parseInt(String(rawTrgt).replace(/,/g, ''));
-        if (parsed > 0) consensusTarget = parsed;
+      // 증권사 평균 목표주가 (invest-opnn: hts_goal_prc 평균)
+      const goalPrices = (investOpnnRaw?.output || [])
+        .map(item => parseInt(String(item?.hts_goal_prc || '0').replace(/,/g, '')))
+        .filter(p => p > 0);
+      if (goalPrices.length > 0) {
+        consensusTarget = Math.round(goalPrices.reduce((a, b) => a + b, 0) / goalPrices.length);
       }
     } catch (_) {}
 
@@ -1552,17 +1555,6 @@ if (dartEps === null) {
           dartEps,
           consensusEps, consensusDate, consensusTarget,
           hasFwdPer,
-          _estimateDebug: {
-            rt_cd: estimateRaw?.rt_cd, msg: estimateRaw?.msg1,
-            o4len: estimateRaw?.output4?.length, o3len: estimateRaw?.output3?.length,
-            o1_full: estimateRaw?.output1,
-            o2_full: estimateRaw?.output2,
-            o3rows_full: (estimateRaw?.output3 || []).map(row => ({ nm: row?.itmn || row?.hqic_kor_isnm || JSON.stringify(row)?.slice(0,60), d1: row?.data1, d2: row?.data2, d3: row?.data3, d4: row?.data4, d5: row?.data5 })),
-            latestClose: latest.close,
-            per2Raw: per2,
-            o3rows: (estimateRaw?.output3 || []).map(row => ({ nm: row?.itmn || row?.hqic_kor_isnm || JSON.stringify(row)?.slice(0,40), d1: row?.data1, d2: row?.data2, d3: row?.data3 })),
-            o4dates: (estimateRaw?.output4 || []).map(d => d?.dt),
-          },
           _dartDebug,
           _divDebug: {
             dvdn_yedn:    pOut.dvdn_yedn,
