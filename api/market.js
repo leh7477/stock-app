@@ -251,8 +251,9 @@ async function fetchKISTradingAmount(kvUrl, kvToken) {
 
     if (kpData?.rt_cd !== '0' && kdData?.rt_cd !== '0') return null;
 
-    const kospiAmt  = parseInt(kpData?.output?.acml_tr_pbmn  || 0);
-    const kosdaqAmt = parseInt(kdData?.output?.acml_tr_pbmn  || 0);
+    // acml_tr_pbmn 단위: 백만원(百萬) → ×1,000,000 해서 원 단위로 변환
+    const kospiAmt  = parseInt(kpData?.output?.acml_tr_pbmn  || 0) * 1_000_000;
+    const kosdaqAmt = parseInt(kdData?.output?.acml_tr_pbmn  || 0) * 1_000_000;
     const total     = kospiAmt + kosdaqAmt;
 
     // 주말·휴장: 거래대금 0 → null 반환해서 last_trading_score 폴백으로

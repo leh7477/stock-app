@@ -1447,7 +1447,7 @@ async function loadMarket() {
           <div class="ms-comp-list" id="ms-comp-list"></div>
           <div class="ms-ma-info" id="ms-ma-info"></div>
           <div class="ms-chart-wrap">
-            <div class="ms-chart-title">📈 30일 마켓스코어 추이</div>
+            <div class="ms-chart-title">📈 20일 마켓스코어 추이</div>
             <div id="ms-trend-chart"></div>
           </div>
         </div>
@@ -1535,7 +1535,7 @@ function renderMktDetail(senti) {
 // 데이터만 미리 로드 (차트 초기화 X — 패널이 닫혀있어 컨테이너 크기가 0)
 async function prefetchMktHistory() {
   try {
-    const d = await fetch('/api/market-history?days=30').then(r => r.json());
+    const d = await fetch('/api/market-history?days=20').then(r => r.json());
     if (d.success && d.history?.length) {
       _mktHistoryData = d.history;
     }
