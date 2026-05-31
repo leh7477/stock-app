@@ -375,11 +375,11 @@ function parseNaverCandles(json) {
 // ─── 레이블 ──────────────────────────────────────────────────────────────────
 
 function scoreLabel(score) {
-  if (score >= 75) return { label:'과열',     color:'#dc2626', bg:'rgba(220,38,38,.12)' };
-  if (score >= 60) return { label:'탐욕',     color:'#d97706', bg:'rgba(217,119,6,.12)' };
-  if (score >= 40) return { label:'중립',     color:'#6b7280', bg:'rgba(107,114,128,.12)' };
-  if (score >= 25) return { label:'공포',     color:'#2563eb', bg:'rgba(37,99,235,.12)' };
-  return              { label:'극도공포', color:'#7c3aed', bg:'rgba(124,58,237,.12)' };
+  if (score >= 75) return { label:'🚀 과열',    color:'#16a34a', bg:'rgba(22,163,74,.12)'  };
+  if (score >= 56) return { label:'😊 활황',    color:'#22c55e', bg:'rgba(34,197,94,.12)'  };
+  if (score >= 45) return { label:'😐 중립',    color:'#6b7280', bg:'rgba(107,114,128,.12)' };
+  if (score >= 25) return { label:'😟 침체',    color:'#f97316', bg:'rgba(249,115,22,.12)' };
+  return               { label:'😱 극도 침체', color:'#dc2626', bg:'rgba(220,38,38,.12)'  };
 }
 
 // ─── 핸들러 ──────────────────────────────────────────────────────────────────
