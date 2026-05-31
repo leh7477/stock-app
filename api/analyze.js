@@ -1414,7 +1414,7 @@ if (dartEps === null) {
       const dataKeys = ['data1','data2','data3','data4','data5'];
       const epsVals  = dataKeys
         .map(k => parseFloat(oEps[k] || '0'))
-        .filter(v => v > 0 && v < 9999999);
+        .filter(v => !isNaN(v) && v !== 0 && Math.abs(v) < 9999999); // 음수(적자) 포함
       if (epsVals.length >= 2) {
         epsAccel2 = calcEpsAcceleration(epsVals);
       }
@@ -1553,8 +1553,9 @@ if (dartEps === null) {
             divYield2Used: divYield2,
           },
           _epsAccelDebug: {
-            dartEpsHistory:  dartFinancials?.epsHistory ?? null,
+            dartEpsHistory:   dartFinancials?.epsHistory ?? null,
             epsAccelFromDart: calcEpsAcceleration(dartFinancials?.epsHistory ?? null),
+            oEpsRaw: oEps ? ['data1','data2','data3','data4','data5'].map(k => oEps[k]) : null,
             epsAccelFinal:    epsAccel2,
           },
           perSource: consensusEps ? 'consensus' : dartEps ? 'dart' : 'kis',
