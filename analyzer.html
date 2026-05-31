@@ -263,11 +263,28 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);colo
 .rdim-val{display:block;font-size:13px;font-weight:700;}
 
 /* ── 밸류에이션 슬라이더 ── */
-.val-zone-label{font-size:16px;font-weight:700;text-align:center;margin-bottom:12px;}
+.val-zone-label{font-size:14px;font-weight:700;margin-bottom:4px;}
 .val-slider-wrap{margin-bottom:4px;}
-.val-track{position:relative;height:8px;border-radius:99px;background:linear-gradient(to right,#22c55e 0%,#86efac 20%,#fef9c3 40%,#fef9c3 60%,#fcd34d 75%,#ef4444 100%);margin-bottom:6px;}
-.val-marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:16px;height:16px;background:#fff;border:2.5px solid #0A1628;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,.25);}
-.val-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);padding:0 1px;}
+/* 슬라이더 트랙 */
+.val-track-ab{position:relative;height:8px;border-radius:99px;margin-bottom:5px;}
+.val-track-a{background:linear-gradient(to right,#22c55e,#86efac 20%,#fde68a 40%,#fde68a 60%,#fbbf24 80%,#ef4444);}
+.val-track-b{background:linear-gradient(to right,#22c55e,#86efac 30%,#fde68a 55%,#f97316 80%,#ef4444);}
+.val-marker{position:absolute;top:50%;transform:translate(-50%,-50%);width:15px;height:15px;background:#fff;border:2.5px solid #0A1628;border-radius:50%;box-shadow:0 1px 6px rgba(0,0,0,.3);}
+.val-labels{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);padding:0 1px;margin-bottom:2px;}
+/* 슬라이더 블록 */
+.val-block{margin-bottom:14px;}
+.val-block-title{font-size:10px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+/* 재무 지표 */
+.val-metrics{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+.val-metric-chip{background:var(--bg);border-radius:8px;padding:6px 10px;display:flex;flex-direction:column;gap:2px;flex:1;min-width:60px;}
+.val-metric-lbl{font-size:9px;color:var(--muted);}
+.val-metric-val{font-size:13px;font-weight:700;}
+/* 목표가 행 */
+.val-target-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px;}
+.val-titem{background:var(--bg);border-radius:8px;padding:7px 10px;display:flex;flex-direction:column;gap:2px;}
+.val-titem-lbl{font-size:9px;color:var(--muted);}
+.val-titem-val{font-size:12px;font-weight:700;}
+/* 레거시 호환 */
 .val-detail{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
 .val-item{background:var(--bg);border-radius:8px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;}
 .val-item-label{font-size:11px;color:var(--muted);}
@@ -2058,103 +2075,125 @@ function positionRadarLabels(dims, container) {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   💰 밸류에이션 위치 슬라이더
+   💰 종합 밸류에이션 위치 (하이브리드 듀얼 슬라이더)
 ────────────────────────────────────────────────────────────── */
-function renderValuationSlider(ks, price) {
+function renderValuationSlider(ks, price, sector) {
   const el = document.getElementById('r-valuation-slider');
-  if (!el) return;
+  if (!el || !ks || !price) return;
 
-  const labels    = ['매우저평가', '저평가', '적정', '고평가', '매우고평가'];
-  const targetPrice = ks?.consensusTarget ?? null;
+  const pbr          = ks.pbr ?? 0;
+  const per          = ks.per ?? 0;
+  const targetPrice  = ks.consensusTarget ?? null;
+  const isFinancial  = /금융|은행|보험|증권|카드|캐피탈/.test(sector || '');
+  const isLoss       = per <= 0 || per > 300; // 적자 또는 비정상 PER
 
-  // ── 증권사 목표가 기반 슬라이더 ──────────────────────────
-  if (targetPrice && targetPrice > 0 && price > 0) {
-    // discount: 목표가 대비 상승 여력 (%) — 양수=저평가, 음수=고평가
-    const discount  = (targetPrice - price) / targetPrice * 100;
-    // 선형 매핑: discount 30% → pos 0 / 0% → pos 50 / -30% → pos 100
-    const pos       = Math.max(0, Math.min(100, 50 - discount * (50 / 30))).toFixed(1);
-    const zone      = discount >= 30 ? 0 : discount >= 15 ? 1 : discount >= -15 ? 2 : discount >= -30 ? 3 : 4;
-    const zoneColor = zone <= 1 ? '#22c55e' : zone === 2 ? '#6b7280' : zone === 3 ? '#f59e0b' : '#ef4444';
-    const gapStr    = discount >= 0 ? `+${discount.toFixed(1)}%` : `${discount.toFixed(1)}%`;
-    const gapColor  = discount >= 0 ? '#22c55e' : '#ef4444';
-
-    el.innerHTML = `
-      <div class="val-zone-label" style="color:${zoneColor}">${labels[zone]}</div>
-      <div class="val-slider-wrap">
-        <div class="val-track"><div class="val-marker" style="left:${pos}%"></div></div>
-        <div class="val-labels">${labels.map(l => `<span>${l}</span>`).join('')}</div>
-      </div>
-      <div class="val-detail">
-        <div class="val-item">
-          <span class="val-item-label">현재가</span>
-          <span class="val-item-val">${price.toLocaleString()}원</span>
-        </div>
-        <div class="val-item">
-          <span class="val-item-label">증권사 평균 목표가</span>
-          <span class="val-item-val">${targetPrice.toLocaleString()}원</span>
-        </div>
-        <div class="val-item">
-          <span class="val-item-label">괴리율</span>
-          <span class="val-item-val" style="color:${gapColor}">${gapStr}</span>
-        </div>
-      </div>
-      <div class="val-disclaimer">증권사 컨센서스 목표주가 기준 · 투자 참고용</div>
-    `;
-    return;
+  // ── 슬라이더 A: 시장 대비 재무 위치 (PER+PBR 백분위) ──
+  function perPct(p) {
+    if (p <= 0 || p > 300) return null;
+    if (p < 6)  return  5; if (p < 8)  return 15; if (p < 10) return 25;
+    if (p < 12) return 35; if (p < 15) return 45; if (p < 18) return 55;
+    if (p < 25) return 65; if (p < 35) return 75; if (p < 50) return 85;
+    return 93;
+  }
+  function pbrPct(b) {
+    if (b <= 0) return null;
+    if (b < 0.4) return  5; if (b < 0.6) return 15; if (b < 0.8) return 25;
+    if (b < 1.0) return 35; if (b < 1.2) return 45; if (b < 1.5) return 55;
+    if (b < 2.0) return 65; if (b < 3.0) return 75; if (b < 5.0) return 85;
+    return 93;
   }
 
-  // ── PBR 폴백 (증권사 커버리지 없음) ──────────────────────
-  const pbr         = ks?.pbr        ?? 0;
-  const growthScore = ks?.growthScore ?? 0;
-
-  if (!ks || pbr <= 0 || !price) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">증권사 커버리지 없음</div>';
-    return;
+  let posA = null;
+  if (pbr > 0) {
+    const pp = pbrPct(pbr);
+    if (isFinancial || isLoss) {
+      posA = pp;          // 금융·적자: PBR만
+    } else {
+      const rp = perPct(per);
+      posA = rp !== null ? (pp + rp) / 2 : pp; // 일반: PER+PBR 평균
+    }
   }
 
-  const fairPBR   = 0.8 + (growthScore / 18) * 2.2;
-  const fairPrice = Math.round(price / pbr * fairPBR);
-  const upside    = (fairPrice - price) / price * 100;
-  const ratio     = pbr / fairPBR;
-  function ratioToPos(r) {
-    if (r <= 0.5) return (r / 0.5) * 20;
-    if (r <= 0.8) return 20 + ((r - 0.5) / 0.3) * 20;
-    if (r <= 1.2) return 40 + ((r - 0.8) / 0.4) * 20;
-    if (r <= 2.0) return 60 + ((r - 1.2) / 0.8) * 20;
-    return Math.min(100, 80 + ((r - 2.0) / 2.0) * 20);
-  }
-  const pos2      = ratioToPos(ratio).toFixed(1);
-  const zone2     = ratio < 0.5 ? 0 : ratio < 0.8 ? 1 : ratio < 1.2 ? 2 : ratio < 2.0 ? 3 : 4;
-  const zoneColor2 = zone2 <= 1 ? '#22c55e' : zone2 === 2 ? '#6b7280' : zone2 === 3 ? '#f59e0b' : '#ef4444';
-  const upsideStr  = upside >= 0 ? `+${upside.toFixed(1)}%` : `${upside.toFixed(1)}%`;
-  const upsideColor = upside >= 0 ? '#22c55e' : '#ef4444';
+  const labelsA  = ['매우저평가','저평가','적정','고평가','매우고평가'];
+  const zoneA    = posA === null ? 2
+    : posA < 20 ? 0 : posA < 40 ? 1 : posA < 60 ? 2 : posA < 80 ? 3 : 4;
+  const colorA   = [['#22c55e','#86efac'],['#22c55e','#86efac'],['#6b7280','#9ca3af'],
+                    ['#f59e0b','#fbbf24'],['#ef4444','#fca5a5']][zoneA];
 
+  // ── 슬라이더 B: 증권사 기대 위치 (목표가 괴리율) ──────────
+  const hasTarget = targetPrice && targetPrice > 0 && price > 0;
+  const discount  = hasTarget ? (targetPrice - price) / targetPrice * 100 : null;
+  const posB      = discount !== null
+    ? Math.max(0, Math.min(100, 50 - discount * (50 / 30)))
+    : null;
+  const labelsB   = ['상승여력충분','상승가능','목표가근접','목표가상회'];
+  const zoneB     = discount === null ? -1
+    : discount >= 30 ? 0 : discount >= 15 ? 1 : discount >= -15 ? 2 : 3;
+  const colorB    = [['#22c55e','#86efac'],['#22c55e','#86efac'],
+                     ['#6b7280','#9ca3af'],['#f59e0b','#fbbf24']][zoneB >= 0 ? zoneB : 2];
+
+  // ── 수익률 색상 ─────────────────────────────────────────
+  const gapStr   = discount !== null
+    ? (discount >= 0 ? '+' : '') + discount.toFixed(1) + '%' : '';
+  const gapColor = discount !== null ? (discount >= 0 ? '#22c55e' : '#ef4444') : '';
+
+  // ── HTML 렌더 ────────────────────────────────────────────
   el.innerHTML = `
-    <div class="val-zone-label" style="color:${zoneColor2}">${labels[zone2]}</div>
-    <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">증권사 커버리지 없음 — PBR 기준</div>
-    <div class="val-slider-wrap">
-      <div class="val-track"><div class="val-marker" style="left:${pos2}%"></div></div>
-      <div class="val-labels">${labels.map(l => `<span>${l}</span>`).join('')}</div>
-    </div>
-    <div class="val-detail">
-      <div class="val-item">
-        <span class="val-item-label">현재 PBR</span>
-        <span class="val-item-val">${pbr.toFixed(2)}배</span>
+    <!-- 현재가 + 목표가 정보 -->
+    <div class="val-target-row" style="${hasTarget ? '' : 'display:none'}">
+      <div class="val-titem">
+        <span class="val-titem-lbl">현재가</span>
+        <span class="val-titem-val">${price.toLocaleString()}원</span>
       </div>
-      <div class="val-item">
-        <span class="val-item-label">적정 PBR</span>
-        <span class="val-item-val">${fairPBR.toFixed(2)}배</span>
+      <div class="val-titem">
+        <span class="val-titem-lbl">증권사 평균 목표가</span>
+        <span class="val-titem-val">${hasTarget ? targetPrice.toLocaleString()+'원' : '—'}</span>
       </div>
-      <div class="val-item">
-        <span class="val-item-label">적정 가격</span>
-        <span class="val-item-val">${fairPrice.toLocaleString()}원</span>
-      </div>
-      <div class="val-item">
-        <span class="val-item-label">괴리율</span>
-        <span class="val-item-val" style="color:${upsideColor}">${upsideStr}</span>
+      <div class="val-titem">
+        <span class="val-titem-lbl">상승여력</span>
+        <span class="val-titem-val" style="color:${gapColor}">${gapStr || '—'}</span>
       </div>
     </div>
-    <div class="val-disclaimer">성장성 점수(${growthScore}점) 반영 적정 PBR 기준 · 투자 참고용</div>
+
+    <!-- 핵심 재무 지표 -->
+    <div class="val-metrics">
+      ${per > 0 && per <= 200 ? `<div class="val-metric-chip">
+        <span class="val-metric-lbl">PER</span>
+        <span class="val-metric-val" style="color:${colorA[0]}">${per.toFixed(1)}배</span>
+      </div>` : ''}
+      ${pbr > 0 ? `<div class="val-metric-chip">
+        <span class="val-metric-lbl">PBR</span>
+        <span class="val-metric-val" style="color:${colorA[0]}">${pbr.toFixed(2)}배</span>
+      </div>` : ''}
+    </div>
+
+    <!-- 슬라이더 A: 시장 대비 재무 위치 -->
+    <div class="val-block">
+      <div class="val-block-title">A. 시장 대비 재무 위치</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span class="val-zone-label" style="color:${colorA[0]}">${labelsA[zoneA]}</span>
+        <span style="font-size:10px;color:var(--muted)">${isFinancial?'PBR 기준':isLoss?'PBR 기준(적자)':'PER+PBR 평균'}</span>
+      </div>
+      <div class="val-track-ab val-track-a">
+        ${posA !== null ? `<div class="val-marker" style="left:${posA.toFixed(1)}%"></div>` : ''}
+      </div>
+      <div class="val-labels">${labelsA.map(l=>`<span>${l}</span>`).join('')}</div>
+    </div>
+
+    <!-- 슬라이더 B: 증권사 기대 위치 -->
+    ${hasTarget ? `<div class="val-block">
+      <div class="val-block-title">B. 증권사 기대 위치</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+        <span class="val-zone-label" style="color:${colorB[0]}">${labelsB[zoneB]}</span>
+        <span style="font-size:10px;color:var(--muted)">목표가 괴리율 기준</span>
+      </div>
+      <div class="val-track-ab val-track-b">
+        <div class="val-marker" style="left:${posB.toFixed(1)}%"></div>
+      </div>
+      <div class="val-labels">${labelsB.map(l=>`<span>${l}</span>`).join('')}</div>
+    </div>` : `<div style="font-size:10px;color:var(--muted);margin-top:4px;">증권사 커버리지 없음 — 슬라이더 B 미표시</div>`}
+
+    <div class="val-disclaimer">투자 참고용 · 실제 투자 판단에 사용 금지</div>
   `;
 }
 
@@ -2260,7 +2299,7 @@ function renderResult(data) {
 
   // 레이더 차트 + 밸류에이션 슬라이더
   renderRadarChart(data.korScore);
-  renderValuationSlider(data.korScore, data.stock?.price);
+  renderValuationSlider(data.korScore, data.stock?.price, data.stock?.sector || '');
 
   renderCharts(data);
   show('result');
