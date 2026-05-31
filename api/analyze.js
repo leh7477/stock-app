@@ -660,8 +660,8 @@ function calcEpsAcceleration(epsHistory) {
 }
 
 // ─── 국장 특화 스코어 → 객체 반환 (total + 세부 컴포넌트) ─────────────────
-// PBR(8) + 섹터(0~8) + forwardPER(0~10) + 수급(0~8) + 공시(±2) + DART(+15/-4)
-// + EPS가속(0~12) + 배당(0~4) + 시총(-3~0) = cap 50pt → ×0.5 = 최대 25pt
+// PBR(0~8) + 섹터(0~8) + forwardPER(0~10) + 수급(0~8) + 공시(±2) + DART재무(최대10/-5)
+// + EPS가속(0~16) + FF(0~10) + 시총(-8~0) + 기타감점 = raw합계 → cap 50pt → ×0.5 = 최대 25pt
 function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclosures = [], stockName = '', stockCode = '', dartFin = null, d20FrgnInst = null, divYield = 0, mktCap = 0, frgnRatio = 0, d5Personal = null, epsAccelScore = 0, ffScore = 0) {
   const n   = closes.length - 1;
   const cur = closes[n];
