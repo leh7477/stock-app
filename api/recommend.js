@@ -35,8 +35,9 @@ export default async function handler(req, res) {
   const market   = req.query?.market   || '';        // KOSPI | KOSDAQ | '' = 전체
   const filter   = req.query?.filter   || '';        // golden | ma5 | ma20 | ma60 | ''
   const frgnbuy  = req.query?.frgnbuy  === '1';     // 외인 순매수 > 0 필터
-  const limit    = Math.min(parseInt(req.query?.limit  || '100'), 500);
-  const offset   = Math.max(parseInt(req.query?.offset || '0'),   0);
+  const allMode  = req.query?.all === '1';              // 테마 필터링용 전종목
+  const limit    = allMode ? 99999 : Math.min(parseInt(req.query?.limit  || '100'), 500);
+  const offset   = allMode ? 0     : Math.max(parseInt(req.query?.offset || '0'),   0);
 
   try {
     const raw = await timedFetch(`${redisUrl}/get/recommend_v2`, {

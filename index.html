@@ -1628,6 +1628,7 @@ function renderMktTrendChart() {
 // ── 2026 테마 섹터 렌더 ───────────────────────────────
 let curTheme = '';
 let curThemeSort = 'mktcap';
+let allStocksCache = null;    // 테마 필터링용 전종목 캐시 (세션 내 1회 로드)
 
 function setThemeSort(type) {
   curThemeSort = type;
@@ -1647,7 +1648,7 @@ function renderThemeSectors() {
   ).join('');
 }
 
-function setTheme(key) {
+async function setTheme(key) {
   const sortRow = document.getElementById('theme-sort-row');
   if (curTheme === key) {
     curTheme = '';
@@ -1661,11 +1662,24 @@ function setTheme(key) {
   document.getElementById('sc-' + key)?.classList.add('active');
   sortRow.style.display = 'flex';
   showStockSection();
+
+  // 전종목 캐시 없으면 로드 (세션 내 1회)
+  if (!allStocksCache) {
+    document.getElementById('stock-list').innerHTML =
+      '<div style="text-align:center;color:var(--muted);padding:32px;font-size:13px;">전종목 로딩 중…</div>';
+    try {
+      const d = await fetch('/api/recommend?all=1').then(r => r.json());
+      allStocksCache = d.stocks || [];
+    } catch (_) {
+      allStocksCache = allStocks; // 실패 시 현재 로드된 종목으로 폴백
+    }
+  }
   renderThemeStocks(key);
 }
 
 function renderThemeStocks(key) {
-  const filtered = allStocks.filter(s => stockMatchesTheme(s, key));
+  const pool = allStocksCache || allStocks;
+  const filtered = pool.filter(s => stockMatchesTheme(s, key));
   const listEl = document.getElementById('stock-list');
   const theme = THEMES_2026.find(t => t.key === key);
   document.getElementById('result-cnt').textContent =
