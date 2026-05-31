@@ -2,9 +2,9 @@ name: 국장 브리핑 생성 (매일 08:00 KST)
 
 on:
   schedule:
-    - cron: '0 23 * * 1-5'  # 평일 08:00 KST (UTC 월~금) → 국장 브리핑
-    - cron: '0 23 * * 5'    # 토요일 08:00 KST (UTC 금요일 23:00) → 이번 주 마켓 리뷰
-    - cron: '0 23 * * 6'    # 일요일 08:00 KST (UTC 토요일 23:00) → 다음 주 전략
+    - cron: '8 23 * * 1-5'  # 평일 08:08 KST (UTC 월~금 23:08) → 국장 브리핑
+    - cron: '8 23 * * 5'    # 토요일 08:08 KST (UTC 금요일 23:08) → 이번 주 마켓 리뷰
+    - cron: '8 23 * * 6'    # 일요일 08:08 KST (UTC 토요일 23:08) → 다음 주 전략
   workflow_dispatch:
     inputs:
       content_type:
