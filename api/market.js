@@ -155,10 +155,31 @@ async function fetchSupply(kvUrl, kvToken) {
     const output     = data?.output;
     const foreignNet = parseInt(output?.frgn_ntby_qty || 0);
     const instNet    = parseInt(output?.orgn_ntby_qty  || 0);
-    if (foreignNet === 0 && instNet === 0) return null;  // 장외 or 오류
+    // 응답 자체가 실패한 게 아니라면 0/0도 유효한 데이터 (중립 50점)
+    if (data?.rt_cd && data.rt_cd !== '0') return null;
 
-    const supply = { foreignNet, instNet };
-    // 캐시 저장 (25시간 — 다음 영업일까지 유효)
+    // KOSDAQ 수급도 병렬 조회 (보완용)
+    let kdForeignNet = 0, kdInstNet = 0;
+    try {
+      const kdData = await timedFetch(
+        'https://openapi.koreainvestment.com:9443/uapi/domestic-stock/v1/quotations/inquire-investor' +
+        '?fid_cond_mrkt_div_code=Q&fid_input_iscd=1001',
+        { headers: {
+          Authorization: `Bearer ${kisToken}`,
+          appkey: kisKey, appsecret: kisSecret,
+          tr_id: 'FHKST01010900', 'Content-Type': 'application/json',
+        }}
+      ).then(r => r.json());
+      if (kdData?.rt_cd === '0') {
+        kdForeignNet = parseInt(kdData?.output?.frgn_ntby_qty || 0);
+        kdInstNet    = parseInt(kdData?.output?.orgn_ntby_qty  || 0);
+      }
+    } catch { /* KOSDAQ 실패해도 KOSPI로 계속 */ }
+
+    const supply = {
+      foreignNet: foreignNet + kdForeignNet,
+      instNet:    instNet    + kdInstNet,
+    };
     await redisPipeline(
       [['SET','supply_cache', JSON.stringify(supply), 'EX','90000']],
       kvUrl, kvToken
@@ -191,7 +212,26 @@ function scoreSupply(supply) {
   return clamp((raw + 15) / 30 * 100, 0, 100);
 }
 
-function scoreTrading(kospiAmt, kosdaqAmt) {
+function scoreTrading(kospiAmt, kosdaqAmt, kospiValues, kosdaqValues) {
+  // 1순위: Naver 차트 기반 20일 MA 대비 비율 (KOSPI 60% + KOSDAQ 40%)
+  const maScore = (values) => {
+    if (!values || values.length < 6) return null;
+    const today = values[values.length - 1];
+    const past  = values.slice(-21, -1);   // 최근 20일 (오늘 제외)
+    if (!past.length || !today) return null;
+    const ma20 = past.reduce((a, b) => a + b, 0) / past.length;
+    if (!ma20) return null;
+    const ratio = today / ma20;
+    // 120%↑ → ~90 / 100% → 50 / 80%↓ → ~10
+    return clamp(50 + (ratio - 1) * 200, 0, 100);
+  };
+  const kpS = maScore(kospiValues);
+  const kdS = maScore(kosdaqValues);
+  if (kpS !== null || kdS !== null) {
+    if (kpS !== null && kdS !== null) return Math.round(kpS * 0.6 + kdS * 0.4);
+    return kpS ?? kdS;
+  }
+  // 2순위: Naver basic tradeAmount 기반 고정 기준
   const total = (kospiAmt||0) + (kosdaqAmt||0);
   if (total <= 0) return null;
   const REF = 12e12; // 12조원 기준
@@ -372,6 +412,18 @@ function parseNaverCandles(json) {
   return candles.length >= 16 ? candles : null;
 }
 
+// Naver 지수 차트 거래대금 파싱 (일봉, 단위: 원)
+function parseNaverTradingValues(json) {
+  const items = json?.chartinfos || json?.priceinfos || null;
+  if (!Array.isArray(items)) return null;
+  const values = items
+    .map(d => parseFloat(String(
+      d.accumulatedTradingValue || d.tradingValue || d.tradeAmount || '0'
+    ).replace(/,/g,'')) || 0)
+    .filter(v => v > 0);
+  return values.length >= 5 ? values : null;
+}
+
 // ─── 레이블 ──────────────────────────────────────────────────────────────────
 
 function scoreLabel(score) {
@@ -431,8 +483,10 @@ export default async function handler(req, res) {
   const vixData = parseYahoo(vixRaw);
 
   // ADX 계산
-  const kospiCandles  = parseNaverCandles(kospiChartRaw);
-  const kosdaqCandles = parseNaverCandles(kosdaqChartRaw);
+  const kospiCandles      = parseNaverCandles(kospiChartRaw);
+  const kosdaqCandles     = parseNaverCandles(kosdaqChartRaw);
+  const kospiTradingVals  = parseNaverTradingValues(kospiChartRaw);
+  const kosdaqTradingVals = parseNaverTradingValues(kosdaqChartRaw);
   const nasdaqCandles = parseYahooCandles(nasdaqChartRaw);
   const adxKospi  = calcADX14(kospiCandles);
   const adxKosdaq = calcADX14(kosdaqCandles);
@@ -465,7 +519,7 @@ export default async function handler(req, res) {
   const rawScores = {
     indexPos: scoreIndexPos(kospi?.changeRate,  kosdaq?.changeRate),
     supply:   scoreSupply(supply),
-    trading:  scoreTrading(kospi?.tradeAmount,  kosdaq?.tradeAmount),
+    trading:  scoreTrading(kospi?.tradeAmount, kosdaq?.tradeAmount, kospiTradingVals, kosdaqTradingVals),
     nasdaq:   scoreNasdaq(nasdaq?.changeRate),
     usd:      scoreUsd(usdkrw?.changeRate),
     vix:      scoreVix(vixData?.price),
