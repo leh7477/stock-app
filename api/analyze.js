@@ -1043,7 +1043,7 @@ export default async function handler(req, res) {
       timedFetch(chartUrl(fmtD(ago(1400)), fmtD(ago(700))),      { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(chartUrl(fmtD(ago(1850)), fmtD(ago(1400))),     { headers: hdr('FHKST03010100') }).then(r => r.json()).catch(() => null),
       timedFetch(estimateUrl,              { headers: hdr('HHKST668300C0') }).then(r => r.json()).catch(() => null),
-      timedFetch(investOpnnUrl,            { headers: hdr('HHKST663100C0') }).then(r => r.json()).catch(() => null),
+      timedFetch(investOpnnUrl,            { headers: hdr('HHKST663100C0') }).then(r => r.json()).catch(e => ({ _fetchError: e.message })),
     ]);
 
     let [priceRaw, cd1, cw1, cw2, cw3, estimateRaw, investOpnnRaw] = await fetchAllKis(kisHdr);
