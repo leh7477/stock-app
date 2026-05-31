@@ -2028,48 +2028,77 @@ function renderValuationSlider(ks, price) {
   const el = document.getElementById('r-valuation-slider');
   if (!el) return;
 
-  const pbr         = ks?.pbr         ?? 0;
-  const growthScore = ks?.growthScore  ?? 0;
+  const labels    = ['매우저평가', '저평가', '적정', '고평가', '매우고평가'];
+  const targetPrice = ks?.consensusTarget ?? null;
 
-  if (!ks || pbr <= 0 || !price) {
-    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">PBR 데이터 없음</div>';
+  // ── 증권사 목표가 기반 슬라이더 ──────────────────────────
+  if (targetPrice && targetPrice > 0 && price > 0) {
+    // discount: 목표가 대비 상승 여력 (%) — 양수=저평가, 음수=고평가
+    const discount  = (targetPrice - price) / targetPrice * 100;
+    // 선형 매핑: discount 30% → pos 0 / 0% → pos 50 / -30% → pos 100
+    const pos       = Math.max(0, Math.min(100, 50 - discount * (50 / 30))).toFixed(1);
+    const zone      = discount >= 30 ? 0 : discount >= 15 ? 1 : discount >= -15 ? 2 : discount >= -30 ? 3 : 4;
+    const zoneColor = zone <= 1 ? '#22c55e' : zone === 2 ? '#6b7280' : zone === 3 ? '#f59e0b' : '#ef4444';
+    const gapStr    = discount >= 0 ? `+${discount.toFixed(1)}%` : `${discount.toFixed(1)}%`;
+    const gapColor  = discount >= 0 ? '#22c55e' : '#ef4444';
+
+    el.innerHTML = `
+      <div class="val-zone-label" style="color:${zoneColor}">${labels[zone]}</div>
+      <div class="val-slider-wrap">
+        <div class="val-track"><div class="val-marker" style="left:${pos}%"></div></div>
+        <div class="val-labels">${labels.map(l => `<span>${l}</span>`).join('')}</div>
+      </div>
+      <div class="val-detail">
+        <div class="val-item">
+          <span class="val-item-label">현재가</span>
+          <span class="val-item-val">${price.toLocaleString()}원</span>
+        </div>
+        <div class="val-item">
+          <span class="val-item-label">증권사 평균 목표가</span>
+          <span class="val-item-val">${targetPrice.toLocaleString()}원</span>
+        </div>
+        <div class="val-item">
+          <span class="val-item-label">괴리율</span>
+          <span class="val-item-val" style="color:${gapColor}">${gapStr}</span>
+        </div>
+      </div>
+      <div class="val-disclaimer">증권사 컨센서스 목표주가 기준 · 투자 참고용</div>
+    `;
     return;
   }
 
-  // 성장성 반영 적정 PBR: 0.8 (성장 0점) ~ 3.0 (성장 최대 18점)
+  // ── PBR 폴백 (증권사 커버리지 없음) ──────────────────────
+  const pbr         = ks?.pbr        ?? 0;
+  const growthScore = ks?.growthScore ?? 0;
+
+  if (!ks || pbr <= 0 || !price) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0;">증권사 커버리지 없음</div>';
+    return;
+  }
+
   const fairPBR   = 0.8 + (growthScore / 18) * 2.2;
   const fairPrice = Math.round(price / pbr * fairPBR);
-  const upside    = ((fairPrice - price) / price * 100);
-
-  // PBR 비율 → 슬라이더 위치 (0-100%)
-  const ratio = pbr / fairPBR;
+  const upside    = (fairPrice - price) / price * 100;
+  const ratio     = pbr / fairPBR;
   function ratioToPos(r) {
-    if (r <= 0)   return 0;
     if (r <= 0.5) return (r / 0.5) * 20;
     if (r <= 0.8) return 20 + ((r - 0.5) / 0.3) * 20;
     if (r <= 1.2) return 40 + ((r - 0.8) / 0.4) * 20;
     if (r <= 2.0) return 60 + ((r - 1.2) / 0.8) * 20;
     return Math.min(100, 80 + ((r - 2.0) / 2.0) * 20);
   }
-  const pos = ratioToPos(ratio).toFixed(1);
-
-  // 구간 판정
-  const zone      = ratio < 0.5 ? 0 : ratio < 0.8 ? 1 : ratio < 1.2 ? 2 : ratio < 2.0 ? 3 : 4;
-  const labels    = ['매우저평가', '저평가', '적정', '고평가', '매우고평가'];
-  const zoneColor = zone <= 1 ? '#22c55e' : zone === 2 ? '#6b7280' : zone === 3 ? '#f59e0b' : '#ef4444';
-
+  const pos2      = ratioToPos(ratio).toFixed(1);
+  const zone2     = ratio < 0.5 ? 0 : ratio < 0.8 ? 1 : ratio < 1.2 ? 2 : ratio < 2.0 ? 3 : 4;
+  const zoneColor2 = zone2 <= 1 ? '#22c55e' : zone2 === 2 ? '#6b7280' : zone2 === 3 ? '#f59e0b' : '#ef4444';
   const upsideStr  = upside >= 0 ? `+${upside.toFixed(1)}%` : `${upside.toFixed(1)}%`;
   const upsideColor = upside >= 0 ? '#22c55e' : '#ef4444';
 
   el.innerHTML = `
-    <div class="val-zone-label" style="color:${zoneColor}">${labels[zone]}</div>
+    <div class="val-zone-label" style="color:${zoneColor2}">${labels[zone2]}</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">증권사 커버리지 없음 — PBR 기준</div>
     <div class="val-slider-wrap">
-      <div class="val-track">
-        <div class="val-marker" style="left:${pos}%"></div>
-      </div>
-      <div class="val-labels">
-        ${labels.map(l => `<span>${l}</span>`).join('')}
-      </div>
+      <div class="val-track"><div class="val-marker" style="left:${pos2}%"></div></div>
+      <div class="val-labels">${labels.map(l => `<span>${l}</span>`).join('')}</div>
     </div>
     <div class="val-detail">
       <div class="val-item">

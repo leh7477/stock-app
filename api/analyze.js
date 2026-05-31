@@ -646,14 +646,14 @@ function calcEpsAcceleration(epsHistory) {
   if (prev === 0) return 0;
 
   const growth = (latest - prev) / Math.abs(prev) * 100;
-  let score = growth >= 50 ? 10 : growth >= 20 ? 7 : growth >= 0 ? 4 : 0;
+  let score = growth >= 50 ? 13 : growth >= 20 ? 10 : growth >= 0 ? 5 : 0;
 
-  // 2분기 연속 가속 보너스 (+2pt)
+  // 2분기 연속 가속 보너스 (+3pt, max 16)
   if (valid.length >= 3 && score > 0) {
     const prevPrev = valid[valid.length - 3];
     if (prevPrev !== 0 && prevPrev !== null) {
       const prevGrowth = (prev - prevPrev) / Math.abs(prevPrev) * 100;
-      if (growth > prevGrowth) score = Math.min(12, score + 2);
+      if (growth > prevGrowth) score = Math.min(16, score + 3);
     }
   }
   return score;
@@ -721,8 +721,7 @@ function calcKoreanScore(pbr, per, rsiLatest, closes, sector, d5FrgnInst, disclo
     }
   }
 
-  // 배당수익률 (0~4pt)
-  const divScore = divYield >= 4 ? 4 : divYield >= 3 ? 3 : divYield >= 2 ? 2 : divYield >= 1 ? 1 : 0;
+  const divScore = 0; // 배당수익률 항목 제거 (EPS 가속도로 통합)
 
   // 시총 안정성 강화 (-8~0pt)
   const mktCapScore = mktCap > 0 && mktCap < 500  ? -8
@@ -1347,10 +1346,11 @@ if (dartEps === null) {
     // ── 컨센서스 EPS (estimate-perform) ─────────────────────────────────────
     // output3[1]=EPS, output4[i].dt=결산년월 ("2025.12E"=추정 / "2025.12"=확정)
     // 우선순위: ① E(추정) 중 첫 번째 → ② 확정 중 최신(올해-1 이상) → ③ 마지막 유효값
-    let consensusEps  = null;
-    let consensusPer  = null;
-    let consensusDate = null;
-    let oEps          = null; // EPS 가속도 폴백용 (try 스코프 밖으로)
+    let consensusEps    = null;
+    let consensusPer    = null;
+    let consensusDate   = null;
+    let oEps            = null; // EPS 가속도 폴백용 (try 스코프 밖으로)
+    let consensusTarget = null; // 증권사 평균 목표주가
     try {
       const oDates = estimateRaw?.output4;
       // output3 구조: [0]영업이익(억원) [1]세전이익 [2]당기순이익 [3]EPS(원/주) [4]PER(배) [5]BPS [6]PBR [7]ROE
@@ -1381,6 +1381,12 @@ if (dartEps === null) {
           consensusEps  = parseFloat(oEps?.[dataKeys[bestIdx]] || '0') || null; // 표시용
           consensusDate = oDates[bestIdx]?.dt || null;
         }
+      }
+      // 증권사 평균 목표주가
+      const rawTrgt = estimateRaw?.output1?.trgt_prce;
+      if (rawTrgt) {
+        const parsed = parseInt(String(rawTrgt).replace(/,/g, ''));
+        if (parsed > 0) consensusTarget = parsed;
       }
     } catch (_) {}
 
@@ -1544,7 +1550,7 @@ if (dartEps === null) {
           tag,
           growthComment,
           dartEps,
-          consensusEps, consensusDate,
+          consensusEps, consensusDate, consensusTarget,
           hasFwdPer,
           _estimateDebug: {
             rt_cd: estimateRaw?.rt_cd, msg: estimateRaw?.msg1,
