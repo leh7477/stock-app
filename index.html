@@ -222,6 +222,7 @@ body { font-family: 'Pretendard', -apple-system, sans-serif; background: var(--b
 /* 종목명·섹터 */
 .sr-name { font-size: 13px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-sec  { font-size: 10px; color: var(--muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-rank { margin-right: 3px; }
 
 /* 점수 */
 .sr-sc-num { font-size: 14px; font-weight: 700; }
@@ -1155,18 +1156,18 @@ function renderTop10Tab(tab) {
 function getSignalBadge(s) {
   const price = s.price || 0, ma5 = s.ma5 || 0, avgVol5 = s.avgVol5 || 0;
   const chg = s.chgRate || 0, vol = s.volume || 0;
-  // 돌파임박: 거래량 수렴 + MA 배열 양호
+  // 돌파임박: 거래량 수렴 + MA5·MA20 모두 상승
   if (avgVol5 > 0 && vol < avgVol5 * 0.8 && s.ma20Signal === 'up' && s.ma5Signal === 'up')
-    return { label:'🔵 돌파임박', cls:'sig-break' };
+    return { label:'돌파임박', cls:'sig-entry' };
   // 진입적기: MA5 근접(±5%) + 상승 추세
   if (ma5 > 0 && price > 0 && Math.abs(price - ma5)/ma5 <= 0.05 && s.ma5Signal === 'up')
-    return { label:'🟢 진입적기', cls:'sig-entry' };
+    return { label:'진입적기', cls:'sig-entry' };
   // 과열주의: 급등 + 높은 점수
   if (chg >= 5 && (s.score || 0) >= 55)
-    return { label:'🔴 과열주의', cls:'sig-hot' };
+    return { label:'과열주의', cls:'sig-heat' };
   // 눌림대기: MA5 아래지만 MA20 상승
   if (s.ma5Signal === 'down' && s.ma20Signal === 'up')
-    return { label:'🟡 눌림대기', cls:'sig-pull' };
+    return { label:'눌림대기', cls:'sig-wait' };
   return null;
 }
 
@@ -1196,6 +1197,7 @@ function scoreGradeClass(sc) {
 
 function makeTop10List(stocks, tab) {
   if (!stocks?.length) return '<div style="color:rgba(246,244,239,.35);font-size:13px;padding:32px;text-align:center;">데이터 없음</div>';
+
   const fmtAmt = v => {
     const a = Math.abs(v);
     if (a >= 1e12) return (v/1e12).toFixed(1) + '조';
@@ -1203,92 +1205,67 @@ function makeTop10List(stocks, tab) {
     return Math.round(v/1e4).toLocaleString() + '만';
   };
   const fmtCap = c => !c ? '' : c >= 10000 ? (c/10000).toFixed(1)+'조' : c.toLocaleString()+'억';
-  const rankIcon = i => ['🥇','🥈','🥉'][i] || '';
+  const RANK_ICONS = ['🥇','🥈','🥉'];
 
-  return stocks.map((s, i) => {
-    const sc  = s.score || 0;
-    const av  = avColor(s.name);
-    const up  = (s.chgRate || 0) >= 0;
+  // 탭별 헤더 점수 컬럼명
+  const scoreColLabel = { foreign:'외인순매수', volume:'거래대금', value:'PBR' }[tab] || '점수';
+
+  const rows = stocks.map((s, i) => {
+    const sc     = s.score || 0;
+    const av     = avColor(s.name);
+    const col    = scoreColor(sc);
+    const up     = (s.chgRate || 0) >= 0;
+    const chgClr = up ? 'var(--green)' : 'var(--red)';
     const chgTxt = (up ? '+' : '') + (s.chgRate || 0).toFixed(2) + '%';
-    const gradeClass = scoreGradeClass(sc);
+    const sector = s.themeSector || s.sector || '';
+    const price  = s.price ? s.price.toLocaleString() + '원' : '—';
+    const vol    = fmtTradingAmt(s);
+    const rank   = i < 3 ? RANK_ICONS[i] : `<span style="font-size:11px;color:var(--muted);font-weight:700;">${i+1}</span>`;
 
-    // 순위
-    const rankHtml = i < 3
-      ? `<div class="t20-rank"><span class="t20-rank-icon">${rankIcon(i)}</span></div>`
-      : `<div class="t20-rank"><span class="t20-rank-num">${i+1}</span></div>`;
+    // 시그널
+    const sig    = getSignalBadge(s);
+    const sigHtml = sig ? `<span class="sig-badge ${sig.cls}">${sig.label}</span>` : '';
 
-    // 섹터 태그
-    const secTxt = (s.sector || '').slice(0, 8);
-    const sectorHtml = secTxt ? `<span class="t20-sector">${secTxt}</span>` : '';
-
-    // 시그널 배지
-    const sig = getSignalBadge(s);
-    const sigHtml = sig ? `<span class="t20-signal ${sig.cls}">${sig.label}</span>` : `<span></span>`;
-
-    // 점수 — 탭별 대체 메트릭
-    let scoreHtml = '';
+    // 탭별 점수 셀
+    let scoreCell = '';
     if (tab === 'foreign') {
       const fnet = s.investorSupply?.d5?.foreign || 0;
       const amt  = fnet * (s.price || 0);
-      scoreHtml = `<div class="t20-metric">
-        <div class="t20-mval" style="color:#67e8f9">+${fmtAmt(amt)}</div>
-        <div class="t20-msub">5일 외인</div>
-      </div>`;
+      scoreCell = `<div class="sr-score"><span class="sr-sc-num" style="color:#67e8f9;font-size:12px">+${fmtAmt(amt)}</span><div class="sr-sc-bar"><div style="width:70%;background:#67e8f9"></div></div></div>`;
     } else if (tab === 'volume') {
       const amt = (s.avgVol5 || s.volume || 0) * (s.price || 0);
-      scoreHtml = `<div class="t20-metric">
-        <div class="t20-mval" style="color:#60a5fa">${fmtAmt(amt)}</div>
-        <div class="t20-msub">5일 거래대금</div>
-      </div>`;
+      scoreCell = `<div class="sr-score"><span class="sr-sc-num" style="color:#60a5fa;font-size:12px">${fmtAmt(amt)}</span><div class="sr-sc-bar"><div style="width:65%;background:#60a5fa"></div></div></div>`;
     } else if (tab === 'value') {
-      const pbrV = (s.pbr || 0) > 0 ? s.pbr.toFixed(2)+'배' : '--';
-      scoreHtml = `<div class="t20-metric">
-        <div class="t20-mval" style="color:#4ade80">${pbrV}</div>
-        <div class="t20-msub">PBR</div>
-      </div>`;
+      const pbr = (s.pbr || 0) > 0 ? s.pbr.toFixed(2) : '--';
+      const pct = (s.pbr || 0) > 0 ? Math.min((s.pbr / 2) * 100, 100) : 0;
+      scoreCell = `<div class="sr-score"><span class="sr-sc-num" style="color:#4ade80">${pbr}</span><div class="sr-sc-bar"><div style="width:${pct}%;background:#4ade80"></div></div></div>`;
     } else {
-      scoreHtml = `<div class="t20-score">
-        <div class="t20-score-num ${gradeClass}">${sc}</div>
-        <div class="t20-score-lbl">점</div>
-      </div>`;
+      scoreCell = `<div class="sr-score"><span class="sr-sc-num" style="color:${col}">${sc}</span><div class="sr-sc-bar"><div style="width:${sc}%;background:${col}"></div></div></div>`;
     }
 
-    // 2행: 현재가 · 등락률 · RSI · 시총
-    const priceTxt  = s.price ? s.price.toLocaleString()+'원' : '';
-    const capTxt    = s.mktCap ? fmtCap(s.mktCap) : '';
-    const rsiTxt    = s.rsi != null ? `RSI ${s.rsi.toFixed(0)}` : '';
-    const statParts = [capTxt ? `시총 ${capTxt}` : '', rsiTxt].filter(Boolean);
-
-    // 핵심이유 태그
+    // 핵심이유
     const reasons = getReasonTags(s);
-    const reasonsHtml = reasons.map(t => `<span class="t20-tag ${t.cls}">${t.label}</span>`).join('');
+    const tagsHtml = reasons.slice(0, 2).map(t => `<span class="t20-tag ${t.cls}">${t.label}</span>`).join('');
 
-    // 탭별 2행 보조 메트릭 (momentum: 등락률 강조, surge: 거래량 비율)
-    let bodyMetric = '';
-    if (tab === 'surge' && (s.avgVol5 || 0) > 0) {
-      const ratio = Math.round((s.volume || 0) / s.avgVol5 * 100);
-      bodyMetric = `<span class="t20-stat" style="color:#fdba74;">거래량 ${ratio}%</span>`;
-    }
-
-    return `<div class="t20-card" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
-      <div class="t20-hdr">
-        ${rankHtml}
-        <div class="t20-av" style="background:${av}">${s.name.charAt(0)}</div>
-        <div class="t20-info">
-          <div class="t20-name">${s.name}${sectorHtml}</div>
-          <div class="t20-sub">${s.code}${capTxt ? ' · ' + capTxt : ''}</div>
-        </div>
-        ${sigHtml}
-        ${scoreHtml}
+    return `<div class="srow" onclick="window.location='/analyzer.html?q=${encodeURIComponent(s.code)}'">
+      <div class="sr-av"><div class="sr-av-inner" style="background:${av}">${s.name.charAt(0)}</div></div>
+      <div class="sr-name-sec">
+        <div class="sr-name"><span class="sr-rank">${rank}</span> ${s.name}</div>
+        ${sector ? `<div class="sr-sec">${sector}</div>` : ''}
       </div>
-      <div class="t20-body">
-        ${priceTxt ? `<span class="t20-price">${priceTxt}<span class="t20-chg ${up?'up':'down'}">${chgTxt}</span></span>` : ''}
-        ${rsiTxt ? `<span class="t20-stat t20-rsi">${rsiTxt}</span>` : ''}
-        ${bodyMetric}
-        <div class="t20-tags">${reasonsHtml}</div>
+      ${scoreCell}
+      <div class="sr-sig-cell">${sigHtml}</div>
+      <div class="sr-price-cell">
+        <span class="sr-price-val">${price}</span>
+        <span class="sr-chg-mob" style="color:${chgClr}">${chgTxt}</span>
       </div>
+      <div class="sr-chg-cell" style="color:${chgClr}">${chgTxt}</div>
+      <div class="sr-vol-cell">${vol}</div>
+      <div class="sr-tags-cell">${tagsHtml}</div>
     </div>`;
   }).join('');
+
+  return `<div class="slist">${listHeader(scoreColLabel)}${rows}</div>`;
 }
 
 // ── TOP10 전체 렌더 ────────────────────────────────────
@@ -1670,20 +1647,6 @@ function isGolden(s) {
   return s.signals?.some(t => t.includes('골든크로스'));
 }
 
-// 진입 시그널 배지
-function getSignalBadge(s) {
-  const chg   = s.chgRate || 0;
-  const score = s.score   || 0;
-  const up5   = s.ma5Signal === 'up';
-  if (chg > 5 || (score >= 80 && chg > 2))
-    return { label:'과열주의', cls:'sig-heat' };
-  if (isGolden(s) || (up5 && score >= 60))
-    return { label:'진입적기', cls:'sig-entry' };
-  if (s.ma20Signal === 'up' && !up5)
-    return { label:'눌림대기', cls:'sig-wait' };
-  return null;
-}
-
 // 거래대금 포맷 (원 단위)
 function fmtTradingAmt(s) {
   const v = (s.avgVol5 || s.volume || 0) * (s.price || 0);
@@ -1694,11 +1657,11 @@ function fmtTradingAmt(s) {
 }
 
 // 테이블 헤더
-function listHeader() {
+function listHeader(scoreLabel = '점수') {
   return `<div class="slist-hdr">
     <div class="sh-av"></div>
     <div class="sh-ns">종목 / 테마섹터</div>
-    <div class="sh-score">점수</div>
+    <div class="sh-score">${scoreLabel}</div>
     <div class="sh-sig">시그널</div>
     <div class="sh-price">현재가</div>
     <div class="sh-chg">등락률</div>
